@@ -1,0 +1,34 @@
+{
+  "name": "swfl-arrest-scrapers",
+  "version": "1.0.0",
+  "description": "SWFL multi-county arrest scraper pipeline (Node + Puppeteer → Google Sheets)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node jobs/runAll.js",
+    "run:collier": "node scrapers/collier.js",
+    "run:charlotte": "node scrapers/charlotte.js",
+    "run:sarasota": "node scrapers/sarasota.js",
+    "run:hendry": "node scrapers/hendry.js",
+    "run:desoto": "node scrapers/desoto.js",
+    "run:manatee": "node scrapers/manatee.js",
+    "update:bonds": "node jobs/updateBondPaid.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": ["arrest", "scraper", "bail", "bonds", "florida"],
+  "author": "Shamrock Bail Bonds",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^21.6.1",
+    "googleapis": "^128.0.0",
+    "google-auth-library": "^9.4.1",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "prettier": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "columns": [
+    "booking_id",
+    "full_name_last_first",
+    "first_name",
+    "last_name",
+    "dob",
+    "sex",
+    "race",
+    "arrest_date",
+    "arrest_time",
+    "booking_date",
+    "booking_time",
+    "agency",
+    "address",
+    "city",
+    "state",
+    "zipcode",
+    "charges_raw",
+    "charge_1",
+    "charge_1_statute",
+    "charge_1_bond",
+    "charge_2",
+    "charge_2_statute",
+    "charge_2_bond",
+    "total_bond",
+    "bond_paid",
+    "court_date",
+    "case_number",
+    "mugshot_url",
+    "mugshot_image",
+    "source_url",
+    "county",
+    "ingested_at_iso",
+    "qualified_score",
+    "is_qualified",
+    "extra_fields_json"
+  ],
+  "fieldAliases": {
+    "booking_id": [
+      "booking id",
+      "booking #",
+      "booking number",
+      "booking no",
+      "book no",
+      "arrest #",
+      "arrest number",
+      "booking_number",
+      "bookingnumber",
+      "inmate #",
+      "inmate number",
+      "detainee #",
+      "person id"
+    ],
+    "full_name": [
+      "name",
+      "full name",
+      "arrestee",
+      "inmate name",
+      "detainee name",
+      "defendant"
+    ],
+    "dob": [
+      "date of birth",
+      "birth date",
+      "birthdate",
+      "d.o.b.",
+      "date-of-birth"
+    ],
+    "sex": [
+      "gender",
+      "sex"
+    ],
+    "race": [
+      "race",
+      "ethnicity"
+    ],
+    "arrest_date": [
+      "arrest date",
+      "arrested",
+      "date arrested",
+      "arrest"
+    ],
+    "booking_date": [
+      "booking date",
+      "booked",
+      "date booked",
+      "intake date"
+    ],
+    "agency": [
+      "arresting agency",
+      "agency",
+      "arrested by",
+      "law enforcement"
+    ],
+    "charges": [
+      "charges",
+      "charge",
+      "offenses",
+      "offense",
+      "offense description",
+      "charge description",
+      "violations"
+    ],
+    "bond": [
+      "bond",
+      "bail",
+      "bond amount",
+      "bail amount",
+      "total bond",
+      "bond total"
+    ],
+    "bond_paid": [
+      "bond paid",
+      "bond status",
+      "bail status",
+      "paid",
+      "released",
+      "bond posted"
+    ],
+    "court_date": [
+      "court date",
+      "hearing date",
+      "next court date",
+      "arraignment"
+    ],
+    "case_number": [
+      "case number",
+      "case #",
+      "case no",
+      "docket number",
+      "docket #"
+    ],
+    "mugshot": [
+      "photo",
+      "mugshot",
+      "image",
+      "picture",
+      "booking photo"
+    ],
+    "address": [
+      "address",
+      "street address",
+      "residence",
+      "home address"
+    ],
+    "city": [
+      "city",
+      "town"
+    ],
+    "state": [
+      "state",
+      "st"
+    ],
+    "zipcode": [
+      "zip",
+      "zip code",
+      "postal code",
+      "zipcode"
+    ]
+  },
+  "defaults": {
+    "state": "FL",
+    "bond_paid": "",
+    "is_qualified": false,
+    "qualified_score": 0
+  },
+  "qualificationRules": {
+    "minScore": 70,
+    "scoring": {
+      "bondAmount": [
+        {"min": 1500, "points": 20},
+        {"min": 500, "points": 30}
+      ],
+      "seriousCharges": {
+        "keywords": [
+          "battery",
+          "dui",
+          "dwi",
+          "theft",
+          "fraud",
+          "controlled",
+          "possession",
+          "domestic",
+          "burglary",
+          "assault",
+          "trafficking",
+          "robbery",
+          "weapons",
+          "firearm"
+        ],
+        "points": 20
+      },
+      "recency": [
+        {"daysAgo": 1, "points": 10},
+        {"daysAgo": 2, "points": 20}
+      ]
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "collier": {
+    "name": "Collier",
+    "code": "COLLIER",
+    "sheetName": "collier-county-arrests",
+    "baseUrl": "https://www2.colliersheriff.org",
+    "searchUrl": "https://www2.colliersheriff.org/arrestsearch/Report.aspx",
+    "detailUrlPattern": "/arrestsearch/Detail.aspx?BookingNumber={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "links",
+      "selector": "a[href*='Detail']"
+    },
+    "fields": {
+      "bookingNumber": "Booking Number",
+      "name": "Name",
+      "dob": "DOB|Date of Birth",
+      "charges": "Charges|Offense",
+      "bond": "Bond|Bail",
+      "mugshot": "img[src*='photo']"
+    }
+  },
+  "charlotte": {
+    "name": "Charlotte",
+    "code": "CHARLOTTE",
+    "sheetName": "charlotte-county-arrests",
+    "baseUrl": "https://www.ccso.org",
+    "searchUrl": "https://www.ccso.org/forms/arrestdb.cfm",
+    "detailUrlPattern": "/forms/arrestdb.cfm?id={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "form_submit"
+    },
+    "cloudflare": true,
+    "fields": {
+      "bookingNumber": "Booking #|Arrest #",
+      "name": "Name|Arrestee",
+      "dob": "DOB|Birth Date",
+      "charges": "Charge|Charges",
+      "bond": "Bond|Bail Amount"
+    }
+  },
+  "sarasota": {
+    "name": "Sarasota",
+    "code": "SARASOTA",
+    "sheetName": "sarasota-county-arrests",
+    "baseUrl": "https://www.sarasotasheriff.org",
+    "searchUrl": "https://www.sarasotasheriff.org/arrest-reports/index.php",
+    "detailUrlPattern": "/arrest-reports/detail.php?id={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "date_iteration"
+    },
+    "fields": {
+      "bookingNumber": "Booking Number|Arrest #",
+      "name": "Name",
+      "dob": "DOB|Date of Birth",
+      "charges": "Charges|Offense Description",
+      "bond": "Bond Amount|Bail"
+    }
+  },
+  "hendry": {
+    "name": "Hendry",
+    "code": "HENDRY",
+    "sheetName": "hendry-county-arrests",
+    "baseUrl": "https://www.hendrysheriff.org",
+    "searchUrl": "https://www.hendrysheriff.org/inmateSearch",
+    "detailUrlPattern": "/inmateDetail?id={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "roster"
+    },
+    "fields": {
+      "bookingNumber": "Booking #|Inmate #",
+      "name": "Name|Inmate Name",
+      "dob": "DOB|Birth Date",
+      "charges": "Charges|Offenses",
+      "bond": "Bond|Total Bond"
+    }
+  },
+  "desoto": {
+    "name": "DeSoto",
+    "code": "DESOTO",
+    "sheetName": "desoto-county-arrests",
+    "baseUrl": "https://www.desotosheriff.com",
+    "searchUrl": "https://www.desotosheriff.com/bureaus/detention_bureau_jail/jail_roster.php",
+    "detailUrlPattern": "/detainee?id={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "roster"
+    },
+    "fields": {
+      "bookingNumber": "Booking Number|Detainee #",
+      "name": "Name|Detainee Name",
+      "dob": "DOB|Date of Birth",
+      "charges": "Charges|Offenses",
+      "bond": "Bond Amount"
+    }
+  },
+  "manatee": {
+    "name": "Manatee",
+    "code": "MANATEE",
+    "sheetName": "manatee-county-arrests",
+    "baseUrl": "https://www.manateesheriff.com",
+    "searchUrl": "https://www.manateesheriff.com/arrest_inquiries/index.php?page=ArrestInquires.aspx",
+    "detailUrlPattern": "/arrest_inquiries/detail.php?id={bookingId}",
+    "daysBack": 3,
+    "pagination": {
+      "type": "querystring",
+      "param": "page"
+    },
+    "fields": {
+      "bookingNumber": "Booking #|Arrest #",
+      "name": "Name|Arrestee",
+      "dob": "DOB|Birth Date",
+      "charges": "Charges|Offense",
+      "bond": "Bond|Bail Amount"
+    }
+  }
+}
