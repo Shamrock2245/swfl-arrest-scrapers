@@ -1,58 +1,334 @@
-// writers/sheets.js
-import fs from "node:fs";
-import { google } from "googleapis";
+import { google } from 'googleapis';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const SPREADSHEET_ID = process.env.SHEETS_SPREADSHEET_ID;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// 1) Build Google auth using the KEY FILE path from .env
-function getAuth() {
+const schema = JSON.parse(readFileSync(join(__dirname, '../config/schema.json'), 'utf8'));
+const HEADER = schema.columns;
+
+let sheetsClient = null;
+
+/**
+ * Initialize Google Sheets client with service account
+ */
+async function getSheetsClient() {
+  if (sheetsClient) return sheetsClient;
+
   const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
-  if (!keyPath || !fs.existsSync(keyPath)) {
-    throw new Error(
-      "GOOGLE_SERVICE_ACCOUNT_KEY_PATH is missing or file not found"
-    );
+  if (!keyPath) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY_PATH not set in environment');
   }
-  return new google.auth.GoogleAuth({
-    keyFile: keyPath,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+
+  const keyFile = JSON.parse(readFileSync(keyPath, 'utf8'));
+  
+  const auth = new google.auth.GoogleAuth({
+    credentials: keyFile,
+    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.readonly'
+    ]
   });
+
+  const authClient = await auth.getClient();
+  sheetsClient = google.sheets({ version: 'v4', auth: authClient });
+  
+  return sheetsClient;
 }
 
-// 2) Get a Sheets client
-export function getSheetsClient() { /* ... */ }
-  const auth = getAuth();
-  return google.sheets({ version: "v4", auth });
-}
+/**
+ * Ensure sheet exists and has proper headers
+ */
+async function ensureSheet(sheetName) {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
-// 3) Make sure a tab named "ingestion_log" exists; create it if missing
-export async function ensureIngestionSheet(sheets) {
-  const title = "ingestion_log";
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID,
-    fields: "sheets.properties.title",
-  });
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === title);
-  if (!exists) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title } } }],
-      },
+  try {
+    // Get spreadsheet metadata
+    const metadata = await sheets.spreadsheets.get({
+      spreadsheetId
     });
-    console.log(`✅ Created sheet: ${title}`);
+
+    const sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
+    
+    if (!sheet) {
+      // Create sheet
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName
+              }
+            }
+          }]
+        }
+      });
+      console.log(`✅ Created sheet: ${sheetName}`);
+    }
+
+    // Check/set headers
+    const headerRow = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:AI1`
+    });
+
+    if (!headerRow.data.values || headerRow.data.values.length === 0) {
+      // Write headers
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [HEADER]
+        }
+      });
+      
+      // Format header row (bold, colored)
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            repeatCell: {
+              range: {
+                sheetId: sheet?.properties?.sheetId || 0,
+                startRowIndex: 0,
+                endRowIndex: 1
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.0, green: 0.66, blue: 0.42 },
+                  textFormat: {
+                    bold: true,
+                    foregroundColor: { red: 1, green: 1, blue: 1 }
+                  }
+                }
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)'
+            }
+          }, {
+            updateSheetProperties: {
+              properties: {
+                sheetId: sheet?.properties?.sheetId || 0,
+                gridProperties: {
+                  frozenRowCount: 1
+                }
+              },
+              fields: 'gridProperties.frozenRowCount'
+            }
+          }]
+        }
+      });
+      
+      console.log(`✅ Set headers for: ${sheetName}`);
+    }
+
+  } catch (error) {
+    console.error(`❌ Error ensuring sheet ${sheetName}:`, error.message);
+    throw error;
   }
 }
 
-// 4) Append ONE row to ingestion_log without using sheetId
-//    Example row: [ISO time, 'Collier', 'started', 5, '']
-//    This avoids the "No grid with id: 0" bug entirely.
-export async function logIngestionRow(sheets, row) {
-  const range = "ingestion_log!A1";
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [row] },
+/**
+ * Convert record object to row array matching HEADER order
+ */
+function recordToRow(record) {
+  return HEADER.map(col => {
+    const value = record[col];
+    if (value === null || value === undefined) return '';
+    return value;
   });
 }
+
+/**
+ * Upsert records into sheet (insert new, update existing by booking_id + arrest_date)
+ */
+export async function upsertRecords(sheetName, records) {
+  if (!records || records.length === 0) {
+    console.log(`ℹ️  No records to upsert for ${sheetName}`);
+    return { inserted: 0, updated: 0 };
+  }
+
+  const sheets = await getSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+
+  // Ensure sheet exists
+  await ensureSheet(sheetName);
+
+  // Read existing data (skip header)
+  const existingData = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A2:AI`
+  });
+
+  const rows = existingData.data.values || [];
+  
+  // Build index: booking_id+arrest_date -> row index
+  const existingIndex = new Map();
+  const bookingIdCol = HEADER.indexOf('booking_id');
+  const arrestDateCol = HEADER.indexOf('arrest_date');
+  
+  rows.forEach((row, idx) => {
+    const bookingId = row[bookingIdCol] || '';
+    const arrestDate = row[arrestDateCol] || '';
+    if (bookingId) {
+      const key = `${bookingId}|${arrestDate}`;
+      existingIndex.set(key, idx + 2); // +2 for header and 0-indexing
+    }
+  });
+
+  let inserted = 0;
+  let updated = 0;
+  const updates = [];
+  const appends = [];
+
+  for (const record of records) {
+    const key = `${record.booking_id}|${record.arrest_date}`;
+    const row = recordToRow(record);
+    
+    if (existingIndex.has(key)) {
+      // Update existing
+      const rowIndex = existingIndex.get(key);
+      updates.push({
+        range: `${sheetName}!A${rowIndex}:AI${rowIndex}`,
+        values: [row]
+      });
+      updated++;
+    } else {
+      // Insert new
+      appends.push(row);
+      inserted++;
+    }
+  }
+
+  // Execute batch updates
+  if (updates.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: updates
+      }
+    });
+  }
+
+  // Append new rows
+  if (appends.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:AI`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: appends
+      }
+    });
+  }
+
+  console.log(`✅ ${sheetName}: inserted ${inserted}, updated ${updated}`);
+  
+  return { inserted, updated };
+}
+
+/**
+ * Mirror qualified arrests to dashboard tab
+ */
+export async function mirrorQualifiedToDashboard(records) {
+  if (!records || records.length === 0) return;
+
+  const qualified = records.filter(r => r.is_qualified === true || r.is_qualified === 'TRUE');
+  
+  if (qualified.length === 0) {
+    console.log('ℹ️  No qualified records to mirror');
+    return;
+  }
+
+  await upsertRecords('dashboard', qualified);
+  console.log(`✅ Mirrored ${qualified.length} qualified arrests to dashboard`);
+}
+
+/**
+ * Read records from sheet (for bond_paid updates)
+ */
+export async function readRecentRecords(sheetName, daysBack = 14) {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A2:AI`
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length === 0) return [];
+
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+
+    const records = [];
+    const arrestDateCol = HEADER.indexOf('arrest_date');
+    const sourceUrlCol = HEADER.indexOf('source_url');
+
+    for (const row of rows) {
+      const arrestDate = row[arrestDateCol];
+      if (!arrestDate) continue;
+
+      const date = new Date(arrestDate);
+      if (date >= cutoff) {
+        const record = {};
+        HEADER.forEach((col, idx) => {
+          record[col] = row[idx] || '';
+        });
+        records.push(record);
+      }
+    }
+
+    return records;
+  } catch (error) {
+    console.error(`❌ Error reading recent records from ${sheetName}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Log scraper run to ingestion_log sheet
+ */
+export async function logIngestion(county, success, count, startTime, errorMessage = '') {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+  const sheetName = 'ingestion_log';
+
+  try {
+    await ensureSheet(sheetName);
+
+    const duration = Date.now() - startTime;
+    const timestamp = new Date().toISOString();
+
+    const logRow = [
+      timestamp,
+      county,
+      success ? 'SUCCESS' : 'FAILED',
+      count,
+      duration,
+      errorMessage
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:F`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [logRow]
+      }
+    });
+
+    console.log(`📝 Logged ingestion: ${county} - ${success ? 'SUCCESS' : 'FAILED'}`);
+  } catch (error) {
+    console.error('❌ Error logging ingestion:', error.message);
+  }
+}
+
+export { ensureSheet, recordToRow };
