@@ -374,7 +374,18 @@ function toTitleCase(str) {
 function normalizeDate(dateStr) {
   if (!dateStr) return '';
   try {
-    const date = new Date(dateStr);
+    let date;
+    
+    // Handle MM/DD/YYYY format (common in US arrest records)
+    const mmddyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      date = new Date(year, parseInt(month) - 1, day);
+    } else {
+      // Try standard Date parsing
+      date = new Date(dateStr);
+    }
+    
     if (isNaN(date.getTime())) return '';
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
   } catch (error) {
@@ -385,7 +396,18 @@ function normalizeDate(dateStr) {
 function parseDatetime(datetimeStr) {
   if (!datetimeStr) return { date: '', time: '' };
   try {
-    const dt = new Date(datetimeStr);
+    let dt;
+    
+    // Handle MM/DD/YYYY format (common in US arrest records)
+    const mmddyyyyMatch = datetimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      dt = new Date(year, parseInt(month) - 1, day);
+    } else {
+      // Try standard Date parsing
+      dt = new Date(datetimeStr);
+    }
+    
     if (isNaN(dt.getTime())) return { date: '', time: '' };
     
     return {
