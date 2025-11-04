@@ -1,92 +1,136 @@
-import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha } from '../shared/browser.js';
-import { normalizeRecord } from '../normalizers/normalize.js';
-import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+// scrapers/collier.js
+// Collier County (ASPX) scraper wired to your existing helpers & writers.
+
+import {
+  newBrowser,
+  newPage,
+  navigateWithRetry,
+  randomDelay,
+  hasCaptcha,
+} from "../shared/browser.js";
+import { normalizeRecord } from "../normalizers/normalize.js";
+import {
+  upsertRecords,
+  mirrorQualifiedToDashboard,
+  logIngestion,
+} from "../writers/sheets.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const config = JSON.parse(readFileSync(join(__dirname, '../config/counties.json'), 'utf8')).collier;
+const config = JSON.parse(
+  readFileSync(join(__dirname, "../config/counties.json"), "utf8")
+).collier;
+
+// Derive Report.aspx (Today's Arrest Reports) from baseUrl
+const REPORT_URL = `${config.baseUrl.replace(/\/$/, "")}/arrestsearch/Report.aspx`;
 
 /**
- * Main Collier County scraper
+ * Main entry
  */
 export async function runCollier() {
   const startTime = Date.now();
-  console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Collier County Scraper');
-  console.log('═══════════════════════════════════════');
+  console.log("═══════════════════════════════════════");
+  console.log("🚦 Starting Collier County Scraper");
+  console.log("═══════════════════════════════════════");
 
   let browser;
   try {
     browser = await newBrowser();
     const page = await newPage(browser);
 
-    // Fetch arrest list
+    // 1) Land on terms page
     console.log(`📡 Loading: ${config.searchUrl}`);
     await navigateWithRetry(page, config.searchUrl);
+    await randomDelay(1200, 400);
 
-    // Check for CAPTCHA
-    if (await hasCaptcha(page)) {
-      throw new Error('CAPTCHA detected - cannot proceed');
+    // 2) CAPTCHA check early
+    if (await hasCaptcha(page))
+      throw new Error("CAPTCHA detected - cannot proceed");
+
+    // 3) Accept terms / click entry points if present
+    await acceptTermsOrDirectToToday(page);
+
+    // 4) Ensure we are on Report.aspx (today's reports)
+    if (!page.url().toLowerCase().includes("/arrestsearch/report.aspx")) {
+      console.log(
+        "↪️ Navigating directly to Today’s Arrest Reports (Report.aspx) …"
+      );
+      await navigateWithRetry(page, REPORT_URL);
+    }
+    await randomDelay(1000, 300);
+
+    // 5) Gather all detail links (handles pagination safely)
+    const detailLinks = await collectAllDetailLinks(page);
+    console.log(`🔗 Found ${detailLinks.length} detail links`);
+
+    if (detailLinks.length === 0) {
+      // soft retry once (site can be slow)
+      console.log("   ↻ Retry once to collect links …");
+      await navigateWithRetry(page, REPORT_URL);
+      await randomDelay(1000, 300);
+      const retry = await collectAllDetailLinks(page);
+      detailLinks.push(...retry);
+      console.log(`   ↪️ After retry: ${detailLinks.length} detail links`);
     }
 
-    // Parse list page to get detail URLs
-    const detailUrls = await parseListPage(page);
-    console.log(`📋 Found ${detailUrls.length} arrest records`);
-
-    if (detailUrls.length === 0) {
-      console.log('ℹ️  No arrests found');
-      await logIngestion('COLLIER', true, 0, startTime);
-      return { success: true, count: 0 };
-    }
-
-    // Fetch details for each arrest
+    // 6) Visit each detail page and extract data
     const records = [];
-    for (let i = 0; i < detailUrls.length; i++) {
-      const url = detailUrls[i];
-      console.log(`🔍 [${i + 1}/${detailUrls.length}] Fetching: ${url}`);
-
+    const detailPage = page; // reuse same tab (gentler to site)
+    for (let i = 0; i < detailLinks.length; i++) {
+      const url = detailLinks[i];
       try {
-        await randomDelay(1000, 400);
-        await navigateWithRetry(page, url);
+        await randomDelay(400, 250);
+        await navigateWithRetry(detailPage, url);
+        const merged = await extractDetail(detailPage);
+        // Normalize to your canonical shape
+        const record = normalizeRecord(merged, "COLLIER", url);
 
-        const rawPairs = await extractDetailPairs(page);
-        const record = normalizeRecord(rawPairs, 'COLLIER', url);
-        
-        if (record.booking_id) {
+        if (record?.booking_id) {
           records.push(record);
-          console.log(`   ✅ ${record.full_name_last_first} (${record.booking_id})`);
+          console.log(
+            `   ✅ [${i + 1}/${detailLinks.length}] ${record.full_name_last_first || merged.name || "(no name)"}`
+          );
+        } else {
+          console.log(
+            `   ⚠️  [${i + 1}/${detailLinks.length}] Missing booking_id; skipping`
+          );
         }
-      } catch (error) {
-        console.error(`   ⚠️  Error processing ${url}: ${error.message}`);
+      } catch (e) {
+        console.error(
+          `   ⚠️  [${i + 1}/${detailLinks.length}] detail failed:`,
+          e?.message || e
+        );
       }
     }
 
+    // 7) Upsert to Google Sheets, mirror to dashboard, and log
     console.log(`\n📊 Parsed ${records.length} valid records`);
-
-    // Write to sheets
     if (records.length > 0) {
       const result = await upsertRecords(config.sheetName, records);
-      console.log(`✅ Inserted: ${result.inserted}, Updated: ${result.updated}`);
-
-      // Mirror qualified to dashboard
+      console.log(
+        `✅ Inserted: ${result.inserted}, Updated: ${result.updated}`
+      );
       await mirrorQualifiedToDashboard(records);
     }
 
-    await logIngestion('COLLIER', true, records.length, startTime);
-
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    console.log(`⏱️  Total execution time: ${duration}s`);
-    console.log('═══════════════════════════════════════\n');
-
+    await logIngestion("COLLIER", true, records.length, startTime);
+    console.log("✅ Finished Collier successfully.");
+    console.log("═══════════════════════════════════════\n");
     return { success: true, count: records.length };
-
   } catch (error) {
-    console.error('❌ Fatal error:', error.message);
-    await logIngestion('COLLIER', false, 0, startTime, error.message);
+    console.error("❌ Fatal error:", error?.message || error);
+    if (error?.stack) console.error(error.stack);
+    await logIngestion(
+      "COLLIER",
+      false,
+      0,
+      startTime,
+      String(error?.message || error)
+    );
     throw error;
   } finally {
     if (browser) await browser.close();
@@ -94,112 +138,252 @@ export async function runCollier() {
 }
 
 /**
- * Parse the list page to extract detail URLs
+ * Accept terms or click through to "Today's Arrest Reports".
+ * Handles typical ASP.NET controls: input[type=submit], buttons, and anchor text.
  */
-async function parseListPage(page) {
-  try {
-    // Wait for content to load
-    await page.waitForSelector('table, .arrest-list, a[href*="Detail"]', { timeout: 10000 });
+async function acceptTermsOrDirectToToday(page) {
+  // First, try obvious "Click Here to See Todays Arrest Reports"
+  const clickedDirect = await clickByText(page, /todays arrest reports/i);
+  if (clickedDirect) {
+    await waitPostback(page);
+    return;
+  }
 
-    // Extract detail links
-    const links = await page.$$eval('a[href*="Detail"]', elements => 
-      elements.map(el => el.href).filter(Boolean)
-    );
-
-    // Make URLs absolute and dedupe
-    const baseUrl = config.baseUrl;
-    const uniqueUrls = [...new Set(links.map(url => {
-      if (url.startsWith('http')) return url;
-      return baseUrl + (url.startsWith('/') ? url : '/' + url);
-    }))];
-
-    return uniqueUrls;
-  } catch (error) {
-    console.error('⚠️  Error parsing list page:', error.message);
-    return [];
+  // Try "I Accept" / "I Agree"
+  const clickedAccept =
+    (await clickInputValueContains(page, /accept|agree/i)) ||
+    (await clickButtonText(page, /accept|agree/i));
+  if (clickedAccept) {
+    await waitPostback(page);
+    // After acceptance, some templates still require a second click → try direct link again
+    const clicked = await clickByText(page, /todays arrest reports/i);
+    if (clicked) await waitPostback(page);
   }
 }
 
 /**
- * Extract key-value pairs from detail page
+ * Collect all ReportDetail.aspx links across pages.
  */
-async function extractDetailPairs(page) {
-  try {
-    await page.waitForSelector('table, .detail-info', { timeout: 5000 });
+async function collectAllDetailLinks(page) {
+  const links = new Set();
 
-    const pairs = await page.evaluate(() => {
-      const data = {};
-
-      // Strategy 1: Extract from table rows (label: value)
-      document.querySelectorAll('table tr').forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 2) {
-          const label = cells[0].textContent.trim();
-          const value = cells[1].textContent.trim();
-          if (label && value) {
-            data[label] = value;
-          }
-        }
+  async function harvest() {
+    const found = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('a[href*="ReportDetail.aspx"]').forEach((a) => {
+        let href = a.getAttribute("href") || "";
+        if (!href) return;
+        // Convert relative → absolute
+        try {
+          const url = new URL(href, location.href).toString();
+          out.push(url);
+        } catch {}
       });
-
-      // Strategy 2: Extract from definition lists
-      document.querySelectorAll('dl').forEach(dl => {
-        const dts = dl.querySelectorAll('dt');
-        const dds = dl.querySelectorAll('dd');
-        dts.forEach((dt, idx) => {
-          if (dds[idx]) {
-            const label = dt.textContent.trim();
-            const value = dds[idx].textContent.trim();
-            if (label && value) {
-              data[label] = value;
-            }
-          }
-        });
-      });
-
-      // Strategy 3: Look for labeled divs/spans
-      document.querySelectorAll('.field, .data-field, [class*="field"]').forEach(field => {
-        const labelEl = field.querySelector('.label, .field-label, label');
-        const valueEl = field.querySelector('.value, .field-value, .data');
-        
-        if (labelEl && valueEl) {
-          const label = labelEl.textContent.trim();
-          const value = valueEl.textContent.trim();
-          if (label && value) {
-            data[label] = value;
-          }
-        }
-      });
-
-      // Extract mugshot
-      const mugshotImg = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[alt*="photo"]');
-      if (mugshotImg) {
-        data['mugshot'] = mugshotImg.src;
-      }
-
-      // Extract all text content as fallback for charges
-      const bodyText = document.body.innerText;
-      const chargesMatch = bodyText.match(/Charges?[:\s]+([^\n]+(?:\n[^\n]+)*)/i);
-      if (chargesMatch && !data['Charges']) {
-        data['Charges'] = chargesMatch[1].trim();
-      }
-
-      data['source_url'] = window.location.href;
-
-      return data;
+      return out;
     });
+    for (const u of found) links.add(u);
+  }
 
-    return pairs;
-  } catch (error) {
-    console.error('⚠️  Error extracting detail pairs:', error.message);
-    return { source_url: page.url() };
+  await page.waitForTimeout(800);
+  await harvest();
+
+  // ASP.NET often uses numeric page links / Next
+  for (let i = 0; i < 20; i++) {
+    const moved = await clickPagination(page);
+    if (!moved) break;
+    await waitPostback(page);
+    await page.waitForTimeout(600);
+    await harvest();
+  }
+
+  return Array.from(links);
+}
+
+/**
+ * Extract details from ReportDetail.aspx page (KV scan with fallbacks).
+ */
+async function extractDetail(page) {
+  // Wait for any table-ish content to appear
+  await page
+    .waitForSelector("table, .detail, .content, #main", { timeout: 15000 })
+    .catch(() => {});
+
+  const data = await page.evaluate(() => {
+    const text = (el) => (el?.textContent || "").replace(/\s+/g, " ").trim();
+    const kv = {};
+
+    // Strategy A: pairwise <td>Label</td><td>Value</td>
+    const tds = [...document.querySelectorAll("table td")];
+    for (let i = 0; i + 1 < tds.length; i += 2) {
+      const k = text(tds[i]).replace(/:$/, "");
+      const v = text(tds[i + 1]);
+      if (k && v && v !== k) kv[k.toLowerCase()] = v;
+    }
+
+    // Strategy B: definition lists <dt><dd>
+    const dts = [...document.querySelectorAll("dt")];
+    for (const dt of dts) {
+      const dd = dt.nextElementSibling;
+      const k = text(dt).replace(/:$/, "");
+      const v = text(dd);
+      if (k && v && v !== k) kv[k.toLowerCase()] = v;
+    }
+
+    // Headings (name sometimes only appears here)
+    const h1 = text(document.querySelector("h1"));
+    const h2 = text(document.querySelector("h2"));
+    if (h1) kv["headline"] = h1;
+    if (h2) kv["subhead"] = h2;
+
+    const pick = (...keys) => {
+      for (const k of keys) {
+        const v = kv[k];
+        if (typeof v === "string" && v) return v;
+      }
+      return "";
+    };
+
+    const name =
+      pick("name", "inmate", "defendant", "headline") ||
+      pick("last, first", "last first");
+
+    const bookingNumber =
+      pick("booking #", "booking number", "booking no", "booking") ||
+      pick("booking#", "booking#", "booking id");
+
+    const bookingDate = pick("booking date", "booked", "arrest date", "date");
+    const dob = pick("dob", "date of birth", "d.o.b", "birth date");
+    const race = pick("race");
+    const sex = pick("sex", "gender");
+    const address = pick("address", "home address");
+    const agency = pick("agency", "arresting agency");
+
+    const chargesBlock =
+      pick("charges", "charge(s)", "charge") ||
+      [kv["charge 1"], kv["charge 2"], kv["charge 3"]]
+        .filter(Boolean)
+        .join(" | ");
+
+    const bond =
+      pick("bond", "bond amount", "total bond", "bond total", "bail") ||
+      pick("total bond amount");
+
+    // Mugshot (if present)
+    let mugshot_url = "";
+    const img = document.querySelector(
+      'img[src*="photo"], img[src*="mug"], img[src*="Image"]'
+    );
+    if (img?.src) mugshot_url = img.src;
+
+    return {
+      name,
+      bookingNumber,
+      bookingDate,
+      dob,
+      race,
+      sex,
+      address,
+      agency,
+      charges: chargesBlock,
+      bond,
+      mugshot_url,
+      detail_url: location.href,
+      raw: kv,
+      page_title: document.title || "",
+    };
+  });
+
+  return data;
+}
+
+/* ----------------------- helper DOM actions ----------------------- */
+
+async function waitPostback(page) {
+  // ASP.NET postbacks can be quick; try for DOMContentLoaded first, fallback to short sleep.
+  try {
+    await page.waitForNavigation({
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
+    });
+  } catch {
+    await page.waitForTimeout(500);
   }
 }
 
-// Allow direct execution
+async function clickInputValueContains(page, regex) {
+  return await page.evaluate((pattern) => {
+    const rx = new RegExp(pattern, "i");
+    const btn = [
+      ...document.querySelectorAll(
+        'input[type="submit"], input[type="button"]'
+      ),
+    ].find((el) => rx.test(el.value || ""));
+    if (btn) {
+      btn.click();
+      return true;
+    }
+    return false;
+  }, regex.source);
+}
+
+async function clickButtonText(page, regex) {
+  return await page.evaluate((pattern) => {
+    const rx = new RegExp(pattern, "i");
+    const btn = [...document.querySelectorAll("button")].find((el) =>
+      rx.test(el.textContent || "")
+    );
+    if (btn) {
+      btn.click();
+      return true;
+    }
+    return false;
+  }, regex.source);
+}
+
+async function clickByText(page, regex) {
+  return await page.evaluate((pattern) => {
+    const rx = new RegExp(pattern, "i");
+    const els = [...document.querySelectorAll("a, button")];
+    const el = els.find((e) => rx.test((e.textContent || "").trim()));
+    if (el) {
+      el.click();
+      return true;
+    }
+    return false;
+  }, regex.source);
+}
+
+async function clickPagination(page) {
+  // prefer "Next", else the next page number
+  const didClick = await page.evaluate(() => {
+    const as = [...document.querySelectorAll("a")];
+    // normalize text
+    const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
+    const nextA =
+      as.find((a) => /^next$/i.test(clean(a.textContent))) ||
+      as.find((a) => clean(a.textContent) === ">");
+    if (nextA) {
+      nextA.click();
+      return true;
+    }
+    // try any numeric page link not marked active
+    const nums = as.filter((a) => /^\d+$/.test(clean(a.textContent)));
+    if (nums.length > 0) {
+      // choose the first one that isn't bold/active
+      const cand = nums[0];
+      cand.click();
+      return true;
+    }
+    return false;
+  });
+  return didClick;
+}
+
+/* ----------------------- direct-run support ----------------------- */
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runCollier().catch(error => {
-    console.error('Fatal error:', error);
+  runCollier().catch((error) => {
+    console.error("Fatal error:", error);
     process.exit(1);
   });
 }

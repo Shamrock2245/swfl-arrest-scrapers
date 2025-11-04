@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node jobs/runAll.js",
-    "run:collier": "node scrapers/collier.js",
+    "run:collier": "node -r dotenv/config scrapers/collier.js",
+    "run:collier:debug": "NODE_OPTIONS='--enable-source-maps --trace-uncaught --trace-warnings' node -r dotenv/config scrapers/collier.js",
     "run:charlotte": "node scrapers/charlotte.js",
     "run:sarasota": "node scrapers/sarasota.js",
     "run:hendry": "node scrapers/hendry.js",
@@ -15,7 +16,13 @@
     "update:bonds": "node jobs/updateBondPaid.js",
     "test": "node --test tests/*.test.js"
   },
-  "keywords": ["arrest", "scraper", "bail", "bonds", "florida"],
+  "keywords": [
+    "arrest",
+    "scraper",
+    "bail",
+    "bonds",
+    "florida"
+  ],
   "author": "Shamrock Bail Bonds",
   "license": "MIT",
   "dependencies": {
