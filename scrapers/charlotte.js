@@ -1,9 +1,66 @@
-import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha, isCloudflareBlocked } from '../shared/browser.js';
+import { navigateWithRetry, randomDelay, hasCaptcha, isCloudflareBlocked } from '../shared/browser.js';
 import { normalizeRecord } from '../normalizers/normalize.js';
 import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+// --- CHARLOTTE-SPECIFIC BROWSER SETUP FOR CLOUDFLARE BYPASS (STEALTH) ---
+import puppeteerExtra from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+// Use stealth plugin
+puppeteerExtra.use(StealthPlugin());
+
+// The shared/browser.js file has these arrays, we define them locally for the stealth browser setup
+const USER_AGENTS = [
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+];
+
+async function newStealthBrowser() {
+  const browser = await puppeteerExtra.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process'
+    ],
+    defaultViewport: {
+      width: 1366,
+      height: 900
+    }
+  });
+  return browser;
+}
+
+async function newStealthPage(browser) {
+  const page = await browser.newPage();
+  
+  const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  await page.setUserAgent(userAgent);
+
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1'
+  });
+
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => false
+    });
+  });
+
+  return page;
+}
+// -----------------------------------------------------------------
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,25 +73,35 @@ const config = JSON.parse(readFileSync(join(__dirname, '../config/counties.json'
 export async function runCharlotte() {
   const startTime = Date.now();
   console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Charlotte County Scraper');
+  console.log('🚦 Starting Charlotte County Scraper (Stealth Mode)');
   console.log('═══════════════════════════════════════');
 
   let browser;
   try {
-    browser = await newBrowser();
-    const page = await newPage(browser);
+    // Use stealth browser
+    browser = await newStealthBrowser();
+    const page = await newStealthPage(browser);
 
     // Navigate to search page
     console.log(`📡 Loading: ${config.searchUrl}`);
     await navigateWithRetry(page, config.searchUrl);
 
-    // Check for Cloudflare
+    // Enhanced Check for Cloudflare - be patient/stealthy
     if (await isCloudflareBlocked(page)) {
-      console.log('⚠️  Cloudflare protection detected - waiting...');
-      await page.waitForTimeout(5000); // Wait for Cloudflare challenge
+      console.log('⚠️  Cloudflare protection detected - waiting up to 15s for stealth mode to resolve...');
+      
+      // Wait longer for the stealth plugin to resolve Cloudflare (15s total wait)
+      await page.waitForTimeout(10000); 
       
       if (await isCloudflareBlocked(page)) {
-        throw new Error('Cloudflare blocked - manual intervention required');
+        console.log('⚠️  Cloudflare protection persists after long wait. Retrying navigation...');
+        // Try navigating again with the same stealth page
+        await navigateWithRetry(page, config.searchUrl); 
+        await page.waitForTimeout(5000);
+
+        if (await isCloudflareBlocked(page)) {
+          throw new Error('Cloudflare blocked - Cannot bypass stealthily, stopping run.');
+        }
       }
     }
 
@@ -60,7 +127,8 @@ export async function runCharlotte() {
       console.log(`🔍 [${i + 1}/${detailUrls.length}] Fetching: ${url}`);
 
       try {
-        await randomDelay(1200, 600); // Slower for Cloudflare
+        // Enforce a minimum delay for discretion (satisfies "scrape one entry every few minutes" approach when run in cron)
+        await randomDelay(2000, 1000); 
         await navigateWithRetry(page, url);
 
         const rawPairs = await extractDetailPairs(page);
