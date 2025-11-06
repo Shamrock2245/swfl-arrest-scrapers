@@ -398,14 +398,22 @@ function parseDatetime(datetimeStr) {
   try {
     let dt;
     
+    // Handle MM/DD/YYYY HH:MM:SS format (e.g., "10/24/2024 07:13:34 EDT")
+    const mmddyyyyTimeMatch = datetimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+    if (mmddyyyyTimeMatch) {
+      const [, month, day, year, hour, minute, second] = mmddyyyyTimeMatch;
+      dt = new Date(year, parseInt(month) - 1, day, hour, minute, second);
+    }
     // Handle MM/DD/YYYY format (common in US arrest records)
-    const mmddyyyyMatch = datetimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (mmddyyyyMatch) {
-      const [, month, day, year] = mmddyyyyMatch;
-      dt = new Date(year, parseInt(month) - 1, day);
-    } else {
-      // Try standard Date parsing
-      dt = new Date(datetimeStr);
+    else {
+      const mmddyyyyMatch = datetimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (mmddyyyyMatch) {
+        const [, month, day, year] = mmddyyyyMatch;
+        dt = new Date(year, parseInt(month) - 1, day);
+      } else {
+        // Try standard Date parsing
+        dt = new Date(datetimeStr);
+      }
     }
     
     if (isNaN(dt.getTime())) return { date: '', time: '' };
