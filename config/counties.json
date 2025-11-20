@@ -2,7 +2,7 @@
   "collier": {
     "name": "Collier",
     "code": "COLLIER",
-    "sheetName": "collier-county-arrests",
+    "sheetName": "Collier",
     "baseUrl": "https://www2.colliersheriff.org",
     "searchUrl": "https://www2.colliersheriff.org/arrestsearch/Report.aspx",
     "detailUrlPattern": "/arrestsearch/Detail.aspx?BookingNumber={bookingId}",
