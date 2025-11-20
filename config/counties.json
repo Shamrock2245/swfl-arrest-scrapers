@@ -62,7 +62,7 @@
   "hendry": {
     "name": "Hendry",
     "code": "HENDRY",
-    "sheetName": "hendry-county-arrests",
+    "sheetName": "Hendry",
     "baseUrl": "https://www.hendrysheriff.org",
     "searchUrl": "https://www.hendrysheriff.org/inmateSearch",
     "detailUrlPattern": "/inmateDetail?id={bookingId}",

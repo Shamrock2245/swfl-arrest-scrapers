@@ -2,6 +2,16 @@ import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { normalizeRecord } from '../normalizers/normalize.js';
 import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const config = JSON.parse(
+  readFileSync(join(__dirname, '../config/counties.json'), 'utf8')
+).hendry;
 
 puppeteerExtra.use(StealthPlugin());
 
@@ -161,7 +171,7 @@ async function scrapeHendry() {
     console.log(`[${COUNTY_CODE}] Parsed ${records.length} valid records`);
     
     if (records.length > 0) {
-      await upsertRecords(COUNTY_CODE, records);
+      await upsertRecords(config.sheetName, records);
       await mirrorQualifiedToDashboard();
       await logIngestion(COUNTY_CODE, records.length, 0);
     }
