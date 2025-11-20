@@ -51,7 +51,8 @@
       "inmate number",
       "inmate id",
       "detainee #",
-      "person id"
+      "person id",
+      "pin"
     ],
     "full_name": [
       "name",
