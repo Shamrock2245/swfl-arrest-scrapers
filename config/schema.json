@@ -112,6 +112,8 @@
       "bond amount",
       "bail amount",
       "total bond",
+      "totalbond",
+      "total_bond",
       "bond total"
     ],
     "bond_paid": [

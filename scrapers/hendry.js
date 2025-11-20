@@ -46,9 +46,12 @@ async function scrapeHendry() {
         .filter(href => href && /inmateSearch\/\d+/.test(href));
     });
     
-    console.log(`[${COUNTY_CODE}] Found ${inmateLinks.length} inmate detail links`);
+    // Deduplicate links (the website has duplicate links for each inmate)
+    const uniqueLinks = [...new Set(inmateLinks)];
     
-    if (inmateLinks.length === 0) {
+    console.log(`[${COUNTY_CODE}] Found ${uniqueLinks.length} unique inmate detail links (${inmateLinks.length} total)`);
+    
+    if (uniqueLinks.length === 0) {
       console.log(`[${COUNTY_CODE}] No inmates found`);
       await browser.close();
       return;
@@ -57,7 +60,7 @@ async function scrapeHendry() {
     const records = [];
     
     // Visit each detail page
-    for (const link of inmateLinks) {
+    for (const link of uniqueLinks) {
       try {
         await page.goto(link, {
           waitUntil: 'networkidle2',
@@ -136,7 +139,11 @@ async function scrapeHendry() {
             }
             
             if (charges.length > 0) {
-              data['charges'] = charges.map(c => c.description).join(' | ');
+              // Format charges with bond amounts for proper parsing
+              data['charges'] = charges.map(c => {
+                const bondAmount = c.bond ? ` ($${c.bond})` : '';
+                return `${c.description}${bondAmount}`;
+              }).join(' | ');
               data['total_bond'] = charges.reduce((sum, c) => sum + parseFloat(c.bond.replace(/[^0-9.]/g, '') || 0), 0).toString();
             }
           }
