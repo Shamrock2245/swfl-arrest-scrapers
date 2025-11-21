@@ -1,0 +1,107 @@
+name: Scrape Arrests - Every 30 Minutes
+
+on:
+  schedule:
+    # Run every 30 minutes (2 times per hour)
+    - cron: '*/30 * * * *'
+  
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+    inputs:
+      counties:
+        description: 'Counties to scrape (comma-separated: collier,hendry,desoto or "all")'
+        required: false
+        default: 'all'
+
+jobs:
+  scrape-all-counties:
+    name: Scrape All Counties
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Chromium for Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+      
+      - name: Create credentials directory
+        run: mkdir -p creds
+      
+      - name: Write service account key
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+      
+      - name: Run all scrapers
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ./creds/service-account-key.json
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          echo "🚦 Starting all county scrapers..."
+          echo "=================================="
+          
+          # Run each scraper and capture results
+          SUCCESS_COUNT=0
+          FAIL_COUNT=0
+          
+          echo ""
+          echo "📍 Collier County..."
+          if node scrapers/collier.js; then
+            echo "✅ Collier completed"
+            ((SUCCESS_COUNT++))
+          else
+            echo "⚠️ Collier failed"
+            ((FAIL_COUNT++))
+          fi
+          
+          echo ""
+          echo "📍 Hendry County..."
+          if node scrapers/hendry.js; then
+            echo "✅ Hendry completed"
+            ((SUCCESS_COUNT++))
+          else
+            echo "⚠️ Hendry failed"
+            ((FAIL_COUNT++))
+          fi
+          
+          echo ""
+          echo "📍 DeSoto County..."
+          if node scrapers/desoto.js; then
+            echo "✅ DeSoto completed"
+            ((SUCCESS_COUNT++))
+          else
+            echo "⚠️ DeSoto failed"
+            ((FAIL_COUNT++))
+          fi
+          
+          echo ""
+          echo "=================================="
+          echo "📊 Summary: $SUCCESS_COUNT succeeded, $FAIL_COUNT failed"
+          echo "=================================="
+          
+          # Exit with error if any scraper failed
+          if [ $FAIL_COUNT -gt 0 ]; then
+            exit 1
+          fi
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-logs-${{ github.run_number }}
+          path: |
+            *.log
+            screenshots/
+          retention-days: 7
