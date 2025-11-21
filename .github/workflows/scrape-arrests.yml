@@ -1,0 +1,184 @@
+name: Scrape Arrests - Every 20 Minutes
+
+on:
+  schedule:
+    # Run every 20 minutes (3 times per hour)
+    - cron: '*/20 * * * *'
+  
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+    inputs:
+      counties:
+        description: 'Counties to scrape (comma-separated: collier,hendry,desoto or "all")'
+        required: false
+        default: 'all'
+
+jobs:
+  scrape-collier:
+    name: Scrape Collier County
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Chromium for Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+      
+      - name: Create credentials directory
+        run: mkdir -p creds
+      
+      - name: Write service account key
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+      
+      - name: Run Collier County scraper
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ./creds/service-account-key.json
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          echo "🚦 Starting Collier County scraper..."
+          node scrapers/collier.js || echo "⚠️ Collier scraper failed"
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collier-logs-${{ github.run_number }}
+          path: |
+            *.log
+            screenshots/
+          retention-days: 7
+
+  scrape-hendry:
+    name: Scrape Hendry County
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Chromium for Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+      
+      - name: Create credentials directory
+        run: mkdir -p creds
+      
+      - name: Write service account key
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+      
+      - name: Run Hendry County scraper
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ./creds/service-account-key.json
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          echo "🚦 Starting Hendry County scraper..."
+          node scrapers/hendry.js || echo "⚠️ Hendry scraper failed"
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hendry-logs-${{ github.run_number }}
+          path: |
+            *.log
+            screenshots/
+          retention-days: 7
+
+  scrape-desoto:
+    name: Scrape DeSoto County
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Chromium for Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+      
+      - name: Create credentials directory
+        run: mkdir -p creds
+      
+      - name: Write service account key
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+      
+      - name: Run DeSoto County scraper
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ./creds/service-account-key.json
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          echo "🚦 Starting DeSoto County scraper..."
+          node scrapers/desoto.js || echo "⚠️ DeSoto scraper failed"
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desoto-logs-${{ github.run_number }}
+          path: |
+            *.log
+            screenshots/
+          retention-days: 7
+
+  notify-completion:
+    name: Notify Completion
+    runs-on: ubuntu-latest
+    needs: [scrape-collier, scrape-hendry, scrape-desoto]
+    if: always()
+    
+    steps:
+      - name: Check scraper results
+        run: |
+          echo "📊 Scraper Run Summary"
+          echo "======================"
+          echo "Collier: ${{ needs.scrape-collier.result }}"
+          echo "Hendry: ${{ needs.scrape-hendry.result }}"
+          echo "DeSoto: ${{ needs.scrape-desoto.result }}"
+          echo "======================"
+          
+          if [[ "${{ needs.scrape-collier.result }}" == "failure" ]] || \
+             [[ "${{ needs.scrape-hendry.result }}" == "failure" ]] || \
+             [[ "${{ needs.scrape-desoto.result }}" == "failure" ]]; then
+            echo "⚠️ One or more scrapers failed"
+            exit 1
+          else
+            echo "✅ All scrapers completed successfully"
+          fi

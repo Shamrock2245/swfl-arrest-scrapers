@@ -23,7 +23,7 @@
   "charlotte": {
     "name": "Charlotte",
     "code": "CHARLOTTE",
-    "sheetName": "charlotte-county-arrests",
+    "sheetName": "Charlotte",
     "baseUrl": "https://www.ccso.org",
     "searchUrl": "https://www.ccso.org/forms/arrestdb.cfm",
     "detailUrlPattern": "/forms/arrestdb.cfm?id={bookingId}",
@@ -43,7 +43,7 @@
   "sarasota": {
     "name": "Sarasota",
     "code": "SARASOTA",
-    "sheetName": "sarasota-county-arrests",
+    "sheetName": "Sarasota",
     "baseUrl": "https://www.sarasotasheriff.org",
     "searchUrl": "https://www.sarasotasheriff.org/arrest-reports/index.php",
     "detailUrlPattern": "/arrest-reports/detail.php?id={bookingId}",
@@ -81,10 +81,10 @@
   "desoto": {
     "name": "DeSoto",
     "code": "DESOTO",
-    "sheetName": "desoto-county-arrests",
-    "baseUrl": "https://www.desotosheriff.com",
-    "searchUrl": "https://www.desotosheriff.com/bureaus/detention_bureau_jail/jail_roster.php",
-    "detailUrlPattern": "/detainee?id={bookingId}",
+    "sheetName": "DeSoto",
+    "baseUrl": "https://jail.desotosheriff.org",
+    "searchUrl": "https://jail.desotosheriff.org/DCN/inmates",
+    "detailUrlPattern": "/DCN/inmate-details?id={inmateId}&bid={bookingId}",
     "daysBack": 3,
     "pagination": {
       "type": "roster"
@@ -100,7 +100,7 @@
   "manatee": {
     "name": "Manatee",
     "code": "MANATEE",
-    "sheetName": "manatee-county-arrests",
+    "sheetName": "Manatee",
     "baseUrl": "https://www.manateesheriff.com",
     "searchUrl": "https://www.manateesheriff.com/arrest_inquiries/index.php?page=ArrestInquires.aspx",
     "detailUrlPattern": "/arrest_inquiries/detail.php?id={bookingId}",

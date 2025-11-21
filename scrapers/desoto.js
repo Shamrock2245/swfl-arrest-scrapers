@@ -84,12 +84,13 @@ export async function runDesoto() {
 
 async function parseRoster(page) {
   try {
-    await page.waitForSelector('table, .roster, a', { timeout: 10000 });
-    const links = await page.$$eval('a[href*="detainee"], a[href*="Detail"], a[href*="id="]', elements => 
+    await page.waitForSelector('table#gvInmates_DXMainTable, a', { timeout: 10000 });
+    const links = await page.$$eval('a[href*="inmate-details"]', elements => 
       elements.map(el => el.href).filter(Boolean)
     );
     const uniqueUrls = [...new Set(links)];
-    return uniqueUrls.slice(0, 50);
+    console.log(`   Found ${uniqueUrls.length} inmate detail links`);
+    return uniqueUrls;
   } catch (error) {
     console.error('⚠️  Error parsing roster:', error.message);
     return [];
