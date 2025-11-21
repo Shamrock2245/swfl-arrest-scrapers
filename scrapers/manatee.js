@@ -1,123 +1,71 @@
-import { navigateWithRetry, randomDelay, hasCaptcha } from '../shared/browser.js';
+// counties/manatee.js (rewrite to HTTP+Cheerio instead of Playwright)
+
+import cheerio from 'cheerio';
 import { normalizeRecord } from '../normalizers/normalize.js';
 import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-// --- MANATEE-SPECIFIC BROWSER SETUP FOR STEALTH ---
-import puppeteerExtra from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-// Use stealth plugin
-puppeteerExtra.use(StealthPlugin());
-
-// The shared/browser.js file has these arrays, we define them locally for the stealth browser setup
-const USER_AGENTS = [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-];
-
-async function newStealthBrowser() {
-  const browser = await puppeteerExtra.launch({
-    headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process'
-    ],
-    defaultViewport: {
-      width: 1366,
-      height: 900
-    }
-  });
-  return browser;
-}
-
-async function newStealthPage(browser) {
-  const page = await browser.newPage();
-  
-  const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-  await page.setUserAgent(userAgent);
-
-  await page.setExtraHTTPHeaders({
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'DNT': '1',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1'
-  });
-
-  await page.evaluateOnNewDocument(() => {
-    Object.defineProperty(navigator, 'webdriver', {
-      get: () => false
-    });
-  });
-
-  return page;
-}
-// -----------------------------------------------------------------
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const config = JSON.parse(readFileSync(join(__dirname, '../config/counties.json'), 'utf8')).manatee;
+const config = JSON.parse(
+  readFileSync(join(__dirname, '../config/counties.json'), 'utf8')
+).manatee;
 
+const LIST_URL = config.listUrl || 'https://manatee-sheriff.revize.com/bookings';
+const BASE_URL = config.baseUrl || 'https://manatee-sheriff.revize.com';
+
+/**
+ * Main Manatee County scraper (HTML-first)
+ */
 export async function runManatee() {
   const startTime = Date.now();
   console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Manatee County Scraper (Stealth Mode)');
+  console.log('🚦 Starting Manatee County Scraper (HTML)');
   console.log('═══════════════════════════════════════');
 
-  let browser;
   try {
-    // Use stealth browser
-    browser = await newStealthBrowser();
-    const page = await newStealthPage(browser);
+    // 1) Fetch main bookings page
+    console.log(`📡 GET ${LIST_URL}`);
+    const listHtml = await fetchText(LIST_URL);
 
-    console.log(`📡 Loading: ${config.searchUrl}`);
-    await navigateWithRetry(page, config.searchUrl);
-
-    if (await hasCaptcha(page)) {
-      throw new Error('CAPTCHA detected');
-    }
-
-    const detailUrls = await parseListPage(page);
-    console.log(`📋 Found ${detailUrls.length} arrest records`);
+    // 2) Extract detail URLs from the list HTML
+    const detailUrls = extractDetailUrls(listHtml);
+    console.log(`📋 Found ${detailUrls.length} booking detail URLs`);
 
     if (detailUrls.length === 0) {
       await logIngestion('MANATEE', true, 0, startTime);
+      console.log('ℹ️  No bookings found');
       return { success: true, count: 0 };
     }
 
+    // 3) Fetch & parse each detail page
     const records = [];
     for (let i = 0; i < detailUrls.length; i++) {
       const url = detailUrls[i];
-      console.log(`🔍 [${i + 1}/${detailUrls.length}] Fetching: ${url}`);
+      console.log(`🔍 [${i + 1}/${detailUrls.length}] GET ${url}`);
 
       try {
-        // Increased delay for better stealth (2000-3000ms)
-        await randomDelay(2000, 1000); 
-        await navigateWithRetry(page, url);
-
-        const rawPairs = await extractDetailPairs(page);
+        const html = await fetchText(url);
+        const rawPairs = extractDetailPairs(html, url);
         const record = normalizeRecord(rawPairs, 'MANATEE', url);
-        
+
         if (record.booking_id) {
           records.push(record);
           console.log(`   ✅ ${record.full_name_last_first} (${record.booking_id})`);
+        } else {
+          console.log('   ⚠️  Missing booking_id after normalization, skipping');
         }
-      } catch (error) {
-        console.error(`   ⚠️  Error: ${error.message}`);
+      } catch (err) {
+        console.error(`   ⚠️  Error processing ${url}: ${err.message}`);
       }
     }
 
     console.log(`\n📊 Parsed ${records.length} valid records`);
 
+    // 4) Write to Sheets & dashboard
     if (records.length > 0) {
       const result = await upsertRecords(config.sheetName, records);
       console.log(`✅ Inserted: ${result.inserted}, Updated: ${result.updated}`);
@@ -131,62 +79,98 @@ export async function runManatee() {
     console.log('═══════════════════════════════════════\n');
 
     return { success: true, count: records.length };
-
   } catch (error) {
-    console.error('❌ Fatal error:', error.message);
+    console.error('❌ Fatal Manatee error:', error.message);
     await logIngestion('MANATEE', false, 0, startTime, error.message);
     throw error;
-  } finally {
-    if (browser) await browser.close();
   }
 }
 
-async function parseListPage(page) {
-  try {
-    await page.waitForSelector('table, .arrest, a[href*="detail"]', { timeout: 10000 });
-    const links = await page.$$eval('a[href*="detail"], a[href*="id="]', elements => 
-      elements.map(el => el.href).filter(Boolean)
-    );
-    const uniqueUrls = [...new Set(links)];
-    return uniqueUrls.slice(0, 50);
-  } catch (error) {
-    console.error('⚠️  Error parsing list:', error.message);
-    return [];
-  }
-}
-
-async function extractDetailPairs(page) {
-  try {
-    await page.waitForSelector('table, .detail', { timeout: 5000 });
-    return await page.evaluate(() => {
-      const data = {};
-      document.querySelectorAll('table tr').forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 2) {
-          // Check for label in the first cell and value in the second
-          data[cells[0].textContent.trim()] = cells[1].textContent.trim();
-        } else if (cells.length === 1 && cells[0].textContent.includes(':')) {
-            // Handle single cell with "Label: Value" format (common in some detail views)
-            const text = cells[0].textContent.trim();
-            const [label, ...valueParts] = text.split(':');
-            if (label && valueParts.length > 0) {
-                data[label.trim()] = valueParts.join(':').trim();
-            }
-        }
+/**
+ * Simple helper for GET text with basic retry
+ */
+async function fetchText(url, retries = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (compatible; ShamrockScraper/1.0; +https://shamrockbailbonds.biz)',
+          'Accept': 'text/html,application/xhtml+xml'
+        },
+        redirect: 'follow'
       });
-      const img = document.querySelector('img[src*="photo"], img[src*="mugshot"]');
-      if (img) data['mugshot'] = img.src;
-      data['source_url'] = window.location.href;
-      return data;
-    });
-  } catch (error) {
-    return { source_url: page.url() };
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (err) {
+      lastErr = err;
+      console.warn(`   ⚠️  Fetch failed (${attempt}/${retries}) for ${url}: ${err.message}`);
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
   }
+  throw lastErr;
 }
 
+/**
+ * Extract all detail URLs from the bookings list HTML
+ * Manatee pattern: /bookings/BOOKING_ID
+ */
+function extractDetailUrls(html) {
+  const $ = cheerio.load(html);
+  const urls = new Set();
+
+  $('a[href*="/bookings/"]').each((_, el) => {
+    let href = $(el).attr('href');
+    if (!href) return;
+
+    // Ignore links that are just /bookings (no ID)
+    if (/\/bookings\/?$/i.test(href)) return;
+
+    if (!href.startsWith('http')) {
+      href = BASE_URL.replace(/\/$/, '') + (href.startsWith('/') ? href : `/${href}`);
+    }
+    urls.add(href);
+  });
+
+  return [...urls].slice(0, 50); // safety cap
+}
+
+/**
+ * Extract label/value pairs from a detail HTML page
+ * to feed into normalizeRecord (same shape as before).
+ */
+function extractDetailPairs(html, sourceUrl) {
+  const $ = cheerio.load(html);
+  const data = {};
+
+  // Generic table-based layout: first <td> = label, second = value
+  $('table tr').each((_, row) => {
+    const tds = $(row).find('td');
+    if (tds.length >= 2) {
+      const label = $(tds[0]).text().trim();
+      const value = $(tds[1]).text().trim();
+      if (label && value) data[label] = value;
+    }
+  });
+
+  // Mugshot: either explicit <img> or we can construct from booking id later
+  let mug = $('img[src*="mug"], img[src*="photo"], img[src*="mugshots"]').attr('src');
+  if (mug) {
+    if (!mug.startsWith('http')) {
+      mug = BASE_URL.replace(/\/$/, '') + (mug.startsWith('/') ? mug : `/${mug}`);
+    }
+    data['mugshot'] = mug;
+  }
+
+  data['source_url'] = sourceUrl;
+  return data;
+}
+
+// Allow direct execution via `node counties/manatee.js`
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runManatee().catch(error => {
-    console.error('Fatal error:', error);
+  runManatee().catch(err => {
+    console.error('Fatal error:', err);
     process.exit(1);
   });
 }
