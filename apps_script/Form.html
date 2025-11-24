@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Information Form</title>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .form-content {
+      padding: 30px;
+    }
+    
+    .form-section {
+      margin-bottom: 30px;
+    }
+    
+    .form-section h2 {
+      font-size: 20px;
+      color: #667eea;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #555;
+      font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 15px;
+      justify-content: flex-end;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 2px solid #f0f0f0;
+    }
+    
+    .btn {
+      padding: 12px 30px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #666;
+    }
+    
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+    
+    .alert {
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .required {
+      color: #dc3545;
+    }
+    
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .container {
+        margin: 0;
+      }
+      
+      body {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Booking Information Form</h1>
+      <p>SWFL Arrest Scrapers - Shamrock Bail Bonds</p>
+    </div>
+    
+    <div class="form-content">
+      <div id="alertBox" class="alert"></div>
+      
+      <form id="bookingForm">
+        <!-- Personal Information Section -->
+        <div class="form-section">
+          <h2>Personal Information</h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="firstName">First Name <span class="required">*</span></label>
+              <input type="text" id="firstName" name="firstName" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="lastName">Last Name <span class="required">*</span></label>
+              <input type="text" id="lastName" name="lastName" required>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="middleName">Middle Name</label>
+              <input type="text" id="middleName" name="middleName">
+            </div>
+            
+            <div class="form-group">
+              <label for="dob">Date of Birth <span class="required">*</span></label>
+              <input type="date" id="dob" name="dob" required>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Booking Information Section -->
+        <div class="form-section">
+          <h2>Booking Information</h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bookingNumber">Booking Number <span class="required">*</span></label>
+              <input type="text" id="bookingNumber" name="bookingNumber" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="bookingDate">Booking Date <span class="required">*</span></label>
+              <input type="date" id="bookingDate" name="bookingDate" required>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="county">County <span class="required">*</span></label>
+              <select id="county" name="county" required>
+                <option value="">Select County</option>
+                <option value="Lee">Lee County</option>
+                <option value="Collier">Collier County</option>
+                <option value="Hendry">Hendry County</option>
+                <option value="Charlotte">Charlotte County</option>
+                <option value="Manatee">Manatee County</option>
+                <option value="Sarasota">Sarasota County</option>
+                <option value="DeSoto">DeSoto County</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="bondAmount">Bond Amount <span class="required">*</span></label>
+              <input type="number" id="bondAmount" name="bondAmount" step="0.01" required>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Charges Section -->
+        <div class="form-section">
+          <h2>Charges</h2>
+          
+          <div class="form-group">
+            <label for="charges">Charges <span class="required">*</span></label>
+            <textarea id="charges" name="charges" placeholder="Enter charges, one per line" required></textarea>
+          </div>
+        </div>
+        
+        <!-- Contact Information Section -->
+        <div class="form-section">
+          <h2>Contact Information</h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone Number</label>
+              <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567">
+            </div>
+            
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" name="email" placeholder="example@email.com">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Notes Section -->
+        <div class="form-section">
+          <h2>Additional Notes</h2>
+          
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" placeholder="Any additional information..."></textarea>
+          </div>
+        </div>
+        
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
+          <button type="submit" class="btn btn-primary">Submit Booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    // Form submission handler
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get form data
+      var formData = {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        middleName: document.getElementById('middleName').value,
+        dob: document.getElementById('dob').value,
+        bookingNumber: document.getElementById('bookingNumber').value,
+        bookingDate: document.getElementById('bookingDate').value,
+        county: document.getElementById('county').value,
+        bondAmount: document.getElementById('bondAmount').value,
+        charges: document.getElementById('charges').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        notes: document.getElementById('notes').value,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Show loading state
+      showAlert('Submitting booking information...', 'info');
+      
+      // Call Google Apps Script function to save data
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .saveBookingData(formData);
+    });
+    
+    function onSuccess(result) {
+      showAlert('Booking information saved successfully!', 'success');
+      setTimeout(function() {
+        clearForm();
+      }, 2000);
+    }
+    
+    function onError(error) {
+      showAlert('Error saving booking: ' + error.message, 'error');
+    }
+    
+    function showAlert(message, type) {
+      var alertBox = document.getElementById('alertBox');
+      alertBox.textContent = message;
+      alertBox.className = 'alert alert-' + type;
+      alertBox.style.display = 'block';
+      
+      setTimeout(function() {
+        alertBox.style.display = 'none';
+      }, 5000);
+    }
+    
+    function clearForm() {
+      document.getElementById('bookingForm').reset();
+      document.getElementById('alertBox').style.display = 'none';
+    }
+    
+    // Set today's date as default for booking date
+    document.addEventListener('DOMContentLoaded', function() {
+      var today = new Date().toISOString().split('T')[0];
+      document.getElementById('bookingDate').value = today;
+    });
+  </script>
+</body>
+</html>
