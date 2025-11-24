@@ -99,8 +99,9 @@ cp .env.example .env
 
 Example:
 
-GOOGLE_SHEETS_ID=1jq1-N7sCbwSiYPLAdI2ZnxhLzym1QsOSuHPy-Gw07Qc
+GOOGLE_SHEETS_ID=121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
 GOOGLE_SERVICE_ACCOUNT_EMAIL=bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com
+GOOGLE_ACCOUNT=admin@shamrockbailbonds.biz
 GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./creds/service-account-key.json
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 TZ=America/New_York
@@ -110,6 +111,9 @@ Share Spreadsheet with:
 bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com
 
 Permission: Editor
+
+Google Account: admin@shamrockbailbonds.biz
+Apps Script Project: https://script.google.com/u/0/home/projects/12BRRdYuyVJpQODJq2-OpUhQdZ9YLt4bbAFWmOUyJPWM_EcazKTiu3dYo/edit
 
 🚀 Usage
 Run All Counties
@@ -127,13 +131,24 @@ node jobs/updateBondPaid.js --days 14
 
 📊 Google Sheets Output
 
-Master Sheet ID: 1jq1-N7sCbwSiYPLAdI2ZnxhLzym1QsOSuHPy-Gw07Qc
+**Master Sheet ID:** 121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E  
+**Google Account:** admin@shamrockbailbonds.biz  
+**Apps Script:** https://script.google.com/u/0/home/projects/12BRRdYuyVJpQODJq2-OpUhQdZ9YLt4bbAFWmOUyJPWM_EcazKTiu3dYo/edit  
+**Sheet URL:** https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit
 
-Tab	Purpose
-collier-county-arrests	Collier County data
-charlotte-county-arrests	Charlotte County data
-dashboard	Qualified leads (score ≥70)
-ingestion_log	Job logs with timestamps, counts, errors
+| Tab | Purpose |
+|-----|----------|
+| Lee | Lee County arrests |
+| Collier | Collier County arrests |
+| Hendry | Hendry County arrests |
+| Charlotte | Charlotte County arrests |
+| Manatee | Manatee County arrests |
+| Sarasota | Sarasota County arrests |
+| DeSoto | DeSoto County arrests |
+| Qualified_Arrests | Qualified leads (score ≥70) |
+| Config | Configuration settings |
+| Logs | Job logs with timestamps, counts, errors |
+| Manual_Bookings | Manually entered bookings from Form.html |
 🧮 Qualification Scoring
 
 Automatic scoring determines if an arrest qualifies as a potential lead.
