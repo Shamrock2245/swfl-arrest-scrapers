@@ -1,0 +1,28 @@
+# Python Scrapers - Requirements
+# SWFL Arrest Scrapers Lead Scoring System
+# Version: 2.0
+
+# Google Sheets Integration
+gspread>=5.12.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# Data Processing
+python-dateutil>=2.8.2
+
+# Optional: Web Scraping (if implementing Python scrapers)
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.3
+
+# Optional: Browser Automation (if implementing Python scrapers)
+selenium>=4.15.0
+playwright>=1.40.0
+
+# Development Dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.11.0
+flake8>=6.1.0
+mypy>=1.7.0
