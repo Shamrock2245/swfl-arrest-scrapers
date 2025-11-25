@@ -1,159 +1,193 @@
-# AGENTS – SWFL Arrest Scrapers
+# AGENTS.md — AI Operating Protocol for SWFL Arrest Scrapers
 
-This file defines how AI agents (Manus, ChatGPT, etc.) must work on this repo.  
-**Non-negotiable rule:** always read existing code and docs before generating new files.
-
----
-
-## 0. Shared Rules for All Agents
-
-1. **Always inspect the repo first**
-   - Use the GitHub / filesystem tool to list:
-     - `scrapers/`, `swfl_arrests/`, `docs/`, `*.md` at the repo root.
-   - Before creating a new file, check if a **similar file already exists**.
-   - Prefer **editing** existing files over creating new ones.
-
-2. **No duplicate or conflicting scrapers**
-   - Each county must have **one primary scraper file**:
-     - Python: `swfl_arrests/counties/<county>_county.py`
-   - If legacy Node/Apps Script scrapers exist, **leave them in place** unless a human explicitly asks to delete or move them.
-
-3. **Respect the schema**
-   - The canonical data model is the **34-column schema**:
-     - 32 arrest/court fields + `Lead_Score` + `Lead_Status`.
-   - Do not add, rename, or delete columns unless updating:
-     - `schema.py`
-     - `Scrapers Overview` docs
-     - Sheets header definitions.
-
-4. **Use tests and fixtures**
-   - When modifying a scraper, also:
-     - Update or add fixtures in `fixtures/`
-     - Update or add tests in `tests/`
-   - New behavior should always be covered by at least one test.
-
-5. **Coordinate with scheduling + Sheets**
-   - Scrapers must **not** write to random spreadsheets.
-   - Only use the IDs and tab names defined in:
-     - `CONFIG.py` / `CONFIG.js`
-     - `SCRAPERS_OVERVIEW.md`
-   - Never change a Sheet ID or tab name without updating the docs and config.
+This document defines the rules all AI assistants (Manus, ChatGPT, GitHub Copilot, Claude, Cursor, etc.) MUST follow when interacting with this repository.  
+Its purpose is to prevent duplicate work, ensure scraper consistency, maintain data integrity, and preserve human architecture decisions.
 
 ---
 
-## 1. Agent: Repo Steward
+# 0. ABSOLUTE RULES (NON-NEGOTIABLE)
 
-**Goal:** Keep the repo consistent, avoid duplicate work, and enforce these rules.
+1. **Always inspect the repository BEFORE generating any code.**  
+   - Use filesystem or GitHub MCP to list:
+     - `/swfl_arrests/`
+     - `/swfl_arrests/counties/`
+     - `/fixtures/`
+     - `/tests/`
+     - Any existing `.md` files
+   - Summarize findings before writing anything.
 
-**Tools:** `git` / GitHub MCP, filesystem.
+2. **Never create duplicate scrapers.**  
+   - Every county has **one** authoritative scraper file:  
+     `swfl_arrests/counties/<county>_county.py`  
+   - If a file already exists, extend/refactor it instead of generating a new one.
 
-**Responsibilities:**
+3. **Never modify the schema without explicit human instruction.**  
+   - The official schema is **34 fields**:  
+     - 32 arrest/court fields  
+     - + `Lead_Score`  
+     - + `Lead_Status`  
+   - All scrapers must output normalized records in this schema.
 
-- On any task:
-  - Run `git status` (or equivalent) to see current changes.
-  - List files under `swfl_arrests/`, `scrapers/`, `docs/`.
-- If a new scraper or doc is requested:
-  - Check for existing files first (e.g., `collier.md`, `collier_county.py`).
-  - If something exists:
-    - Summarize it.
-    - Propose edits or refactors instead of writing a completely new file.
-- Ensure all new code:
-  - Has a clear owner county and purpose.
-  - Is referenced from the relevant `docs/<county>.md`.
+4. **All scrapers MUST be API-first and asynchronous.**  
+   - Use JSON/XHR endpoints discovered via Playwright MCP.  
+   - Do NOT build HTML scrapers unless explicitly instructed.  
+   - Respect county rate limits and schedule cycles.
 
----
-
-## 2. Agent: Scraper Engineer
-
-**Goal:** Implement or update county scrapers.
-
-**Tools:** Playwright MCP, `fetch`/HTTP tool, `git`, filesystem.
-
-**Responsibilities:**
-
-1. **Before editing code**
-   - Read:
-     - `SCRAPERS_OVERVIEW.md`
-     - `docs/<county>.md` (if present)
-     - Existing scraper files for that county (Node, Python, Apps Script).
-
-2. **When building or updating a scraper**
-   - Use Playwright MCP to:
-     - Open the county’s public arrest/jail page.
-     - Discover XHR/JSON APIs used to fetch arrest data.
-   - Generate/modify:
-     - `swfl_arrests/counties/<county>_county.py` (Python async scraper).
-     - Associated tests and fixtures.
-   - The scraper must:
-     - Be **API-first** (use JSON/XHR endpoints where possible).
-     - Normalize data into the shared 34-column schema.
-     - Not create its own schema.
-
-3. **No duplicates**
-   - Do not create `collier_scraper.py` if `collier_county.py` already exists.
-   - If a new pattern is needed, **refactor** the existing file.
+5. **All changes must be safe, minimal, and reviewed.**  
+   - Always show diffs before finalizing.  
+   - Never delete or heavily refactor code without summarizing what currently exists.
 
 ---
 
-## 3. Agent: Data Normalizer & Scoring
+# 1. SCRAPER ENGINEER AGENT RULES
 
-**Goal:** Ensure all scraped data conforms to the universal schema and is scored.
+These rules apply when the AI is writing or modifying a scraper.
 
-**Responsibilities:**
+## 1.1. Before coding anything
+- Check for:
+  - Existing scraper file  
+  - Existing docs for the county  
+  - Existing fixtures/tests  
+  - Existing shared utilities
+- Report what exists and propose the minimal change.
 
-- Maintain:
-  - `models.py` / `schema.py`
-  - The `ArrestRecord` model (34 fields).
-  - The scoring function (e.g., `score_arrest(record)`).
-- When fields change:
-  - Update docs: `SCRAPERS_OVERVIEW.md`, `AI_CONTRIBUTING.md`.
-  - Update any Sheets header mappings.
-- Guarantee:
-  - Every scraper returns `ArrestRecord` instances.
-  - `Lead_Score` and `Lead_Status` are populated consistently.
+## 1.2. When generating or updating a scraper
+- The scraper must expose:
 
----
+  ```python
+  async def scrape_<county>_county_arrests(config) -> list[ArrestRecord]:
+      ...
 
-## 4. Agent: Court & Notification Automation
+Use httpx or aiohttp.
 
-**Goal:** Keep the court-date → calendar → SMS pipeline consistent.
+Use endpoints discovered via Playwright MCP.
 
-**Responsibilities:**
+Normalize data into the 34-column ArrestRecord via the shared model.
 
-- Maintain Apps Script files related to:
-  - Email parsing
-  - Court date extraction
-  - Calendar events
-  - SMS + email reminders
-- When scraping changes affect court data:
-  - Update any mapping so court fields still land in the right columns.
-- Never hard-code phone numbers or secrets:
-  - Use `CONFIG` files and environment variables.
+1.3. Bond scoring must ALWAYS run
 
----
+Every returned arrest record must include:
 
-## 5. Agent: DevOps & Scheduler
+Lead_Score
 
-**Goal:** Make sure scrapers run reliably on a schedule.
+Lead_Status
 
-**Responsibilities:**
+Scoring uses the shared scoring utility in models.py (or the equivalent module).
 
-- Maintain:
-  - `jobs/run_all.py` and per-county job scripts.
-  - GitHub Actions / cron configs for running scrapers.
-- Enforce frequencies:
-  - High-volume counties: 7–12 minutes.
-  - Low-volume counties: ~60 minutes.
-- Make scrapers:
-  - Idempotent.
-  - Logged via a shared logging module.
+2. MCP & PLAYWRIGHT USAGE RULES
 
----
+AI is authorized to use Playwright MCP but must follow these constraints:
 
-## 6. When in doubt
+Use Playwright MCP ONLY to discover:
 
-If an instruction from a human conflicts with this file, **ask for clarification**, but default to:
+API endpoints
 
-- Do not delete or overwrite existing scrapers.
-- Prefer edits and refactors.
-- Keep all counties on the same schema and patterns.
+Request headers
+
+URL patterns
+
+Required cookies (Cloudflare, Revize, etc.)
+
+Do NOT write full scrapers using browser automation.
+
+Browser automation is ONLY for reconnaissance.
+
+The final scraper must use direct HTTP requests.
+
+For Cloudflare counties (Charlotte, sometimes Sarasota):
+
+Use persistent browser state via MCP to extract cookies.
+
+Do not attempt to bypass Cloudflare with automated clicking unless explicitly asked.
+
+Instead: discover API → build HTTP scraper → inject required cookies into headers.
+
+3. FILE STRUCTURE RULES
+
+AI must respect and maintain the following structure:
+
+swfl_arrests/
+  models.py
+  schema.py
+  utils/
+  counties/
+    collier_county.py
+    charlotte_county.py
+    manatee_county.py
+    sarasota_county.py
+    hendry_county.py
+    desoto_county.py
+fixtures/
+tests/
+docs/
+
+
+No other structure should be introduced without human approval.
+
+4. TESTING & FIXTURE RULES
+
+Every scraper modification must include:
+
+A fixture update (fixtures/<county>_sample.json)
+
+A test update (tests/test_<county>_county.py)
+
+Tests must verify:
+
+Booking_Number
+
+Name parsing
+
+Bond fields
+
+Court fields
+
+Lead_Score
+
+Lead_Status
+
+5. COURT-DATE & AUTOMATION PIPELINE RULES
+
+When interacting with court/email/calendar/SMS automation:
+
+Never modify calendar or SMS logic unless explicitly instructed.
+
+Ensure scraper output keeps:
+
+Court_Date
+
+Court_Time
+
+Court_Location
+
+Ensure nothing breaks the:
+
+Court date → Calendar event → SMS → Reminder flow.
+
+6. SAFETY CHECK BEFORE ANY FINAL ACTION
+
+Before the AI writes or modifies any files, it must:
+
+Summarize:
+
+What exists
+
+What will change
+
+Why the change is safe
+
+Display:
+
+A full diff preview of changes
+
+Ask:
+
+“Confirm before I write these changes.”
+
+7. HUMAN OVERRIDE CLAUSE
+
+Humans can override any rule in this file by explicitly stating:
+
+“Override AGENTS.md rule(s). Continue.”
+
+AI must log which rule was overridden and proceed.
