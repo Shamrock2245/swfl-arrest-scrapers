@@ -3,11 +3,18 @@
  * 
  * Master script to run all county scrapers sequentially
  * Populates initial 30 days of data for all counties
+ * 
+ * ES MODULE VERSION
  */
 
-const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const execPromise = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // County configurations with estimated daily arrests
 const COUNTIES = [
@@ -129,7 +136,7 @@ async function runAllCounties() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runAllCounties()
     .then(results => {
       const failed = results.filter(r => !r.success).length;
@@ -141,4 +148,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runAllCounties, runCountyScraper };
+export { runAllCounties, runCountyScraper };
