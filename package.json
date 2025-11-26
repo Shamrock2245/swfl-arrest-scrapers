@@ -26,10 +26,10 @@
   "author": "Shamrock Bail Bonds",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^21.6.1",
-    "googleapis": "^128.0.0",
-    "google-auth-library": "^9.4.1",
-    "dotenv": "^16.3.1",
+    "puppeteer": "^24.0.0",
+    "googleapis": "^144.0.0",
+    "google-auth-library": "^9.15.0",
+    "dotenv": "^16.4.7",
     "node-fetch": "^3.3.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
