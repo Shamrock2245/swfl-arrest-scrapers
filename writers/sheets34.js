@@ -16,16 +16,32 @@ let sheetsClient = null;
 
 /**
  * Initialize Google Sheets client with service account
+ * Supports both GOOGLE_SA_KEY_JSON (direct JSON) and GOOGLE_SERVICE_ACCOUNT_KEY_PATH (file path)
  */
 async function getSheetsClient() {
   if (sheetsClient) return sheetsClient;
 
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
-  if (!keyPath) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY_PATH not set in environment');
+  let keyFile;
+  
+  // Try GOOGLE_SA_KEY_JSON first (for GitHub Actions)
+  if (process.env.GOOGLE_SA_KEY_JSON) {
+    try {
+      keyFile = JSON.parse(process.env.GOOGLE_SA_KEY_JSON);
+    } catch (error) {
+      throw new Error('Invalid GOOGLE_SA_KEY_JSON: ' + error.message);
+    }
   }
-
-  const keyFile = JSON.parse(readFileSync(keyPath, 'utf8'));
+  // Fall back to GOOGLE_SERVICE_ACCOUNT_KEY_PATH (for local development)
+  else if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH) {
+    try {
+      keyFile = JSON.parse(readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH, 'utf8'));
+    } catch (error) {
+      throw new Error('Cannot read service account key file: ' + error.message);
+    }
+  }
+  else {
+    throw new Error('Neither GOOGLE_SA_KEY_JSON nor GOOGLE_SERVICE_ACCOUNT_KEY_PATH is set in environment');
+  }
   
   const auth = new google.auth.GoogleAuth({
     credentials: keyFile,

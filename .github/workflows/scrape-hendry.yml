@@ -1,0 +1,43 @@
+name: Scrape Hendry County
+
+on:
+  schedule:
+    # Every 2 hours (8 arrests/day)
+    - cron: '0 */2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Chromium for Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+      
+      - name: Run Hendry scraper
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SA_KEY_JSON: ${{ secrets.GOOGLE_SA_KEY_JSON }}
+        run: node scrapers/hendry_stealth.js
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hendry-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7
