@@ -1,0 +1,34 @@
+name: Scrape Arrests
+
+on:
+  schedule:
+    # Hillsborough: Every 20 minutes
+    - cron: '*/20 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Create service account key file
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > service-account-key.json
+      
+      - name: Create .env file
+        run: |
+          echo "GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}" > .env
+          echo "GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./service-account-key.json" >> .env
+      
+      - name: Run all county scrapers
+        run: node run_all_counties.js
