@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Form - Shamrock Bail Bonds</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 850px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .form-content {
+      padding: 30px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section-title {
+      font-size: 20px;
+      color: #2c3e50;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #27ae60;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 5px;
+    }
+    
+    input, select, textarea {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #27ae60;
+      box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
+    }
+    
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    
+    .btn-container {
+      display: flex;
+      gap: 15px;
+      justify-content: flex-end;
+      margin-top: 30px;
+    }
+    
+    button {
+      padding: 12px 30px;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+    
+    .btn-secondary {
+      background: #95a5a6;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #7f8c8d;
+    }
+    
+    .info-box {
+      background: #ecf0f1;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    
+    .info-box p {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 5px;
+    }
+    
+    .lead-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    
+    .lead-hot {
+      background: #e74c3c;
+      color: white;
+    }
+    
+    .lead-warm {
+      background: #f39c12;
+      color: white;
+    }
+    
+    .lead-cold {
+      background: #3498db;
+      color: white;
+    }
+    
+    .lead-disqualified {
+      background: #95a5a6;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🟩 Shamrock Bail Bonds</h1>
+      <p>Booking Form - 1528 Broadway, Fort Myers, FL 33901 - (239) 332-2245</p>
+    </div>
+    
+    <div class="form-content">
+      <form id="bookingForm">
+        <!-- Lead Info (if available) -->
+        <div class="info-box" id="leadInfo" style="display: none;">
+          <p><strong>Lead Score:</strong> <span id="leadScoreDisplay"></span></p>
+          <p><strong>Lead Status:</strong> <span id="leadStatusDisplay"></span></p>
+          <p><strong>County:</strong> <span id="countyDisplay"></span></p>
+        </div>
+        
+        <!-- Defendant Information -->
+        <div class="section">
+          <h2 class="section-title">👤 Defendant Information</h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bookingNumber">Booking Number *</label>
+              <input type="text" id="bookingNumber" name="bookingNumber" required>
+            </div>
+            <div class="form-group">
+              <label for="caseNumber">Case Number</label>
+              <input type="text" id="caseNumber" name="caseNumber">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="firstName">First Name *</label>
+              <input type="text" id="firstName" name="firstName" required>
+            </div>
+            <div class="form-group">
+              <label for="lastName">Last Name *</label>
+              <input type="text" id="lastName" name="lastName" required>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dob">Date of Birth *</label>
+              <input type="date" id="dob" name="dob" required>
+            </div>
+            <div class="form-group">
+              <label for="sex">Sex *</label>
+              <select id="sex" name="sex" required>
+                <option value="">Select...</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="race">Race</label>
+              <input type="text" id="race" name="race" maxlength="1">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="address">Address</label>
+              <input type="text" id="address" name="address">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="city">City</label>
+              <input type="text" id="city" name="city">
+            </div>
+            <div class="form-group">
+              <label for="state">State</label>
+              <input type="text" id="state" name="state" value="FL" maxlength="2">
+            </div>
+            <div class="form-group">
+              <label for="zipcode">Zipcode</label>
+              <input type="text" id="zipcode" name="zipcode" maxlength="10">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Arrest Information -->
+        <div class="section">
+          <h2 class="section-title">🚔 Arrest Information</h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="arrestDate">Arrest Date</label>
+              <input type="date" id="arrestDate" name="arrestDate">
+            </div>
+            <div class="form-group">
+              <label for="bookingDate">Booking Date *</label>
+              <input type="date" id="bookingDate" name="bookingDate" required>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="agency">Agency</label>
+              <input type="text" id="agency" name="agency">
+            </div>
+            <div class="form-group">
+              <label for="courtLocation">Court Location</label>
+              <input type="text" id="courtLocation" name="courtLocation">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Charges & Bond -->
+        <div class="section">
+          <h2 class="section-title">⚖️ Charges & Bond Information</h2>
+          
+          <div class="form-group">
+            <label for="charges">Charges *</label>
+            <textarea id="charges" name="charges" required></textarea>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bondAmount">Bond Amount *</label>
+              <input type="text" id="bondAmount" name="bondAmount" placeholder="$10,000.00" required>
+            </div>
+            <div class="form-group">
+              <label for="bondType">Bond Type</label>
+              <select id="bondType" name="bondType">
+                <option value="">Select...</option>
+                <option value="CASH">CASH</option>
+                <option value="SURETY">SURETY</option>
+                <option value="ROR">ROR</option>
+                <option value="NO BOND">NO BOND</option>
+                <option value="HOLD">HOLD</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="premium">Premium (auto-calculated)</label>
+              <input type="text" id="premium" name="premium" readonly>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="courtDate">Court Date</label>
+              <input type="date" id="courtDate" name="courtDate">
+            </div>
+            <div class="form-group">
+              <label for="status">Status</label>
+              <select id="status" name="status">
+                <option value="">Select...</option>
+                <option value="IN">IN CUSTODY</option>
+                <option value="RELEASED">RELEASED</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Submit Buttons -->
+        <div class="btn-container">
+          <button type="button" class="btn-secondary" onclick="clearForm()">Clear Form</button>
+          <button type="submit" class="btn-primary">Submit Booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    // ========================================================================
+    // DUAL INPUT SUPPORT: Menu Button (Method A) + Bookmarklet (Method B)
+    // ========================================================================
+    
+    /**
+     * METHOD A: Populate from Apps Script (Menu Button)
+     * Data is passed via template variable <?= rowData ?>
+     */
+    function populateFromAppsScript(rowData) {
+      if (!rowData) return;
+      
+      document.getElementById('bookingNumber').value = rowData.bookingNumber || '';
+      document.getElementById('firstName').value = rowData.firstName || '';
+      document.getElementById('lastName').value = rowData.lastName || '';
+      document.getElementById('dob').value = formatDate(rowData.dob) || '';
+      document.getElementById('sex').value = rowData.sex || '';
+      document.getElementById('race').value = rowData.race || '';
+      document.getElementById('address').value = rowData.address || '';
+      document.getElementById('city').value = rowData.city || '';
+      document.getElementById('state').value = rowData.state || 'FL';
+      document.getElementById('zipcode').value = rowData.zipcode || '';
+      document.getElementById('arrestDate').value = formatDate(rowData.arrestDate) || '';
+      document.getElementById('bookingDate').value = formatDate(rowData.bookingDate) || '';
+      document.getElementById('agency').value = rowData.agency || '';
+      document.getElementById('courtLocation').value = rowData.courtLocation || '';
+      document.getElementById('charges').value = rowData.charges || '';
+      document.getElementById('bondAmount').value = rowData.bondAmount || '';
+      document.getElementById('bondType').value = rowData.bondType || '';
+      document.getElementById('courtDate').value = formatDate(rowData.courtDate) || '';
+      document.getElementById('status').value = rowData.status || '';
+      document.getElementById('caseNumber').value = rowData.caseNumber || '';
+      
+      // Display lead info if available
+      if (rowData.leadScore || rowData.leadStatus) {
+        document.getElementById('leadInfo').style.display = 'block';
+        document.getElementById('leadScoreDisplay').textContent = rowData.leadScore || 'N/A';
+        
+        const statusSpan = document.getElementById('leadStatusDisplay');
+        statusSpan.textContent = rowData.leadStatus || 'N/A';
+        statusSpan.className = 'lead-badge lead-' + (rowData.leadStatus || '').toLowerCase();
+        
+        document.getElementById('countyDisplay').textContent = rowData.county || 'N/A';
+      }
+      
+      // Calculate premium
+      calculatePremium();
+    }
+    
+    /**
+     * METHOD B: Populate from URL parameters (Bookmarklet)
+     * Data is passed via query string
+     */
+    function populateFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      
+      if (params.toString().length === 0) return;  // No params
+      
+      document.getElementById('bookingNumber').value = params.get('bookingNumber') || '';
+      document.getElementById('firstName').value = params.get('firstName') || '';
+      document.getElementById('lastName').value = params.get('lastName') || '';
+      document.getElementById('dob').value = params.get('dob') || '';
+      document.getElementById('sex').value = params.get('sex') || '';
+      document.getElementById('race').value = params.get('race') || '';
+      document.getElementById('address').value = params.get('address') || '';
+      document.getElementById('city').value = params.get('city') || '';
+      document.getElementById('state').value = params.get('state') || 'FL';
+      document.getElementById('zipcode').value = params.get('zipcode') || '';
+      document.getElementById('charges').value = params.get('charges') || '';
+      document.getElementById('bondAmount').value = params.get('bondAmount') || '';
+      document.getElementById('bondType').value = params.get('bondType') || '';
+      document.getElementById('courtDate').value = params.get('courtDate') || '';
+      document.getElementById('status').value = params.get('status') || '';
+      
+      // Calculate premium
+      calculatePremium();
+    }
+    
+    /**
+     * Auto-detect population method on page load
+     */
+    window.onload = function() {
+      // Check for URL parameters (Bookmarklet method)
+      if (window.location.search) {
+        populateFromURL();
+      }
+      
+      // Check for Apps Script data (Menu button method)
+      <?php if (isset($rowData)): ?>
+        populateFromAppsScript(<?= json_encode($rowData) ?>);
+      <?php endif; ?>
+      
+      // Auto-calculate premium when bond amount changes
+      document.getElementById('bondAmount').addEventListener('input', calculatePremium);
+    };
+    
+    // ========================================================================
+    // PREMIUM CALCULATION (Florida Law: max($100, bond * 10%))
+    // ========================================================================
+    
+    function calculatePremium() {
+      const bondAmountStr = document.getElementById('bondAmount').value;
+      const bondAmount = parseBondAmount(bondAmountStr);
+      
+      if (bondAmount > 0) {
+        const premium = Math.max(100, bondAmount * 0.10);
+        document.getElementById('premium').value = '$' + premium.toFixed(2);
+      } else {
+        document.getElementById('premium').value = '';
+      }
+    }
+    
+    function parseBondAmount(str) {
+      if (!str) return 0;
+      const cleaned = str.replace(/[$,]/g, '');
+      const amount = parseFloat(cleaned);
+      return isNaN(amount) ? 0 : amount;
+    }
+    
+    // ========================================================================
+    // FORM SUBMISSION
+    // ========================================================================
+    
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        bookingNumber: document.getElementById('bookingNumber').value,
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        dob: document.getElementById('dob').value,
+        sex: document.getElementById('sex').value,
+        race: document.getElementById('race').value,
+        address: document.getElementById('address').value,
+        city: document.getElementById('city').value,
+        state: document.getElementById('state').value,
+        zipcode: document.getElementById('zipcode').value,
+        arrestDate: document.getElementById('arrestDate').value,
+        bookingDate: document.getElementById('bookingDate').value,
+        agency: document.getElementById('agency').value,
+        courtLocation: document.getElementById('courtLocation').value,
+        charges: document.getElementById('charges').value,
+        bondAmount: document.getElementById('bondAmount').value,
+        bondType: document.getElementById('bondType').value,
+        premium: document.getElementById('premium').value,
+        courtDate: document.getElementById('courtDate').value,
+        status: document.getElementById('status').value,
+        caseNumber: document.getElementById('caseNumber').value,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Submit to Apps Script
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .saveBookingForm(formData);
+    });
+    
+    function onSuccess(result) {
+      alert('✅ Booking form submitted successfully!');
+      clearForm();
+    }
+    
+    function onFailure(error) {
+      alert('❌ Error submitting form: ' + error.message);
+    }
+    
+    function clearForm() {
+      document.getElementById('bookingForm').reset();
+      document.getElementById('premium').value = '';
+      document.getElementById('leadInfo').style.display = 'none';
+    }
+    
+    // ========================================================================
+    // UTILITIES
+    // ========================================================================
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      
+      // Handle MM/DD/YYYY format
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          const mm = parts[0].padStart(2, '0');
+          const dd = parts[1].padStart(2, '0');
+          const yyyy = parts[2];
+          return `${yyyy}-${mm}-${dd}`;
+        }
+      }
+      
+      // Handle YYYY-MM-DD format (already correct)
+      if (dateStr.includes('-')) {
+        return dateStr.split(' ')[0];  // Remove time if present
+      }
+      
+      return '';
+    }
+  </script>
+</body>
+</html>
