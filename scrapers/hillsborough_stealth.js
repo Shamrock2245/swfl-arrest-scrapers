@@ -3,7 +3,7 @@
 
 import { normalizeRecord34 } from '../normalizers/normalize34.js';
 import { upsertRecords34, logIngestion } from '../writers/sheets34.js';
-import { newBrowser, newPage, navigateWithRetry, randomDelay } from '../shared/browser.js';
+import { newBrowser, newPage, navigateWithRetry, randomDelay, humanScroll, humanType, humanClick, isCloudflareBlocked, waitForCloudflare } from '../shared/browser.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -50,29 +50,43 @@ export async function runHillsboroughSteal(bookingDate = null) {
     console.log(`📡 Navigating to: ${BASE_URL}`);
     await navigateWithRetry(page, BASE_URL, { timeout: 60000 });
     await randomDelay(3000, 1000);
+    
+    // Simulate human behavior
+    await humanScroll(page, 200);
+    await randomDelay(1000, 500);
+    
+    // Check for Cloudflare
+    if (await isCloudflareBlocked(page)) {
+      console.log('⚠️  Cloudflare detected, waiting for challenge to resolve...');
+      await waitForCloudflare(page, 30000);
+    }
 
     // 3) Fill out the form
     console.log('📝 Filling out arrest inquiry form...');
 
-    // Enter booking date
-    await page.type('input[placeholder="MM/DD/YYYY"]', bookingDate, { delay: 100 });
-    await randomDelay(500, 200);
+    // Enter booking date with human-like typing
+    const dateInput = await page.$('input[placeholder="MM/DD/YYYY"]');
+    if (!dateInput) {
+      throw new Error('No element found for selector: input[placeholder="MM/DD/YYYY"]');
+    }
+    await humanType(page, 'input[placeholder="MM/DD/YYYY"]', bookingDate);
+    await randomDelay(1000, 500);
 
-    // Check "Include Arrest Details"
+    // Check "Include Arrest Details" with human-like click
     const includeDetailsCheckbox = await page.$('input[type="checkbox"]');
     if (includeDetailsCheckbox) {
       const isChecked = await page.$eval('input[type="checkbox"]', el => el.checked);
       if (!isChecked) {
-        await includeDetailsCheckbox.click();
-        await randomDelay(300, 100);
+        await humanClick(page, 'input[type="checkbox"]');
+        await randomDelay(500, 300);
       }
     }
 
-    // Select "by Booking Date" radio button
+    // Select "by Booking Date" radio button with human-like click
     const bookingDateRadio = await page.$('input[type="radio"][value="bookingDate"]');
     if (bookingDateRadio) {
-      await bookingDateRadio.click();
-      await randomDelay(300, 100);
+      await humanClick(page, 'input[type="radio"][value="bookingDate"]');
+      await randomDelay(500, 300);
     }
 
     console.log('✅ Form filled out');

@@ -1,0 +1,44 @@
+================================================================================
+INSTRUCTIONS TO PUSH CHANGES FROM YOUR DESKTOP
+================================================================================
+
+The sandbox has made important fixes and created comprehensive documentation,
+but these changes need to be pushed to GitHub from your desktop.
+
+STEP 1: Open Terminal on your Mac
+================================================================================
+
+STEP 2: Navigate to the repository
+================================================================================
+cd ~/Desktop/swfl-arrest-scrapers
+# (or wherever you have the repo cloned)
+
+STEP 3: Check current status
+================================================================================
+git status
+
+# You should see: "Your branch is up to date with 'origin/main'"
+# This means your desktop doesn't have the sandbox changes yet
+
+STEP 4: Pull changes from the sandbox
+================================================================================
+# The sandbox has pushed 2 commits that need to be pulled:
+# 1. Previous commit (already on GitHub)
+# 2. New commit with workflow fixes and documentation (in sandbox only)
+
+# Since the sandbox can't push directly, we need to create a patch file
+# and apply it on your desktop.
+
+ALTERNATIVE: Easier Method - Just re-sync from GitHub after I provide the patch
+================================================================================
+
+Actually, the easiest way is:
+
+1. I'll create a patch file of all the changes
+2. You download the patch file from the sandbox
+3. You apply the patch on your desktop
+4. You push to GitHub
+
+Let me create that patch file for you...
+
+================================================================================

@@ -3,7 +3,7 @@
 
 import { normalizeRecord34 } from '../normalizers/normalize34.js';
 import { upsertRecords34, logIngestion } from '../writers/sheets34.js';
-import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha, isCloudflareBlocked } from '../shared/browser.js';
+import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha, isCloudflareBlocked, waitForCloudflare, humanScroll } from '../shared/browser.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -39,17 +39,17 @@ export async function runCharlotteStealth() {
     console.log(`📡 Navigating to ${LIST_URL}`);
     await navigateWithRetry(page, LIST_URL, { timeout: 45000 });
 
-    // Wait a bit for any dynamic content
-    await page.waitForTimeout(3000);
+    // Wait for page to load and check for Cloudflare
+    await randomDelay(3000, 1000);
+    
+    // Simulate human behavior - scroll the page
+    await humanScroll(page, 200);
+    await randomDelay(1000, 500);
 
-    // Check for blocking
+    // Check for blocking and wait if needed
     if (await isCloudflareBlocked(page)) {
-      console.log('⚠️  Cloudflare detected, waiting 10s for stealth plugin...');
-      await page.waitForTimeout(10000);
-      
-      if (await isCloudflareBlocked(page)) {
-        throw new Error('Blocked by Cloudflare after waiting');
-      }
+      console.log('⚠️  Cloudflare detected, waiting for challenge to resolve...');
+      await waitForCloudflare(page, 30000);
     }
     
     if (await hasCaptcha(page)) {
@@ -74,16 +74,25 @@ export async function runCharlotteStealth() {
       console.log(`🔍 [${i + 1}/${detailUrls.length}] Navigating to ${url}`);
 
       try {
-        // Random delay to avoid rate limiting
-        await randomDelay(800, 600);
+        // Longer random delay to appear more human-like
+        await randomDelay(3000, 2000);
 
         await navigateWithRetry(page, url, { timeout: 30000 });
 
-        // Check for blocking
+        // Check for blocking and wait if needed
         if (await isCloudflareBlocked(page)) {
-          console.warn('   ⚠️  Cloudflare detected, skipping...');
-          continue;
+          console.warn('   ⚠️  Cloudflare detected, waiting...');
+          try {
+            await waitForCloudflare(page, 20000);
+          } catch (err) {
+            console.warn('   ⚠️  Still blocked, skipping...');
+            continue;
+          }
         }
+        
+        // Simulate human behavior
+        await humanScroll(page, 150);
+        await randomDelay(500, 300);
 
         const rawPairs = await extractDetailPairs(page, url);
         const record = normalizeRecord34(rawPairs, 'CHARLOTTE', url);
