@@ -1,4 +1,8 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+// Apply stealth plugin to avoid detection
+puppeteer.use(StealthPlugin());
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -7,7 +11,7 @@ const USER_AGENTS = [
 ];
 
 /**
- * Create a new browser instance with anti-detection settings
+ * Create a new browser instance with anti-detection settings and stealth mode
  */
 export async function newBrowser() {
   const browser = await puppeteer.launch({
@@ -17,7 +21,9 @@ export async function newBrowser() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process'
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor'
     ],
     defaultViewport: {
       width: 1366,
@@ -48,10 +54,21 @@ export async function newPage(browser) {
     'Upgrade-Insecure-Requests': '1'
   });
 
-  // Remove webdriver flag
+  // Additional stealth measures (redundant with plugin but ensures coverage)
   await page.evaluateOnNewDocument(() => {
+    // Remove webdriver flag
     Object.defineProperty(navigator, 'webdriver', {
       get: () => false
+    });
+    
+    // Mock plugins
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [1, 2, 3, 4, 5]
+    });
+    
+    // Mock languages
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['en-US', 'en']
     });
   });
 
