@@ -22,13 +22,11 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Create service account key file
-        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > service-account-key.json
-      
       - name: Create .env file
         run: |
           echo "GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}" > .env
-          echo "GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./service-account-key.json" >> .env
       
       - name: Run all county scrapers
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: node jobs/runAll.js --parallel
