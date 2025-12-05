@@ -239,5 +239,55 @@
     "Status": "",
     "Lead_Score": "",
     "Lead_Status": ""
+  },
+  "qualificationRules": {
+    "minScore": 50,
+    "scoring": {
+      "bondAmount": [
+        {
+          "min": 5000,
+          "points": 40
+        },
+        {
+          "min": 2000,
+          "points": 30
+        },
+        {
+          "min": 1000,
+          "points": 20
+        },
+        {
+          "min": 500,
+          "points": 10
+        }
+      ],
+      "seriousCharges": {
+        "keywords": [
+          "dui",
+          "battery",
+          "assault",
+          "felony",
+          "drug",
+          "theft",
+          "domestic",
+          "violence"
+        ],
+        "points": 20
+      },
+      "recency": [
+        {
+          "daysAgo": 1,
+          "points": 30
+        },
+        {
+          "daysAgo": 3,
+          "points": 20
+        },
+        {
+          "daysAgo": 7,
+          "points": 10
+        }
+      ]
+    }
   }
 }

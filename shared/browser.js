@@ -29,7 +29,8 @@ const VIEWPORTS = [
  */
 export async function newBrowser() {
   const browser = await puppeteer.launch({
-    headless: 'new',
+    headless: true,
+    ignoreHTTPSErrors: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -42,7 +43,11 @@ export async function newBrowser() {
       '--start-maximized',
       '--disable-infobars',
       '--disable-notifications',
-      '--disable-popup-blocking'
+      '--disable-popup-blocking',
+      '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+      '--no-zygote',
+      '--single-process'
     ],
     ignoreHTTPSErrors: true,
     defaultViewport: null
@@ -56,7 +61,7 @@ export async function newBrowser() {
  */
 export async function newPage(browser) {
   const page = await browser.newPage();
-  
+
   // Random user agent
   const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
   await page.setUserAgent(userAgent);
@@ -86,8 +91,8 @@ export async function newPage(browser) {
     Object.defineProperty(navigator, 'webdriver', {
       get: () => false
     });
-    
-    // Mock plugins with realistic data
+
+    // Mock plugins
     Object.defineProperty(navigator, 'plugins', {
       get: () => [
         { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
@@ -95,7 +100,7 @@ export async function newPage(browser) {
         { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
       ]
     });
-    
+
     // Mock languages
     Object.defineProperty(navigator, 'languages', {
       get: () => ['en-US', 'en']
@@ -136,27 +141,27 @@ export async function navigateWithRetry(page, url, options = {}) {
 
   for (let attempt = 0; attempt < retryLimit; attempt++) {
     try {
-      await page.goto(url, { 
-        waitUntil, 
-        timeout 
+      await page.goto(url, {
+        waitUntil,
+        timeout
       });
-      
+
       // Wait for page to be fully loaded
       await randomDelay(2000, 1000);
-      
+
       // Check if blocked by Cloudflare
       const isBlocked = await isCloudflareBlocked(page);
       if (isBlocked) {
         console.log('⚠️  Cloudflare detected, waiting for challenge to resolve...');
         await sleep(10000); // Wait 10 seconds for Cloudflare challenge
-        
+
         // Check again
         const stillBlocked = await isCloudflareBlocked(page);
         if (stillBlocked) {
           throw new Error('Blocked by Cloudflare after waiting');
         }
       }
-      
+
       return true;
     } catch (error) {
       if (attempt < retryLimit - 1) {
@@ -185,7 +190,7 @@ export async function humanMouseMove(page, x, y) {
     const progress = i / steps;
     const currentX = currentPosition.x + (x - currentPosition.x) * progress;
     const currentY = currentPosition.y + (y - currentPosition.y) * progress;
-    
+
     await page.mouse.move(currentX, currentY);
     await sleep(10 + Math.random() * 20); // 10-30ms between steps
   }
@@ -232,7 +237,7 @@ export async function humanClick(page, selector) {
   if (box) {
     const x = box.x + box.width / 2 + (Math.random() - 0.5) * 10;
     const y = box.y + box.height / 2 + (Math.random() - 0.5) * 10;
-    
+
     await humanMouseMove(page, x, y);
     await randomDelay(200, 100);
     await page.mouse.click(x, y);
@@ -272,7 +277,7 @@ export async function extractAttribute(page, selector, attribute, defaultValue =
  */
 export async function extractAllText(page, selector) {
   try {
-    return await page.$$eval(selector, elements => 
+    return await page.$$eval(selector, elements =>
       elements.map(el => el.textContent?.trim()).filter(Boolean)
     );
   } catch (error) {
@@ -315,9 +320,9 @@ export async function hasCaptcha(page) {
   }
 
   const bodyText = await page.evaluate(() => document.body.textContent?.toLowerCase() || '');
-  return bodyText.includes('captcha') || 
-         bodyText.includes('verify you are human') ||
-         bodyText.includes('checking your browser');
+  return bodyText.includes('captcha') ||
+    bodyText.includes('verify you are human') ||
+    bodyText.includes('checking your browser');
 }
 
 /**
@@ -327,12 +332,12 @@ export async function isCloudflareBlocked(page) {
   try {
     const bodyText = await page.evaluate(() => document.body.textContent?.toLowerCase() || '');
     const title = await page.title();
-    
-    return bodyText.includes('just a moment') || 
-           bodyText.includes('cloudflare') ||
-           bodyText.includes('checking your browser') ||
-           bodyText.includes('enable javascript and cookies') ||
-           title.toLowerCase().includes('just a moment');
+
+    return bodyText.includes('just a moment') ||
+      bodyText.includes('cloudflare') ||
+      bodyText.includes('checking your browser') ||
+      bodyText.includes('enable javascript and cookies') ||
+      title.toLowerCase().includes('just a moment');
   } catch (error) {
     return false;
   }
@@ -343,17 +348,17 @@ export async function isCloudflareBlocked(page) {
  */
 export async function waitForCloudflare(page, maxWaitTime = 30000) {
   const startTime = Date.now();
-  
+
   while (Date.now() - startTime < maxWaitTime) {
     const isBlocked = await isCloudflareBlocked(page);
     if (!isBlocked) {
       console.log('✅ Cloudflare challenge passed');
       return true;
     }
-    
+
     console.log('⏳ Waiting for Cloudflare challenge to resolve...');
     await sleep(2000);
   }
-  
+
   throw new Error('Cloudflare challenge timeout');
 }
