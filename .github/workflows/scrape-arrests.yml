@@ -31,4 +31,4 @@ jobs:
           echo "GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./service-account-key.json" >> .env
       
       - name: Run all county scrapers
-        run: node run_all_counties.js
+        run: node jobs/runAll.js --parallel
