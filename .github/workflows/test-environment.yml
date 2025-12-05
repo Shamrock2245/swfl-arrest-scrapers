@@ -20,20 +20,15 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      - name: Install Chromium for Puppeteer
-        run: |
-          npx puppeteer browsers install chrome
+      - name: Create .env file
+        run: echo "GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}" > .env
       
-      - name: Run environment diagnostic
+      - name: Run environment test
         env:
-          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-          GOOGLE_SA_KEY_JSON: ${{ secrets.GOOGLE_SA_KEY_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: node test-environment.js
       
       - name: Show npm list
-        run: npm list --depth=0
-      
-      - name: Show Puppeteer browser path
         run: |
           echo "Checking for Chrome/Chromium..."
           npx puppeteer browsers list || true

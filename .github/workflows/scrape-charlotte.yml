@@ -23,15 +23,17 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Create .env file
+        run: echo "GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}" > .env
+      
       - name: Install Chromium for Puppeteer
         run: |
           npx puppeteer browsers install chrome
       
-      - name: Run Charlotte scraper
+      - name: Run scraper
         env:
-          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-          GOOGLE_SA_KEY_JSON: ${{ secrets.GOOGLE_SA_KEY_JSON }}
-        run: node scrapers/charlotte_stealth.js
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: node jobs/runScraper.js charlotte_stealth.js
       
       - name: Upload logs on failure
         if: failure()
