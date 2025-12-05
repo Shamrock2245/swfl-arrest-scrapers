@@ -17,13 +17,39 @@ let sheetsClient = null;
 async function getSheetsClient() {
   if (sheetsClient) return sheetsClient;
 
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
-  if (!keyPath) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY_PATH not set in environment');
+  let keyFile;
+
+  // 1. Try direct JSON content from environment (supports raw JSON or Base64)
+  // Check both variable names for compatibility
+  const envVar = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SA_KEY_JSON;
+
+  if (envVar) {
+    try {
+      const content = envVar.trim();
+      // If it doesn't start with '{', assume Base64
+      if (!content.startsWith('{')) {
+        const decoded = Buffer.from(content, 'base64').toString('utf8');
+        keyFile = JSON.parse(decoded);
+      } else {
+        keyFile = JSON.parse(content);
+      }
+    } catch (error) {
+      console.warn('⚠️ Warning: Failed to parse Google Service Account env var:', error.message);
+    }
   }
 
-  const keyFile = JSON.parse(readFileSync(keyPath, 'utf8'));
-  
+  // 2. Fallback to file path
+  if (!keyFile) {
+    const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+    if (!keyPath) {
+      // If neither is set, throw a clear error
+      throw new Error(
+        'Missing Google Credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON (env) or GOOGLE_SERVICE_ACCOUNT_KEY_PATH (file).'
+      );
+    }
+    keyFile = JSON.parse(readFileSync(keyPath, 'utf8'));
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: keyFile,
     scopes: [
@@ -34,7 +60,7 @@ async function getSheetsClient() {
 
   const authClient = await auth.getClient();
   sheetsClient = google.sheets({ version: 'v4', auth: authClient });
-  
+
   return sheetsClient;
 }
 
@@ -52,7 +78,7 @@ async function ensureSheet(sheetName) {
     });
 
     const sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
-    
+
     if (!sheet) {
       // Create sheet
       await sheets.spreadsheets.batchUpdate({
@@ -86,7 +112,7 @@ async function ensureSheet(sheetName) {
           values: [HEADER]
         }
       });
-      
+
       // Format header row (bold, colored)
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
@@ -122,7 +148,7 @@ async function ensureSheet(sheetName) {
           }]
         }
       });
-      
+
       console.log(`✅ Set headers for: ${sheetName}`);
     }
 
@@ -165,12 +191,12 @@ export async function upsertRecords(sheetName, records) {
   });
 
   const rows = existingData.data.values || [];
-  
+
   // Build index: booking_id+arrest_date -> row index
   const existingIndex = new Map();
   const bookingIdCol = HEADER.indexOf('booking_id');
   const arrestDateCol = HEADER.indexOf('arrest_date');
-  
+
   rows.forEach((row, idx) => {
     const bookingId = row[bookingIdCol] || '';
     const arrestDate = row[arrestDateCol] || '';
@@ -188,7 +214,7 @@ export async function upsertRecords(sheetName, records) {
   for (const record of records) {
     const key = `${record.booking_id}|${record.arrest_date}`;
     const row = recordToRow(record);
-    
+
     if (existingIndex.has(key)) {
       // Update existing
       const rowIndex = existingIndex.get(key);
@@ -228,7 +254,7 @@ export async function upsertRecords(sheetName, records) {
   }
 
   console.log(`✅ ${sheetName}: inserted ${inserted}, updated ${updated}`);
-  
+
   return { inserted, updated };
 }
 
@@ -239,7 +265,7 @@ export async function mirrorQualifiedToDashboard(records) {
   if (!records || records.length === 0) return;
 
   const qualified = records.filter(r => r.is_qualified === true || r.is_qualified === 'TRUE');
-  
+
   if (qualified.length === 0) {
     console.log('ℹ️  No qualified records to mirror');
     return;
