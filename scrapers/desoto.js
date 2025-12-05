@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha } from '../shared/browser.js';
 import { normalizeRecord } from '../normalizers/normalize.js';
 import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
@@ -47,7 +48,7 @@ export async function runDesoto() {
 
         const rawPairs = await extractDetailPairs(page);
         const record = normalizeRecord(rawPairs, 'DESOTO', url);
-        
+
         if (record.booking_id) {
           records.push(record);
           console.log(`   ✅ ${record.full_name_last_first} (${record.booking_id})`);
@@ -85,7 +86,7 @@ export async function runDesoto() {
 async function parseRoster(page) {
   try {
     await page.waitForSelector('table#gvInmates_DXMainTable, a', { timeout: 10000 });
-    const links = await page.$$eval('a[href*="inmate-details"]', elements => 
+    const links = await page.$$eval('a[href*="inmate-details"]', elements =>
       elements.map(el => el.href).filter(Boolean)
     );
     const uniqueUrls = [...new Set(links)];

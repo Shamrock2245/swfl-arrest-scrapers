@@ -1,8 +1,9 @@
-// counties/manatee.js (rewrite to HTTP+Cheerio instead of Playwright)
+// scrapers/manatee34.js
+// Manatee County scraper with 34-column schema output
 
-import cheerio from 'cheerio';
-import { normalizeRecord } from '../normalizers/normalize.js';
-import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
+import * as cheerio from 'cheerio';
+import { normalizeRecord34 } from '../normalizers/normalize34.js';
+import { upsertRecords34, logIngestion } from '../writers/sheets34.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -18,12 +19,12 @@ const LIST_URL = config.listUrl || 'https://manatee-sheriff.revize.com/bookings'
 const BASE_URL = config.baseUrl || 'https://manatee-sheriff.revize.com';
 
 /**
- * Main Manatee County scraper (HTML-first)
+ * Main Manatee County scraper (34-column output)
  */
-export async function runManatee() {
+export async function runManatee34() {
   const startTime = Date.now();
   console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Manatee County Scraper (HTML)');
+  console.log('🚦 Starting Manatee County Scraper (34-column)');
   console.log('═══════════════════════════════════════');
 
   try {
@@ -50,13 +51,13 @@ export async function runManatee() {
       try {
         const html = await fetchText(url);
         const rawPairs = extractDetailPairs(html, url);
-        const record = normalizeRecord(rawPairs, 'MANATEE', url);
+        const record = normalizeRecord34(rawPairs, 'MANATEE', url);
 
-        if (record.booking_id) {
+        if (record.Booking_Number) {
           records.push(record);
-          console.log(`   ✅ ${record.full_name_last_first} (${record.booking_id})`);
+          console.log(`   ✅ ${record.Full_Name} (${record.Booking_Number})`);
         } else {
-          console.log('   ⚠️  Missing booking_id after normalization, skipping');
+          console.log('   ⚠️  Missing Booking_Number after normalization, skipping');
         }
       } catch (err) {
         console.error(`   ⚠️  Error processing ${url}: ${err.message}`);
@@ -65,11 +66,10 @@ export async function runManatee() {
 
     console.log(`\n📊 Parsed ${records.length} valid records`);
 
-    // 4) Write to Sheets & dashboard
+    // 4) Write to Sheets
     if (records.length > 0) {
-      const result = await upsertRecords(config.sheetName, records);
+      const result = await upsertRecords34(config.sheetName, records);
       console.log(`✅ Inserted: ${result.inserted}, Updated: ${result.updated}`);
-      await mirrorQualifiedToDashboard(records);
     }
 
     await logIngestion('MANATEE', true, records.length, startTime);
@@ -138,7 +138,7 @@ function extractDetailUrls(html) {
 
 /**
  * Extract label/value pairs from a detail HTML page
- * to feed into normalizeRecord (same shape as before).
+ * to feed into normalizeRecord34
  */
 function extractDetailPairs(html, sourceUrl) {
   const $ = cheerio.load(html);
@@ -154,6 +154,18 @@ function extractDetailPairs(html, sourceUrl) {
     }
   });
 
+  // Also try dl/dt/dd structure
+  $('dl').each((_, dl) => {
+    $(dl).find('dt').each((idx, dt) => {
+      const label = $(dt).text().trim();
+      const dd = $(dt).next('dd');
+      if (dd.length) {
+        const value = dd.text().trim();
+        if (label && value) data[label] = value;
+      }
+    });
+  });
+
   // Mugshot: either explicit <img> or we can construct from booking id later
   let mug = $('img[src*="mug"], img[src*="photo"], img[src*="mugshots"]').attr('src');
   if (mug) {
@@ -164,15 +176,17 @@ function extractDetailPairs(html, sourceUrl) {
   }
 
   data['source_url'] = sourceUrl;
+  data['detail_url'] = sourceUrl;
+
   return data;
 }
 
-// Allow direct execution via `node counties/manatee.js`
+// Allow direct execution via `node scrapers/manatee34.js`
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runManatee().catch(err => {
+  runManatee34().catch(err => {
     console.error('Fatal error:', err);
     process.exit(1);
   });
 }
 
-export default runManatee;
+export default runManatee34;

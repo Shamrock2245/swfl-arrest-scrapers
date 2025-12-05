@@ -53,10 +53,10 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
   const mapped = mapFieldsWithAliases(rawPairs);
 
   // Apply mapped values
-  record.booking_id = cleanString(mapped.booking_id || '');
-  
+  record.booking_id = cleanString(mapped.Booking_Number || '');
+
   // Name parsing
-  const fullName = cleanString(mapped.full_name || '');
+  const fullName = cleanString(mapped.Full_Name || '');
   if (fullName) {
     const nameParts = parseFullName(fullName);
     record.full_name_last_first = nameParts.lastFirst;
@@ -64,39 +64,39 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
     record.last_name = nameParts.last;
   }
 
-  record.dob = normalizeDate(mapped.dob || '');
-  record.sex = normalizeSex(mapped.sex || '');
-  record.race = normalizeRace(mapped.race || '');
-  
+  record.dob = normalizeDate(mapped.DOB || '');
+  record.sex = normalizeSex(mapped.Sex || '');
+  record.race = normalizeRace(mapped.Race || '');
+
   // Dates and times
-  const arrestDatetime = parseDatetime(mapped.arrest_date || '');
+  const arrestDatetime = parseDatetime(mapped.Arrest_Date || '');
   record.arrest_date = arrestDatetime.date;
   record.arrest_time = arrestDatetime.time;
-  
-  const bookingDatetime = parseDatetime(mapped.booking_date || '');
+
+  const bookingDatetime = parseDatetime(mapped.Booking_Date || '');
   record.booking_date = bookingDatetime.date;
   record.booking_time = bookingDatetime.time;
 
-  record.agency = cleanString(mapped.agency || '');
+  record.agency = cleanString(mapped.Agency || '');
 
   // Address parsing
-  const address = cleanString(mapped.address || '');
+  const address = cleanString(mapped.Address || '');
   if (address) {
     const addressParts = parseAddress(address);
     record.address = addressParts.street;
-    record.city = mapped.city || addressParts.city;
-    record.state = mapped.state || addressParts.state || 'FL';
-    record.zipcode = mapped.zipcode || addressParts.zip;
+    record.city = mapped.City || addressParts.city;
+    record.state = mapped.State || addressParts.state || 'FL';
+    record.zipcode = mapped.Zipcode || addressParts.zip;
   } else {
-    record.city = cleanString(mapped.city || '');
-    record.state = cleanString(mapped.state || 'FL');
-    record.zipcode = cleanString(mapped.zipcode || '');
+    record.city = cleanString(mapped.City || '');
+    record.state = cleanString(mapped.State || 'FL');
+    record.zipcode = cleanString(mapped.Zipcode || '');
   }
 
   // Charges parsing
-  const chargesRaw = cleanString(mapped.charges || '');
+  const chargesRaw = cleanString(mapped.Charges || '');
   record.charges_raw = chargesRaw;
-  
+
   if (chargesRaw) {
     const charges = parseCharges(chargesRaw);
     if (charges.length > 0) {
@@ -112,15 +112,15 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
   }
 
   // Bond
-  const bondAmount = mapped.bond || '';
+  const bondAmount = mapped.Bond_Amount || '';
   record.total_bond = normalizeMoney(bondAmount);
   record.bond_paid = normalizeBondPaid(mapped.bond_paid || '');
 
-  record.court_date = normalizeDate(mapped.court_date || '');
-  record.case_number = cleanString(mapped.case_number || '');
+  record.court_date = normalizeDate(mapped.Court_Date || '');
+  record.case_number = cleanString(mapped.Case_Number || '');
 
   // Mugshot
-  const mugshotUrl = cleanString(mapped.mugshot || '');
+  const mugshotUrl = cleanString(mapped.Mugshot_URL || '');
   record.mugshot_url = mugshotUrl;
   if (mugshotUrl) {
     record.mugshot_image = `=IMAGE("${mugshotUrl}")`;
@@ -150,20 +150,21 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
  */
 function mapFieldsWithAliases(rawPairs) {
   const mapped = {};
-  
+
   for (const [rawKey, value] of Object.entries(rawPairs)) {
     const normalizedKey = rawKey.toLowerCase().trim();
-    
+
     // Find matching canonical field
     for (const [canonicalField, aliases] of Object.entries(schema.fieldAliases)) {
+      // console.log(`Checking ${normalizedKey} against ${canonicalField} aliases:`, aliases);
       if (aliases.some(alias => normalizedKey === alias.toLowerCase())) {
         // Special handling for combined fields
-        if (canonicalField === 'full_name') {
-          mapped.full_name = value;
-        } else if (canonicalField === 'charges') {
-          mapped.charges = value;
-        } else if (canonicalField === 'mugshot') {
-          mapped.mugshot = value;
+        if (canonicalField === 'Full_Name') {
+          mapped.Full_Name = value;
+        } else if (canonicalField === 'Charges') {
+          mapped.Charges = value;
+        } else if (canonicalField === 'Mugshot_URL') {
+          mapped.Mugshot_URL = value;
         } else {
           mapped[canonicalField] = value;
         }
@@ -171,7 +172,7 @@ function mapFieldsWithAliases(rawPairs) {
       }
     }
   }
-  
+
   return mapped;
 }
 
@@ -193,9 +194,9 @@ function isFieldMapped(rawKey) {
  */
 function parseFullName(fullName) {
   if (!fullName) return { first: '', last: '', lastFirst: '' };
-  
+
   const cleaned = fullName.trim();
-  
+
   // Format: "LAST, FIRST MIDDLE"
   if (cleaned.includes(',')) {
     const parts = cleaned.split(',').map(p => p.trim());
@@ -208,19 +209,19 @@ function parseFullName(fullName) {
       lastFirst: `${last}, ${firstMiddle}`
     };
   }
-  
+
   // Format: "FIRST MIDDLE LAST"
   const words = cleaned.split(/\s+/).filter(Boolean);
   if (words.length === 0) return { first: '', last: '', lastFirst: '' };
-  
+
   const last = toTitleCase(words[words.length - 1]);
   const first = words.length > 1 ? toTitleCase(words[0]) : '';
   const middle = words.length > 2 ? words.slice(1, -1).map(toTitleCase).join(' ') : '';
-  
-  const lastFirst = middle 
+
+  const lastFirst = middle
     ? `${last}, ${first} ${middle}`
     : `${last}, ${first}`;
-  
+
   return { first, last, lastFirst };
 }
 
@@ -229,9 +230,9 @@ function parseFullName(fullName) {
  */
 function parseAddress(addressStr) {
   if (!addressStr) return { street: '', city: '', state: '', zip: '' };
-  
+
   const str = addressStr.trim();
-  
+
   // Pattern: "123 Main St, City, ST 12345"
   const match1 = str.match(/^(.+?),\s*([^,]+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
   if (match1) {
@@ -242,7 +243,7 @@ function parseAddress(addressStr) {
       zip: match1[4]
     };
   }
-  
+
   // Pattern: "City, ST ZIP"
   const match2 = str.match(/^([^,]+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
   if (match2) {
@@ -253,7 +254,7 @@ function parseAddress(addressStr) {
       zip: match2[3]
     };
   }
-  
+
   // Pattern: "City, ST"
   const match3 = str.match(/^([^,]+?),\s*([A-Z]{2})$/i);
   if (match3) {
@@ -264,7 +265,7 @@ function parseAddress(addressStr) {
       zip: ''
     };
   }
-  
+
   // Default: treat as street
   return {
     street: str,
@@ -279,38 +280,38 @@ function parseAddress(addressStr) {
  */
 function parseCharges(chargesStr) {
   if (!chargesStr) return [];
-  
+
   const charges = [];
-  
+
   // Split by common delimiters
   const lines = chargesStr.split(/[|;]\s*/);
-  
+
   for (const line of lines.slice(0, 2)) { // Only take first 2 charges
     const cleaned = line.trim();
     if (!cleaned || cleaned.length < 4) continue;
-    
+
     // Try to extract statute (e.g., "Battery (784.03)")
     const statuteMatch = cleaned.match(/\(([0-9\.]+)\)/);
     const statute = statuteMatch ? statuteMatch[1] : '';
-    
+
     // Try to extract bond amount (e.g., "$1,500")
     const bondMatch = cleaned.match(/\$[\d,]+(?:\.\d{2})?/);
     const bond = bondMatch ? normalizeMoney(bondMatch[0]) : '';
-    
+
     // Clean description (remove statute and bond)
     let description = cleaned
       .replace(/\([0-9\.]+\)/g, '')
       .replace(/\$[\d,]+(?:\.\d{2})?/g, '')
       .replace(/\s+/g, ' ')
       .trim();
-    
+
     charges.push({
       description,
       statute,
       bond
     });
   }
-  
+
   return charges;
 }
 
@@ -320,7 +321,7 @@ function parseCharges(chargesStr) {
 function calculateQualificationScore(record) {
   let score = 0;
   const rules = schema.qualificationRules;
-  
+
   // Bond amount scoring
   const bondAmount = parseFloat(record.total_bond || '0');
   for (const rule of rules.scoring.bondAmount) {
@@ -329,7 +330,7 @@ function calculateQualificationScore(record) {
       break; // Only apply highest matching rule
     }
   }
-  
+
   // Serious charges scoring
   const chargesLower = (record.charges_raw || '').toLowerCase();
   for (const keyword of rules.scoring.seriousCharges.keywords) {
@@ -338,13 +339,13 @@ function calculateQualificationScore(record) {
       break; // Only count once
     }
   }
-  
+
   // Recency scoring
   if (record.arrest_date) {
     const arrestDate = new Date(record.arrest_date);
     const now = new Date();
     const daysAgo = Math.floor((now - arrestDate) / (1000 * 60 * 60 * 24));
-    
+
     for (const rule of rules.scoring.recency) {
       if (daysAgo <= rule.daysAgo) {
         score += rule.points;
@@ -352,7 +353,7 @@ function calculateQualificationScore(record) {
       }
     }
   }
-  
+
   return {
     score,
     qualified: score >= rules.minScore
@@ -375,7 +376,7 @@ function normalizeDate(dateStr) {
   if (!dateStr) return '';
   try {
     let date;
-    
+
     // Handle MM/DD/YYYY format (common in US arrest records)
     const mmddyyyyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (mmddyyyyMatch) {
@@ -385,7 +386,7 @@ function normalizeDate(dateStr) {
       // Try standard Date parsing
       date = new Date(dateStr);
     }
-    
+
     if (isNaN(date.getTime())) return '';
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
   } catch (error) {
@@ -397,7 +398,7 @@ function parseDatetime(datetimeStr) {
   if (!datetimeStr) return { date: '', time: '' };
   try {
     let dt;
-    
+
     // Handle MM/DD/YYYY HH:MM:SS format (e.g., "10/24/2024 07:13:34 EDT")
     const mmddyyyyTimeMatch = datetimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
     if (mmddyyyyTimeMatch) {
@@ -415,9 +416,9 @@ function parseDatetime(datetimeStr) {
         dt = new Date(datetimeStr);
       }
     }
-    
+
     if (isNaN(dt.getTime())) return { date: '', time: '' };
-    
+
     return {
       date: dt.toISOString().split('T')[0],
       time: dt.toTimeString().split(' ')[0] // HH:mm:ss
@@ -437,7 +438,7 @@ function normalizeMoney(moneyStr) {
 function normalizeBondPaid(bondPaidStr) {
   if (!bondPaidStr) return '';
   const str = String(bondPaidStr).toLowerCase().trim();
-  
+
   if (str.includes('yes') || str.includes('paid') || str.includes('posted') || str.includes('released')) {
     return 'TRUE';
   }
@@ -458,7 +459,7 @@ function normalizeSex(sexStr) {
 function normalizeRace(raceStr) {
   if (!raceStr) return '';
   const str = String(raceStr).toUpperCase().trim();
-  
+
   const raceMap = {
     'W': 'White',
     'B': 'Black',
@@ -471,7 +472,7 @@ function normalizeRace(raceStr) {
     'ASIAN': 'Asian',
     'NATIVE': 'Native American'
   };
-  
+
   return raceMap[str] || str;
 }
 
