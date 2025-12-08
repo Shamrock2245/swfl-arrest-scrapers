@@ -91,13 +91,13 @@ export async function runCharlotte() {
       console.log('⚠️  Cloudflare protection detected - waiting up to 15s for stealth mode to resolve...');
       
       // Wait longer for the stealth plugin to resolve Cloudflare (15s total wait)
-      await page.waitForTimeout(10000); 
+      await new Promise(resolve => setTimeout(resolve, 10000)); 
       
       if (await isCloudflareBlocked(page)) {
         console.log('⚠️  Cloudflare protection persists after long wait. Retrying navigation...');
         // Try navigating again with the same stealth page
         await navigateWithRetry(page, config.searchUrl); 
-        await page.waitForTimeout(5000);
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         if (await isCloudflareBlocked(page)) {
           throw new Error('Cloudflare blocked - Cannot bypass stealthily, stopping run.');

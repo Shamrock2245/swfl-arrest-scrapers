@@ -1,6 +1,7 @@
 import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { normalizeRecord } from '../normalizers/normalize.js';
+import { upsertRecords, mirrorQualifiedToDashboard, logIngestion } from '../writers/sheets.js';
 import 'dotenv/config';
 import { newBrowser, newPage, navigateWithRetry, randomDelay, hasCaptcha } from '../shared/browser.js';
 import { readFileSync } from 'fs';
@@ -34,7 +35,7 @@ async function scrapeHendry() {
       timeout: 60000
     });
 
-    await page.waitForTimeout(3000);
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Find all inmate detail links
     const inmateLinks = await page.evaluate(() => {
@@ -65,7 +66,7 @@ async function scrapeHendry() {
           timeout: 60000
         });
 
-        await page.waitForTimeout(2000);
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const rawData = await page.evaluate(() => {
           const data = {};
