@@ -26,7 +26,7 @@ async function scrapeHendry() {
       timeout: 60000
     });
     
-    await page.waitForTimeout(3000);
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Find all inmate detail links
     const inmateLinks = await page.evaluate(() => {
@@ -54,7 +54,7 @@ async function scrapeHendry() {
           timeout: 60000
         });
         
-        await page.waitForTimeout(2000);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         const rawData = await page.evaluate(() => {
           const data = {};
