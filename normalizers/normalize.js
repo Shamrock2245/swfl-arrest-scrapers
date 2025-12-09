@@ -57,11 +57,23 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
 
   // Name parsing
   const fullName = cleanString(mapped.Full_Name || '');
+  const firstName = cleanString(mapped.First_Name || '');
+  const lastName = cleanString(mapped.Last_Name || '');
+  
   if (fullName) {
     const nameParts = parseFullName(fullName);
     record.full_name_last_first = nameParts.lastFirst;
-    record.first_name = nameParts.first;
-    record.last_name = nameParts.last;
+    record.first_name = firstName || nameParts.first;
+    record.last_name = lastName || nameParts.last;
+  } else if (firstName && lastName) {
+    // Build from separate fields
+    record.first_name = toTitleCase(firstName);
+    record.last_name = toTitleCase(lastName);
+    record.full_name_last_first = `${record.last_name}, ${record.first_name}`;
+  } else if (firstName) {
+    record.first_name = toTitleCase(firstName);
+  } else if (lastName) {
+    record.last_name = toTitleCase(lastName);
   }
 
   record.dob = normalizeDate(mapped.DOB || '');
@@ -76,6 +88,15 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
   const bookingDatetime = parseDatetime(mapped.Booking_Date || '');
   record.booking_date = bookingDatetime.date;
   record.booking_time = bookingDatetime.time;
+  
+  // Infer booking date from arrest date if missing
+  if (!record.booking_date && record.arrest_date) {
+    record.booking_date = record.arrest_date;
+  }
+  // Infer arrest date from booking date if missing
+  if (!record.arrest_date && record.booking_date) {
+    record.arrest_date = record.booking_date;
+  }
 
   record.agency = cleanString(mapped.Agency || '');
 
@@ -153,22 +174,33 @@ function mapFieldsWithAliases(rawPairs) {
 
   for (const [rawKey, value] of Object.entries(rawPairs)) {
     const normalizedKey = rawKey.toLowerCase().trim();
+    let matched = false;
 
-    // Find matching canonical field
+    // Exact match first
     for (const [canonicalField, aliases] of Object.entries(schema.fieldAliases)) {
-      // console.log(`Checking ${normalizedKey} against ${canonicalField} aliases:`, aliases);
       if (aliases.some(alias => normalizedKey === alias.toLowerCase())) {
-        // Special handling for combined fields
-        if (canonicalField === 'Full_Name') {
-          mapped.Full_Name = value;
-        } else if (canonicalField === 'Charges') {
-          mapped.Charges = value;
-        } else if (canonicalField === 'Mugshot_URL') {
-          mapped.Mugshot_URL = value;
-        } else {
-          mapped[canonicalField] = value;
-        }
+        mapped[canonicalField] = value;
+        matched = true;
         break;
+      }
+    }
+
+    // Fuzzy match if no exact match (handles typos, extra spaces, etc.)
+    if (!matched) {
+      for (const [canonicalField, aliases] of Object.entries(schema.fieldAliases)) {
+        for (const alias of aliases) {
+          const aliasLower = alias.toLowerCase();
+          // Check if normalized key contains the alias or vice versa
+          if (normalizedKey.includes(aliasLower) || aliasLower.includes(normalizedKey)) {
+            // Ensure it's a meaningful match (not too short)
+            if (normalizedKey.length >= 3 && aliasLower.length >= 3) {
+              mapped[canonicalField] = value;
+              matched = true;
+              break;
+            }
+          }
+        }
+        if (matched) break;
       }
     }
   }
@@ -283,33 +315,56 @@ function parseCharges(chargesStr) {
 
   const charges = [];
 
-  // Split by common delimiters
-  const lines = chargesStr.split(/[|;]\s*/);
+  // Split by common delimiters (|, ;, newlines, multiple spaces, or numbered lists)
+  let lines = chargesStr.split(/[|;\n]+|\d+\.\s+/);
+  
+  // If no delimiters found, try splitting by double spaces or "and"
+  if (lines.length === 1) {
+    lines = chargesStr.split(/\s{2,}|\s+and\s+/i);
+  }
 
   for (const line of lines.slice(0, 2)) { // Only take first 2 charges
     const cleaned = line.trim();
     if (!cleaned || cleaned.length < 4) continue;
 
-    // Try to extract statute (e.g., "Battery (784.03)")
-    const statuteMatch = cleaned.match(/\(([0-9\.]+)\)/);
-    const statute = statuteMatch ? statuteMatch[1] : '';
+    // Try to extract statute (various formats)
+    // Format 1: "Battery (784.03)" or "Battery (F.S. 784.03)"
+    // Format 2: "784.03 Battery" or "F.S. 784.03 Battery"
+    let statute = '';
+    let description = cleaned;
+    
+    const statuteMatch1 = cleaned.match(/\((?:F\.?S\.?\s*)?([0-9\.]+)\)/);
+    if (statuteMatch1) {
+      statute = statuteMatch1[1];
+      description = description.replace(statuteMatch1[0], '');
+    } else {
+      const statuteMatch2 = cleaned.match(/^(?:F\.?S\.?\s*)?([0-9\.]+)\s+/);
+      if (statuteMatch2) {
+        statute = statuteMatch2[1];
+        description = description.replace(statuteMatch2[0], '');
+      }
+    }
 
-    // Try to extract bond amount (e.g., "$1,500")
-    const bondMatch = cleaned.match(/\$[\d,]+(?:\.\d{2})?/);
+    // Try to extract bond amount (e.g., "$1,500", "Bond: $1500")
+    const bondMatch = cleaned.match(/(?:bond[:\s]*)?\$[\d,]+(?:\.\d{2})?/i);
     const bond = bondMatch ? normalizeMoney(bondMatch[0]) : '';
+    if (bondMatch) {
+      description = description.replace(bondMatch[0], '');
+    }
 
-    // Clean description (remove statute and bond)
-    let description = cleaned
-      .replace(/\([0-9\.]+\)/g, '')
-      .replace(/\$[\d,]+(?:\.\d{2})?/g, '')
+    // Clean description
+    description = description
       .replace(/\s+/g, ' ')
+      .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
       .trim();
 
-    charges.push({
-      description,
-      statute,
-      bond
-    });
+    if (description) {
+      charges.push({
+        description,
+        statute,
+        bond
+      });
+    }
   }
 
   return charges;
@@ -430,7 +485,21 @@ function parseDatetime(datetimeStr) {
 
 function normalizeMoney(moneyStr) {
   if (!moneyStr) return '';
-  const cleaned = String(moneyStr).replace(/[$,]/g, '').trim();
+  const str = String(moneyStr).toLowerCase().trim();
+  
+  // Handle special bond cases
+  if (str.includes('no bond') || str.includes('no bail') || str.includes('held without')) {
+    return 'NO BOND';
+  }
+  if (str.includes('hold') || str.includes('detainer')) {
+    return 'HOLD';
+  }
+  if (str.includes('released') || str.includes('ror') || str.includes('recognizance')) {
+    return '0.00';
+  }
+  
+  // Extract numeric value
+  const cleaned = str.replace(/[$,]/g, '').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? '' : num.toFixed(2);
 }
