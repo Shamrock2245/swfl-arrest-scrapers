@@ -160,10 +160,49 @@ async function ensureSheet(sheetName) {
 
 /**
  * Convert record object to row array matching HEADER order
+ * Maps normalized field names to schema column names
  */
 function recordToRow(record) {
+  // Field name mapping: normalized -> schema
+  const fieldMap = {
+    'Booking_Number': record.booking_id || record.Booking_Number,
+    'Full_Name': record.full_name_last_first || record.Full_Name,
+    'First_Name': record.first_name || record.First_Name,
+    'Last_Name': record.last_name || record.Last_Name,
+    'DOB': record.dob || record.DOB,
+    'Sex': record.sex || record.Sex,
+    'Race': record.race || record.Race,
+    'Arrest_Date': record.arrest_date || record.Arrest_Date,
+    'Arrest_Time': record.arrest_time || record.Arrest_Time,
+    'Booking_Date': record.booking_date || record.Booking_Date,
+    'Booking_Time': record.booking_time || record.Booking_Time,
+    'Agency': record.agency || record.Agency,
+    'Address': record.address || record.Address,
+    'City': record.city || record.City,
+    'State': record.state || record.State,
+    'Zipcode': record.zipcode || record.Zipcode,
+    'Charges': record.charges_raw || record.Charges,
+    'Charge_1': record.charge_1 || record.Charge_1,
+    'Charge_1_Statute': record.charge_1_statute || record.Charge_1_Statute,
+    'Charge_1_Bond': record.charge_1_bond || record.Charge_1_Bond,
+    'Charge_2': record.charge_2 || record.Charge_2,
+    'Charge_2_Statute': record.charge_2_statute || record.Charge_2_Statute,
+    'Charge_2_Bond': record.charge_2_bond || record.Charge_2_Bond,
+    'Bond_Amount': record.total_bond || record.Bond_Amount,
+    'Bond_Type': record.bond_paid || record.Bond_Type,
+    'Status': record.status || record.Status,
+    'Court_Date': record.court_date || record.Court_Date,
+    'Case_Number': record.case_number || record.Case_Number,
+    'Mugshot_URL': record.mugshot_url || record.Mugshot_URL,
+    'County': record.county || record.County,
+    'Court_Location': record.court_location || record.Court_Location,
+    'Detail_URL': record.source_url || record.Detail_URL,
+    'Lead_Score': record.qualified_score || record.Lead_Score || '',
+    'Lead_Status': record.is_qualified ? 'Qualified' : (record.Lead_Status || '')
+  };
+
   return HEADER.map(col => {
-    const value = record[col];
+    const value = fieldMap[col];
     if (value === null || value === undefined) return '';
     return value;
   });
