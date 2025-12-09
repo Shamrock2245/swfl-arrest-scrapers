@@ -47,33 +47,48 @@ def scrape_charlotte(days_back=21, max_pages=10):
     try:
         # Configure DrissionPage
         co = ChromiumOptions()
-        co.set_browser_path('/usr/bin/chromium-browser')
-        co.headless(True)
+        # Try to use system Chrome/Chromium
+        # co.set_browser_path('/usr/bin/chromium-browser')  # Uncomment for Linux
+        
+        # Run in headful mode for better Cloudflare bypass
+        co.headless(False)  # Changed to False - headful mode works better
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--disable-gpu')
+        # co.set_argument('--disable-gpu')  # Removed - can interfere with CF
         co.set_argument('--ignore-certificate-errors')
+        co.set_argument('--disable-blink-features=AutomationControlled')
+        co.set_user_agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
         page = ChromiumPage(co)
         
-        # Custom CF Handler
+        # Custom CF Handler - Improved
         def handle_cloudflare(page):
             sys.stderr.write("Checking for Cloudflare...\n")
-            # Wait loop
-            for _ in range(10):
-                title = page.title.lower()
-                sys.stderr.write(f"Page Title: {page.title}\n")
-                if "just a moment" not in title and "security challenge" not in title:
-                    sys.stderr.write("Cloudflare cleared (title check).\n")
-                    return True
+            # Wait loop - increased to 30 seconds
+            for i in range(15):
+                time.sleep(2)  # Wait first
                 
-                # Check for specifics
-                if page.ele('@id=turnstile-wrapper', timeout=1):
-                    sys.stderr.write("Waiting for Turnstile...\n")
-                    time.sleep(2)
+                title = page.title.lower()
+                sys.stderr.write(f"[{i+1}/15] Page Title: {page.title}\n")
+                
+                # Check if we're past Cloudflare
+                if "just a moment" not in title and "security challenge" not in title and "attention required" not in title:
+                    # Additional check - look for actual content
+                    if page.ele('tag:table', timeout=2) or page.ele('tag:a', timeout=2):
+                        sys.stderr.write("✅ Cloudflare cleared - content found!\n")
+                        return True
+                    else:
+                        sys.stderr.write("⏳ Title OK but waiting for content...\n")
+                        continue
+                
+                # Check for Turnstile
+                if page.ele('@id=turnstile-wrapper', timeout=1) or page.ele('css:.cf-turnstile', timeout=1):
+                    sys.stderr.write("⏳ Waiting for Turnstile challenge...\n")
                     continue
-                    
-                time.sleep(2)
+                
+                sys.stderr.write(f"⏳ Still on Cloudflare page, waiting...\n")
+            
+            sys.stderr.write("⚠️  Cloudflare may still be blocking\n")
             return False
 
         # Base URL
@@ -93,11 +108,19 @@ def scrape_charlotte(days_back=21, max_pages=10):
                 url = f'{base_url}/bookings?page={current_page}'
             
             page.get(url)
-            handle_cloudflare(page)
-
+            if not handle_cloudflare(page):
+                sys.stderr.write("⚠️  Cloudflare bypass may have failed, trying anyway...\n")
+            
+            # Give extra time for page to fully load
+            time.sleep(3)
+            
             # Wait for table or links
             if not page.wait.ele_displayed('tag:table', timeout=30):
-                sys.stderr.write("Table not found after wait.\n")
+                sys.stderr.write("⚠️  Table not found after wait - page may not have loaded\n")
+                # Save HTML for debugging
+                with open('charlotte_list_page_fail.html', 'w', encoding='utf-8') as f:
+                    f.write(page.html)
+                sys.stderr.write("💾 Saved HTML to charlotte_list_page_fail.html for debugging\n")
                 break
             
             # Extract detail URLs from current page
