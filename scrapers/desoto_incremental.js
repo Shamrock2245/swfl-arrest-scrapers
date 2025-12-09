@@ -176,24 +176,89 @@ async function parseRosterWithBookingNumbers(page) {
 
 /**
  * Extract detail pairs from inmate detail page
+ * Fixed to properly parse DeSoto's specific page structure
  */
 async function extractDetailPairs(page) {
   try {
-    await page.waitForSelector('table, .detainee-detail', { timeout: 5000 });
+    await page.waitForSelector('#tblDetails, table', { timeout: 5000 });
+    
     return await page.evaluate(() => {
       const data = {};
-      document.querySelectorAll('table tr').forEach(row => {
+      
+      // Extract name from header
+      const nameHeader = document.querySelector('#HeaderText, h3.header-text span');
+      if (nameHeader) {
+        data['Full Name'] = nameHeader.textContent.trim();
+      }
+      
+      // Extract personal info from the detail table
+      const detailTable = document.querySelector('#tblDetails');
+      if (detailTable) {
+        const rows = detailTable.querySelectorAll('tr');
+        rows.forEach(row => {
+          const cells = row.querySelectorAll('td');
+          if (cells.length === 2) {
+            const label = cells[0].textContent.trim();
+            const value = cells[1].textContent.trim();
+            // Skip UI text and empty values
+            if (label && value && 
+                label !== 'Drag a column header here to group by that column' &&
+                !label.includes('Change Offset')) {
+              data[label] = value;
+            }
+          }
+        });
+      }
+      
+      // Extract charges from the ChargeGrid table
+      const chargeRows = document.querySelectorAll('[id*="ChargeGrid_DXDataRow"]');
+      const charges = [];
+      
+      chargeRows.forEach(row => {
         const cells = row.querySelectorAll('td');
-        if (cells.length >= 2) {
-          data[cells[0].textContent.trim()] = cells[1].textContent.trim();
+        if (cells.length > 0) {
+          const chargeText = cells[0]?.textContent?.trim();
+          const offenseDate = cells[1]?.textContent?.trim();
+          const bond = cells[5]?.textContent?.trim();
+          const bondType = cells[6]?.textContent?.trim();
+          
+          if (chargeText && chargeText !== 'Drag a column header here to group by that column') {
+            charges.push({
+              charge: chargeText,
+              offense_date: offenseDate,
+              bond: bond,
+              bond_type: bondType
+            });
+          }
         }
       });
-      const img = document.querySelector('img[src*="photo"], img[src*="mugshot"]');
-      if (img) data['mugshot'] = img.src;
+      
+      if (charges.length > 0) {
+        data['Charges'] = charges.map(c => c.charge).join(' | ');
+        data['Bond Amount'] = charges[0].bond;
+        data['Bond Type'] = charges[0].bond_type;
+        data['Offense Date'] = charges[0].offense_date;
+      }
+      
+      // Extract mugshot
+      const mugshot = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[id*="img"]');
+      if (mugshot && mugshot.src && !mugshot.src.includes('data:image')) {
+        data['Mugshot'] = mugshot.src;
+      }
+      
       data['source_url'] = window.location.href;
+      
+      // Extract booking ID from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const bidParam = urlParams.get('bid');
+      if (bidParam) {
+        data['Booking Number'] = decodeURIComponent(bidParam);
+      }
+      
       return data;
     });
   } catch (error) {
+    console.error('⚠️  Error extracting:', error.message);
     return { source_url: page.url() };
   }
 }

@@ -97,7 +97,8 @@
       "arrest date",
       "arrested",
       "date arrested",
-      "arrest"
+      "arrest",
+      "offense date"
     ],
     "Arrest_Time": [
       "arrest time",
@@ -110,18 +111,22 @@
       "booked",
       "date booked",
       "intake date",
-      "booking_date"
+      "booking_date",
+      "admit date"
     ],
     "Booking_Time": [
       "booking time",
       "time booked",
-      "intake time"
+      "intake time",
+      "admit time"
     ],
     "Agency": [
       "arresting agency",
       "agency",
       "arrested by",
-      "law enforcement"
+      "law enforcement",
+      "confining agency",
+      "charging agency"
     ],
     "Address": [
       "address",
