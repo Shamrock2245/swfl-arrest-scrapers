@@ -112,16 +112,20 @@ def scrape_charlotte(days_back=21, max_pages=10):
                 sys.stderr.write("⚠️  Cloudflare bypass may have failed, trying anyway...\n")
             
             # Give extra time for page to fully load
-            time.sleep(3)
+            time.sleep(5)  # Increased wait time
             
-            # Wait for table or links
-            if not page.wait.ele_displayed('tag:table', timeout=30):
-                sys.stderr.write("⚠️  Table not found after wait - page may not have loaded\n")
+            # Check if we have content - look for booking links instead of table
+            # Booking links have pattern: /bookings/{NUMBER}
+            test_links = page.eles('css:a[href*="/bookings/"]')
+            if len(test_links) == 0:
+                sys.stderr.write("⚠️  No booking links found - page may not have loaded\n")
                 # Save HTML for debugging
                 with open('charlotte_list_page_fail.html', 'w', encoding='utf-8') as f:
                     f.write(page.html)
                 sys.stderr.write("💾 Saved HTML to charlotte_list_page_fail.html for debugging\n")
                 break
+            else:
+                sys.stderr.write(f"✅ Found {len(test_links)} booking links on page\n")
             
             # Extract detail URLs from current page
             links = page.eles('tag:a')
