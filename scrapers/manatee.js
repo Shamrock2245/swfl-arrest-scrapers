@@ -1,9 +1,12 @@
-// scrapers/manatee34.js
-// Manatee County scraper with 34-column schema output
+// scrapers/manatee.js
+// Manatee County scraper with 34-column schema output (Puppeteer version)
 
-import * as cheerio from 'cheerio';
+import puppeteerExtra from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import 'dotenv/config';
 import { normalizeRecord34 } from '../normalizers/normalize34.js';
 import { upsertRecords34, logIngestion } from '../writers/sheets34.js';
+import { newBrowser, newPage, navigateWithRetry, randomDelay } from '../shared/browser.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -15,42 +18,109 @@ const config = JSON.parse(
   readFileSync(join(__dirname, '../config/counties.json'), 'utf8')
 ).manatee;
 
+puppeteerExtra.use(StealthPlugin());
+
 const LIST_URL = config.listUrl || 'https://manatee-sheriff.revize.com/bookings';
 const BASE_URL = config.baseUrl || 'https://manatee-sheriff.revize.com';
 
 /**
  * Main Manatee County scraper (34-column output)
  */
-export async function runManatee34() {
+export async function runManatee() {
   const startTime = Date.now();
   console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Manatee County Scraper (34-column)');
+  console.log('🚦 Starting Manatee County Scraper (Puppeteer)');
   console.log('═══════════════════════════════════════');
 
+  let browser;
   try {
-    // 1) Fetch main bookings page
-    console.log(`📡 GET ${LIST_URL}`);
-    const listHtml = await fetchText(LIST_URL);
+    browser = await newBrowser();
+    const page = await newPage(browser);
 
-    // 2) Extract detail URLs from the list HTML
-    const detailUrls = extractDetailUrls(listHtml);
+    // 1) Fetch main bookings page
+    console.log(`📡 Navigating to ${LIST_URL}`);
+    await navigateWithRetry(page, LIST_URL);
+    await randomDelay(page, 2000, 4000);
+
+    // 2) Extract detail URLs
+    const detailUrls = await page.evaluate((baseUrl) => {
+      const links = Array.from(document.querySelectorAll('a[href*="/bookings/"]'));
+      const urls = new Set();
+
+      links.forEach(link => {
+        let href = link.getAttribute('href');
+        if (!href) return;
+
+        // Ignore links that are just /bookings (no ID)
+        if (/\/bookings\/?$/i.test(href)) return;
+
+        if (!href.startsWith('http')) {
+          href = baseUrl.replace(/\/$/, '') + (href.startsWith('/') ? href : `/${href}`);
+        }
+        urls.add(href);
+      });
+
+      return [...urls].slice(0, 50); // safety cap
+    }, BASE_URL);
+
     console.log(`📋 Found ${detailUrls.length} booking detail URLs`);
 
     if (detailUrls.length === 0) {
       await logIngestion('MANATEE', true, 0, startTime);
       console.log('ℹ️  No bookings found');
+      await browser.close();
       return { success: true, count: 0 };
     }
 
-    // 3) Fetch & parse each detail page
+    // 3) Visit each detail page
     const records = [];
     for (let i = 0; i < detailUrls.length; i++) {
       const url = detailUrls[i];
-      console.log(`🔍 [${i + 1}/${detailUrls.length}] GET ${url}`);
+      console.log(`🔍 [${i + 1}/${detailUrls.length}] Visiting ${url}`);
 
       try {
-        const html = await fetchText(url);
-        const rawPairs = extractDetailPairs(html, url);
+        await navigateWithRetry(page, url);
+        await randomDelay(page, 1000, 2500);
+
+        const rawPairs = await page.evaluate((sourceUrl) => {
+          const data = {};
+
+          // Generic table-based layout
+          const rows = document.querySelectorAll('table tr');
+          rows.forEach(row => {
+            const tds = row.querySelectorAll('td');
+            if (tds.length >= 2) {
+              const label = tds[0].innerText.trim();
+              const value = tds[1].innerText.trim();
+              if (label && value) data[label] = value;
+            }
+          });
+
+          // DL structure
+          const dls = document.querySelectorAll('dl');
+          dls.forEach(dl => {
+            const dts = dl.querySelectorAll('dt');
+            dts.forEach(dt => {
+              const label = dt.innerText.trim();
+              let next = dt.nextElementSibling;
+              if (next && next.tagName === 'DD') {
+                const value = next.innerText.trim();
+                if (label && value) data[label] = value;
+              }
+            });
+          });
+
+          // Mugshot
+          const img = document.querySelector('img[src*="mug"], img[src*="photo"], img[src*="mugshots"]');
+          if (img) {
+            data['mugshot'] = img.src;
+          }
+
+          data['source_url'] = sourceUrl;
+          data['detail_url'] = sourceUrl;
+          return data;
+        }, url);
+
         const record = normalizeRecord34(rawPairs, 'MANATEE', url);
 
         if (record.Booking_Number) {
@@ -59,6 +129,7 @@ export async function runManatee34() {
         } else {
           console.log('   ⚠️  Missing Booking_Number after normalization, skipping');
         }
+
       } catch (err) {
         console.error(`   ⚠️  Error processing ${url}: ${err.message}`);
       }
@@ -79,114 +150,22 @@ export async function runManatee34() {
     console.log('═══════════════════════════════════════\n');
 
     return { success: true, count: records.length };
+
   } catch (error) {
     console.error('❌ Fatal Manatee error:', error.message);
     await logIngestion('MANATEE', false, 0, startTime, error.message);
     throw error;
+  } finally {
+    if (browser) await browser.close();
   }
 }
 
-/**
- * Simple helper for GET text with basic retry
- */
-async function fetchText(url, retries = 3) {
-  let lastErr;
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (compatible; ShamrockScraper/1.0; +https://shamrockbailbonds.biz)',
-          'Accept': 'text/html,application/xhtml+xml'
-        },
-        redirect: 'follow'
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (err) {
-      lastErr = err;
-      console.warn(`   ⚠️  Fetch failed (${attempt}/${retries}) for ${url}: ${err.message}`);
-      await new Promise(r => setTimeout(r, 1000 * attempt));
-    }
-  }
-  throw lastErr;
-}
-
-/**
- * Extract all detail URLs from the bookings list HTML
- * Manatee pattern: /bookings/BOOKING_ID
- */
-function extractDetailUrls(html) {
-  const $ = cheerio.load(html);
-  const urls = new Set();
-
-  $('a[href*="/bookings/"]').each((_, el) => {
-    let href = $(el).attr('href');
-    if (!href) return;
-
-    // Ignore links that are just /bookings (no ID)
-    if (/\/bookings\/?$/i.test(href)) return;
-
-    if (!href.startsWith('http')) {
-      href = BASE_URL.replace(/\/$/, '') + (href.startsWith('/') ? href : `/${href}`);
-    }
-    urls.add(href);
-  });
-
-  return [...urls].slice(0, 50); // safety cap
-}
-
-/**
- * Extract label/value pairs from a detail HTML page
- * to feed into normalizeRecord34
- */
-function extractDetailPairs(html, sourceUrl) {
-  const $ = cheerio.load(html);
-  const data = {};
-
-  // Generic table-based layout: first <td> = label, second = value
-  $('table tr').each((_, row) => {
-    const tds = $(row).find('td');
-    if (tds.length >= 2) {
-      const label = $(tds[0]).text().trim();
-      const value = $(tds[1]).text().trim();
-      if (label && value) data[label] = value;
-    }
-  });
-
-  // Also try dl/dt/dd structure
-  $('dl').each((_, dl) => {
-    $(dl).find('dt').each((idx, dt) => {
-      const label = $(dt).text().trim();
-      const dd = $(dt).next('dd');
-      if (dd.length) {
-        const value = dd.text().trim();
-        if (label && value) data[label] = value;
-      }
-    });
-  });
-
-  // Mugshot: either explicit <img> or we can construct from booking id later
-  let mug = $('img[src*="mug"], img[src*="photo"], img[src*="mugshots"]').attr('src');
-  if (mug) {
-    if (!mug.startsWith('http')) {
-      mug = BASE_URL.replace(/\/$/, '') + (mug.startsWith('/') ? mug : `/${mug}`);
-    }
-    data['mugshot'] = mug;
-  }
-
-  data['source_url'] = sourceUrl;
-  data['detail_url'] = sourceUrl;
-
-  return data;
-}
-
-// Allow direct execution via `node scrapers/manatee34.js`
+// Allow direct execution
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runManatee34().catch(err => {
+  runManatee().catch(err => {
     console.error('Fatal error:', err);
     process.exit(1);
   });
 }
 
-export default runManatee34;
+export default runManatee;

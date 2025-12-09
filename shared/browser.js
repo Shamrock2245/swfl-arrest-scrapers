@@ -36,18 +36,9 @@ export async function newBrowser() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor',
       '--window-size=1920,1080',
-      '--start-maximized',
       '--disable-infobars',
-      '--disable-notifications',
-      '--disable-popup-blocking',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--no-zygote',
-      '--single-process'
+      '--disable-notifications'
     ],
     ignoreHTTPSErrors: true,
     defaultViewport: null

@@ -42,14 +42,23 @@ export async function runHendrySteal(daysBack = 30) {
     await navigateWithRetry(page, ROSTER_URL, { timeout: 60000 });
     await randomDelay(2000, 500);
 
-    // 3) Set sorting to "Date (Newest - Oldest)"
-    console.log('🔽 Setting sort order to "Date (Newest - Oldest)"...');
-    await page.select('select#sort', 'dateDesc');
-    await randomDelay(2000, 500);
-
-    // Wait for page to reload with new sorting
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
-    await randomDelay(1500, 300);
+    // 3) Set sorting to "Date (Newest - Oldest)" - optional, may not always be available
+    console.log('🔽 Attempting to set sort order to "Date (Newest - Oldest)"...');
+    try {
+      const sortSelect = await page.$('select#sort');
+      if (sortSelect) {
+        await page.select('select#sort', 'dateDesc');
+        await randomDelay(2000, 500);
+        // Wait for page to reload with new sorting
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => { });
+        await randomDelay(1500, 300);
+        console.log('✅ Sort order set successfully');
+      } else {
+        console.log('ℹ️  Sort dropdown not found, continuing with default order...');
+      }
+    } catch (err) {
+      console.log(`ℹ️  Could not set sort order (${err.message}), continuing with default order...`);
+    }
 
     // 4) Extract all inmate detail URLs from the list page
     console.log('📋 Extracting inmate detail URLs...');
@@ -132,11 +141,11 @@ export async function runHendrySteal(daysBack = 30) {
 async function extractDetailUrls(page) {
   const urls = await page.$$eval('a[href*="inmateSearch/"]', (links) => {
     const uniqueUrls = new Set();
-    
+
     links.forEach(link => {
       const href = link.getAttribute('href');
       if (!href) return;
-      
+
       // Match pattern: /inmateSearch/{ID}
       if (/inmateSearch\/\d+/.test(href)) {
         let fullUrl = href;
@@ -182,41 +191,41 @@ async function extractDetailPageData(page, sourceUrl) {
     const result = {};
     sections.forEach(section => {
       const text = section.textContent;
-      
+
       // Inmate ID
       const inmateIdMatch = text.match(/Inmate ID:\s*([A-Z0-9]+)/);
       if (inmateIdMatch) result['Inmate ID'] = inmateIdMatch[1];
-      
+
       // Main Address
       const addressMatch = text.match(/Main Address:\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|Height:|$)/s);
       if (addressMatch) {
         result['Main Address'] = addressMatch[1].trim().replace(/\s+/g, ' ');
       }
-      
+
       // Height
       const heightMatch = text.match(/Height:\s*([^\n]+)/);
       if (heightMatch) result['Height'] = heightMatch[1].trim();
-      
+
       // Weight
       const weightMatch = text.match(/Weight:\s*([^\n]+)/);
       if (weightMatch) result['Weight'] = weightMatch[1].trim();
-      
+
       // Gender
       const genderMatch = text.match(/Gender:\s*([MF])/);
       if (genderMatch) result['Gender'] = genderMatch[1];
-      
+
       // Race
       const raceMatch = text.match(/Race:\s*([A-Z])/);
       if (raceMatch) result['Race'] = raceMatch[1];
-      
+
       // Age
       const ageMatch = text.match(/Age:\s*(\d+)/);
       if (ageMatch) result['Age'] = ageMatch[1];
-      
+
       // Eye Color
       const eyeMatch = text.match(/Eye Color:\s*([A-Z]+)/);
       if (eyeMatch) result['Eye Color'] = eyeMatch[1];
-      
+
       // Hair Color
       const hairMatch = text.match(/Hair Color:\s*([A-Z]+)/);
       if (hairMatch) result['Hair Color'] = hairMatch[1];
@@ -231,11 +240,11 @@ async function extractDetailPageData(page, sourceUrl) {
     const result = {};
     sections.forEach(section => {
       const text = section.textContent;
-      
+
       // Custody Status
       const statusMatch = text.match(/Custody Status:\s*([A-Z]+)/);
       if (statusMatch) result['Custody Status'] = statusMatch[1];
-      
+
       // Booked Date
       const bookedMatch = text.match(/Booked Date:\s*([^\n]+)/);
       if (bookedMatch) result['Booked Date'] = bookedMatch[1].trim();
@@ -250,21 +259,21 @@ async function extractDetailPageData(page, sourceUrl) {
     const allCharges = [];
     sections.forEach(section => {
       const text = section.textContent;
-      
+
       // Split by "Charge Code:" to get individual charges
       const chargeBlocks = text.split(/(?=Charge Code:)/g).slice(1); // Skip first empty element
-      
+
       chargeBlocks.forEach(block => {
         const charge = {};
-        
+
         // Charge Code
         const codeMatch = block.match(/Charge Code:\s*([^\n]+)/);
         if (codeMatch) charge.code = codeMatch[1].trim();
-        
+
         // Charge Description
         const descMatch = block.match(/Charge Description:\s*([^\n]+)/);
         if (descMatch) charge.description = descMatch[1].trim();
-        
+
         // Bond Amount
         const bondMatch = block.match(/Bond Amount:\s*\$?([\d.]+)/);
         if (bondMatch) {
@@ -272,7 +281,7 @@ async function extractDetailPageData(page, sourceUrl) {
         } else {
           charge.bond = 0;
         }
-        
+
         if (charge.code || charge.description) {
           allCharges.push(charge);
         }
@@ -283,16 +292,16 @@ async function extractDetailPageData(page, sourceUrl) {
 
   // Store charges data
   data['charges_array'] = charges;
-  
+
   // Calculate total bond
   const totalBond = charges.reduce((sum, charge) => sum + (charge.bond || 0), 0);
   data['Total Bond'] = totalBond;
   data['Bond Amount'] = `$${totalBond.toFixed(2)}`;
-  
+
   // Combine all charge descriptions
   const chargeDescriptions = charges.map(c => c.description).filter(Boolean).join('; ');
   data['Charges'] = chargeDescriptions;
-  
+
   // Store first two charges separately (for Charge_1 and Charge_2 columns)
   if (charges.length > 0) {
     data['Charge_1'] = charges[0].description || '';
@@ -323,7 +332,7 @@ async function extractDetailPageData(page, sourceUrl) {
   // Add source URL
   data['source_url'] = sourceUrl;
   data['Detail_URL'] = sourceUrl;
-  
+
   // Add county
   data['County'] = 'HENDRY';
 
@@ -333,7 +342,7 @@ async function extractDetailPageData(page, sourceUrl) {
 // Allow direct execution via `node scrapers/hendry_stealth.js [daysBack]`
 if (import.meta.url === `file://${process.argv[1]}`) {
   const daysBack = parseInt(process.argv[2]) || 30;
-  
+
   runHendrySteal(daysBack).catch(err => {
     console.error('Fatal error:', err);
     process.exit(1);
