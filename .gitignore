@@ -28,3 +28,6 @@ Thumbs.db
 
 # Puppeteer
 .cache/
+__pycache__/
+*.pyc
+*_debug.html
