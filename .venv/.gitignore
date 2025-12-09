@@ -1,0 +1,83 @@
+*# ----------------------------
+# Node / Puppeteer
+# ----------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Puppeteer / Chromium temp files
+.chromium/
+.puppeteer/
+chrome-data/
+user-data-dir/
+screenshots/
+captures/
+
+# Cache
+.cache/
+.tmp/
+temp/
+tmp/
+
+# ----------------------------
+# Logs
+# ----------------------------
+logs/
+*.log
+
+# ----------------------------
+# Environment / Secrets
+# ----------------------------
+.env
+.env.*
+*.pem
+*.key
+
+# ----------------------------
+# Debug Output (your repo)
+# ----------------------------
+*debug*.html
+*debug*.js
+*debug*.png
+*_debug*
+*_debug.*
+sarasota_detail_fail.html
+
+# County test files
+test_*.js
+test_*.py
+
+# Local HTML snapshots
+*.html
+
+# ----------------------------
+# Python experimental code
+# ----------------------------
+scrapers/python/
+*.pyc
+__pycache__/
+
+# ----------------------------
+# OS / Editor Trash
+# ----------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ----------------------------
+# Build / Distribution
+# ----------------------------
+dist/
+build/
+out/
+
+# ----------------------------
+# Git merge conflict leftovers
+# ----------------------------
+*.orig
+*.rej
