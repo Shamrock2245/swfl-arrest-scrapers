@@ -152,6 +152,10 @@ export function normalizeRecord(rawPairs, countyCode, sourceUrl = '') {
   record.qualified_score = scoreResult.score;
   record.is_qualified = scoreResult.qualified;
 
+  // Map to schema columns
+  record.Lead_Score = scoreResult.score;
+  record.Lead_Status = scoreResult.qualified ? 'Hot' : 'Cold';
+
   // Store unmapped fields
   const extraFields = {};
   for (const [key, value] of Object.entries(rawPairs)) {

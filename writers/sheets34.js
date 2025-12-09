@@ -22,27 +22,43 @@ async function getSheetsClient() {
   if (sheetsClient) return sheetsClient;
 
   let keyFile;
-  
-  // Try GOOGLE_SA_KEY_JSON first (for GitHub Actions)
-  if (process.env.GOOGLE_SA_KEY_JSON) {
+
+  // 1. Try direct JSON content from environment (supports raw JSON or Base64)
+  // Check both variable names for compatibility
+  const envVar = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SA_KEY_JSON;
+
+  if (envVar) {
     try {
-      keyFile = JSON.parse(process.env.GOOGLE_SA_KEY_JSON);
+      const content = envVar.trim();
+      // If it doesn't start with '{', assume Base64
+      if (!content.startsWith('{')) {
+        const decoded = Buffer.from(content, 'base64').toString('utf8');
+        keyFile = JSON.parse(decoded);
+      } else {
+        keyFile = JSON.parse(content);
+      }
     } catch (error) {
-      throw new Error('Invalid GOOGLE_SA_KEY_JSON: ' + error.message);
+      console.warn('⚠️ Warning: Failed to parse Google Service Account env var:', error.message);
     }
   }
-  // Fall back to GOOGLE_SERVICE_ACCOUNT_KEY_PATH (for local development)
-  else if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH) {
+
+  // 2. Fallback to file path
+  if (!keyFile) {
+    const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+    if (!keyPath) {
+      // If neither is set, throw a clear error
+      throw new Error(
+        'Missing Google Credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON (env) or GOOGLE_SERVICE_ACCOUNT_KEY_PATH (file).'
+      );
+    }
+
     try {
-      keyFile = JSON.parse(readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH, 'utf8'));
+      keyFile = JSON.parse(readFileSync(keyPath, 'utf8'));
     } catch (error) {
-      throw new Error('Cannot read service account key file: ' + error.message);
+      throw new Error(`Failed to read key file at ${keyPath}: ${error.message}`);
     }
   }
-  else {
-    throw new Error('Neither GOOGLE_SA_KEY_JSON nor GOOGLE_SERVICE_ACCOUNT_KEY_PATH is set in environment');
-  }
-  
+
   const auth = new google.auth.GoogleAuth({
     credentials: keyFile,
     scopes: [
@@ -53,7 +69,7 @@ async function getSheetsClient() {
 
   const authClient = await auth.getClient();
   sheetsClient = google.sheets({ version: 'v4', auth: authClient });
-  
+
   return sheetsClient;
 }
 
@@ -70,11 +86,11 @@ async function ensureSheet(sheetName) {
       spreadsheetId
     });
 
-    const sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
-    
+    let sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
+
     if (!sheet) {
       // Create sheet
-      await sheets.spreadsheets.batchUpdate({
+      const createResponse = await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: {
           requests: [{
@@ -86,7 +102,12 @@ async function ensureSheet(sheetName) {
           }]
         }
       });
-      console.log(`✅ Created sheet: ${sheetName}`);
+      // Capture the new sheet ID directly from response
+      const newSheetProps = createResponse.data.replies[0].addSheet.properties;
+      console.log(`✅ Created sheet: ${sheetName} (ID: ${newSheetProps.sheetId})`);
+
+      // Update our local reference so subsequent steps use the correct ID
+      sheet = { properties: newSheetProps };
     }
 
     // Check/set headers (34 columns: A1:AH1)
@@ -105,7 +126,7 @@ async function ensureSheet(sheetName) {
           values: [HEADER]
         }
       });
-      
+
       // Format header row (bold, colored)
       const sheetId = sheet?.properties?.sheetId || 0;
       await sheets.spreadsheets.batchUpdate({
@@ -142,7 +163,7 @@ async function ensureSheet(sheetName) {
           }]
         }
       });
-      
+
       console.log(`✅ Set 34-column headers for: ${sheetName}`);
     }
 
@@ -185,11 +206,11 @@ export async function upsertRecords34(sheetName, records) {
   });
 
   const rows = existingData.data.values || [];
-  
+
   // Build index: Booking_Number -> row index
   const existingIndex = new Map();
   const bookingNumberCol = HEADER.indexOf('Booking_Number');
-  
+
   rows.forEach((row, idx) => {
     const bookingNumber = row[bookingNumberCol] || '';
     if (bookingNumber) {
@@ -205,7 +226,7 @@ export async function upsertRecords34(sheetName, records) {
   for (const record of records) {
     const bookingNumber = record.Booking_Number;
     const row = recordToRow(record);
-    
+
     if (existingIndex.has(bookingNumber)) {
       // Update existing
       const rowIndex = existingIndex.get(bookingNumber);
@@ -245,7 +266,7 @@ export async function upsertRecords34(sheetName, records) {
   }
 
   console.log(`✅ ${sheetName}: inserted ${inserted}, updated ${updated}`);
-  
+
   return { inserted, updated };
 }
 
@@ -255,7 +276,7 @@ export async function upsertRecords34(sheetName, records) {
 export async function logIngestion(county, success, count, startTime, errorMessage = '') {
   const sheets = await getSheetsClient();
   const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
-  const sheetName = 'Logs';
+  const sheetName = 'ingestion_log';
 
   try {
     const duration = Math.round((Date.now() - startTime) / 1000);

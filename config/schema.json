@@ -52,7 +52,8 @@
       "inmate id",
       "detainee #",
       "person id",
-      "pin"
+      "pin",
+      "book #"
     ],
     "Full_Name": [
       "name",
@@ -60,18 +61,21 @@
       "arrestee",
       "inmate name",
       "detainee name",
-      "defendant"
+      "defendant",
+      "full_name"
     ],
     "First_Name": [
       "first name",
       "firstname",
-      "first"
+      "first",
+      "first_name"
     ],
     "Last_Name": [
       "last name",
       "lastname",
       "last",
-      "surname"
+      "surname",
+      "last_name"
     ],
     "DOB": [
       "dob",
@@ -105,7 +109,8 @@
       "bookingdate",
       "booked",
       "date booked",
-      "intake date"
+      "intake date",
+      "booking_date"
     ],
     "Booking_Time": [
       "booking time",
@@ -183,7 +188,8 @@
       "total bond",
       "totalbond",
       "total_bond",
-      "bond total"
+      "bond total",
+      "bond_amount"
     ],
     "Bond_Type": [
       "bond type",

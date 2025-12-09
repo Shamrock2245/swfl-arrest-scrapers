@@ -77,7 +77,7 @@ async function ensureSheet(sheetName) {
       spreadsheetId
     });
 
-    const sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
+    let sheet = metadata.data.sheets?.find(s => s.properties?.title === sheetName);
 
     if (!sheet) {
       // Create sheet
@@ -94,7 +94,17 @@ async function ensureSheet(sheetName) {
         }
       });
       console.log(`✅ Created sheet: ${sheetName}`);
+
+      // Fetch metadata again to get the new sheet's ID
+      const updatedMetadata = await sheets.spreadsheets.get({
+        spreadsheetId
+      });
+      const newSheet = updatedMetadata.data.sheets?.find(s => s.properties?.title === sheetName);
+      if (newSheet) {
+        sheet = newSheet;
+      }
     }
+
 
     // Check/set headers
     const headerRow = await sheets.spreadsheets.values.get({

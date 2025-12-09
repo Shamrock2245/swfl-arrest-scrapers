@@ -103,7 +103,7 @@ export async function runCollier() {
  * Extract all arrest records from the inline table structure on Report.aspx
  */
 async function extractAllRecords(page) {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(r => setTimeout(r, 1000));
 
   const records = await page.evaluate(() => {
     const results = [];

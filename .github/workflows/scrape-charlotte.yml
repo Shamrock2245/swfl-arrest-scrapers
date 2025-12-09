@@ -26,14 +26,20 @@ jobs:
       - name: Create .env file
         run: echo "GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}" > .env
       
-      - name: Install Chromium for Puppeteer
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
         run: |
-          npx puppeteer browsers install chrome
+          python -m pip install --upgrade pip
+          pip install DrissionPage
       
       - name: Run scraper
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
-        run: node jobs/runScraper.js charlotte_stealth.js
+        run: npm run run:charlotte:v2
       
       - name: Upload logs on failure
         if: failure()
