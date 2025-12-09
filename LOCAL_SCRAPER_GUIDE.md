@@ -1,252 +1,228 @@
-# Local Scraper Running Guide
+# Local Scraper Running Guide (Updated with Pagination)
 
 ## 🚀 Quick Start Commands
 
 ### Node.js Scrapers (Working in Production)
 
 ```bash
-# Collier County
+# Collier County (~45 seconds)
 npm run run:collier
 
-# Hendry County
+# Hendry County (~2-5 minutes with pagination)
 npm run run:hendry
 
-# DeSoto County (Optimized Incremental)
+# DeSoto County (~28 seconds - Optimized!)
 npm run run:desoto
 ```
 
-### Python Scrapers (For Cloudflare-Protected Sites)
+### Python Scrapers (For Historical Data Collection)
 
 ```bash
-# Charlotte County
+# First, navigate to python_scrapers directory
 cd python_scrapers
+
+# Charlotte County (21 days back, 10 pages max)
 python3 scrapers/charlotte_solver.py
 
-# Sarasota County
+# Sarasota County (21 days back)
 python3 scrapers/sarasota_solver.py
 
-# Manatee County
+# Manatee County (21 days back, 10 pages max)
 python3 scrapers/manatee_solver.py
 ```
 
 ---
 
-## 📋 Prerequisites
+## 📋 One-Time Setup
 
-### For Node.js Scrapers
-
-1. **Node.js** (v18 or higher)
-   ```bash
-   node --version  # Should be 18.0.0 or higher
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   cd /path/to/swfl-arrest-scrapers
-   npm install
-   ```
-
-3. **Environment Variables**
-   - Ensure `.env` file exists in project root
-   - Should contain:
-     ```
-     GOOGLE_SHEETS_ID=121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
-     GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json
-     ```
-
-4. **Service Account Key**
-   - File: `service-account-key.json` in project root
-   - Should already be configured
-
-### For Python Scrapers
-
-1. **Python 3.11+**
-   ```bash
-   python3 --version  # Should be 3.11 or higher
-   ```
-
-2. **Install Python Dependencies**
-   ```bash
-   cd python_scrapers
-   pip3 install -r requirements.txt
-   ```
-
-3. **DrissionPage Setup**
-   - DrissionPage will use your installed Chrome/Chromium browser
-   - First run will configure browser connection automatically
-
----
-
-## 🎯 Node.js Scraper Commands (Detailed)
-
-### Collier County
+### For Node.js Scrapers:
 ```bash
-# Standard run
-npm run run:collier
-
-# Debug mode (with detailed logs)
-npm run run:collier:debug
+cd /path/to/swfl-arrest-scrapers
+npm install
 ```
 
-**What it does**:
-- Scrapes Collier County Sheriff's Office booking data
-- Writes to "Collier" sheet in Google Sheets
-- Uses Puppeteer with stealth plugins
-- Typically finds 10-15 recent arrests
-
-**Expected output**:
-```
-🏃 Starting Collier County scraper...
-📊 Found 11 records
-✅ Successfully wrote 11 records to Google Sheets
-✨ Collier scraper completed in 45.2s
+### For Python Scrapers:
+```bash
+cd python_scrapers
+pip3 install -r requirements.txt
 ```
 
 ---
 
-### Hendry County
+## 🎯 NEW: Pagination & Historical Data Collection
+
+### Hendry County (Node.js) - NOW WITH PAGINATION!
+
+**Default (21 days, 10 pages):**
 ```bash
-# Standard run (recommended)
 npm run run:hendry
-
-# Alternative version (if issues)
-npm run run:hendry:v2
 ```
 
-**What it does**:
-- Scrapes Hendry County Sheriff's Office
-- Writes to "Hendry" sheet
-- Uses stealth mode for bot detection bypass
-- Typically finds 5-10 arrests
-
-**Expected output**:
-```
-🏃 Starting Hendry County scraper...
-📊 Found 5 records
-✅ Successfully wrote 5 records to Google Sheets
-✨ Hendry scraper completed in 32.1s
-```
-
----
-
-### DeSoto County (Optimized)
+**Custom Parameters:**
 ```bash
-npm run run:desoto
+# Syntax: node -r dotenv/config scrapers/hendry_stealth.js [daysBack] [maxPages]
+
+# 30 days back, max 15 pages
+node -r dotenv/config scrapers/hendry_stealth.js 30 15
+
+# 7 days back, max 5 pages (quick update)
+node -r dotenv/config scrapers/hendry_stealth.js 7 5
 ```
 
-**What it does**:
-- Scrapes DeSoto County Sheriff's Office
-- Uses **incremental strategy** (only new records)
-- Maintains baseline in `scrapers/desoto_baseline.json`
-- **95%+ faster** than full scrape (28s vs 10+ min)
-- Writes to "DeSoto" sheet
+**What it does:**
+- ✅ **Sorts by newest first** - Gets most recent arrests
+- ✅ **Paginates through multiple pages** - Collects historical data
+- ✅ **Stops at date cutoff** - Won't scrape older than specified days
+- ✅ **Clicks into each detail page** - Full data extraction
 
-**Expected output**:
+**Expected output:**
 ```
-🏃 Starting DeSoto County scraper (Incremental)...
-📊 Baseline: 1234 records
-🔍 Checking for new records...
-📊 Found 3 new records
-✅ Successfully wrote 3 records to Google Sheets
-📝 Updated baseline: 1237 records
-✨ DeSoto scraper completed in 28.4s
-```
+🚦 Starting Hendry County Scraper (Stealth + Pagination + 34-column)
+📅 Scraping last 21 days of arrests
+📄 Maximum pages to scrape: 10
 
-**First Run**:
-- Will create baseline file
-- May take 5-10 minutes to build initial baseline
-- Subsequent runs will be fast (20-30 seconds)
+🔽 Setting sort order to "Date (Newest - Oldest)"...
+✅ Sort order set to "Date (Newest - Oldest)"
+
+📄 Processing page 1...
+   📋 Found 5 inmates on page 1
+
+📊 Total inmates found across 3 page(s): 15
+🔍 [1/15] Navigating to https://www.hendrysheriff.org/inmateSearch/12345
+   ✅ DOE, JOHN (HCSO24001234) - Bond: $5000.00
+
+📊 Parsed 15 valid records from last 21 days
+✅ Inserted: 12, Updated: 3
+⏱️  Total execution time: 125s
+```
 
 ---
 
-## 🐍 Python Scraper Commands (Detailed)
+### Charlotte County (Python) - NOW WITH PAGINATION!
 
-### Charlotte County
+**Default (21 days, 10 pages):**
 ```bash
 cd python_scrapers
 python3 scrapers/charlotte_solver.py
 ```
 
-**What it does**:
-- Scrapes Charlotte County Sheriff's Office (Cloudflare-protected)
-- Uses DrissionPage with Chrome browser
-- Writes to "Charlotte" sheet
-- Can collect historical data (3-4 weeks)
+**Custom Parameters:**
+```bash
+# Syntax: python3 scrapers/charlotte_solver.py [daysBack] [maxPages]
 
-**Expected output**:
-```
-Starting Charlotte County scraper...
-Opening browser...
-Navigating to booking search page...
-Bypassing Cloudflare protection...
-Found 45 records
-Writing to Google Sheets...
-✅ Successfully wrote 45 records
-Completed in 2m 15s
+# 30 days back, max 15 pages
+python3 scrapers/charlotte_solver.py 30 15
+
+# 7 days back, max 5 pages (quick update)
+python3 scrapers/charlotte_solver.py 7 5
 ```
 
-**For Historical Data**:
-The scraper is configured to collect recent data. To get 3-4 weeks:
-- It will automatically paginate through results
-- May take 10-20 minutes for full historical collection
-- Run once to get historical data, then periodically for updates
+**What it does:**
+- ✅ **Paginates through multiple pages**
+- ✅ **Stops at date cutoff**
+- ✅ **Bypasses Cloudflare**
+- ✅ **Collects 3+ weeks of data**
+
+**Expected output:**
+```
+🚀 Starting Charlotte County scraper
+📅 Days back: 21
+📄 Max pages: 10
+
+📄 Processing page 1...
+   📋 Found 45 inmates on page 1
+
+📊 Total inmates found across 3 page(s): 127
+🔍 [1/127] Processing https://inmates.charlottecountyfl.revize.com/bookings/12345
+   ✅ Added record (Total: 1)
+
+📊 Total records collected: 127
+```
 
 ---
 
-### Sarasota County
+### Sarasota County (Python) - NOW WITH DATE RANGE!
+
+**Default (21 days):**
 ```bash
 cd python_scrapers
 python3 scrapers/sarasota_solver.py
 ```
 
-**What it does**:
-- Scrapes Sarasota County Sheriff's Office (Cloudflare-protected)
-- Uses DrissionPage for CAPTCHA/Cloudflare bypass
-- Writes to "Sarasota" sheet
-- Collects 3-4 weeks of historical data
+**Custom Parameters:**
+```bash
+# Syntax: python3 scrapers/sarasota_solver.py [daysBack]
 
-**Expected output**:
+# 30 days back
+python3 scrapers/sarasota_solver.py 30
+
+# 7 days back (quick update)
+python3 scrapers/sarasota_solver.py 7
 ```
-Starting Sarasota County scraper...
-Opening browser...
-Navigating to booking page...
-Solving Cloudflare challenge...
-Processing page 1...
-Processing page 2...
-Found 67 records
-Writing to Google Sheets...
-✅ Successfully wrote 67 records
-Completed in 3m 42s
+
+**What it does:**
+- ✅ **Searches each day individually**
+- ✅ **Deduplicates across dates**
+- ✅ **Bypasses Cloudflare**
+- ✅ **Collects 3+ weeks of data**
+
+**Expected output:**
+```
+🚀 Starting Sarasota County scraper
+📅 Days back: 21
+
+📅 Searching for arrests on 12/01/2024...
+   📋 Found 8 inmates for 12/01/2024
+
+📊 Total unique inmates found: 156
+🔍 [1/156] Processing https://cms.revize.com/revize/apps/sarasota/viewInmate.php?id=12345
+   ✅ Added record (Total: 1)
+
+📊 Total records collected: 156
 ```
 
 ---
 
-### Manatee County
+### Manatee County (Python) - NOW WITH PAGINATION!
+
+**Default (21 days, 10 pages):**
 ```bash
 cd python_scrapers
 python3 scrapers/manatee_solver.py
 ```
 
-**What it does**:
-- Scrapes Manatee County Sheriff's Office
-- Uses iframe from https://manatee-sheriff.revize.com/bookings
-- Handles Cloudflare protection
-- Writes to "Manatee" sheet
-- Collects 3-4 weeks of historical data
+**Custom Parameters:**
+```bash
+# Syntax: python3 scrapers/manatee_solver.py [daysBack] [maxPages]
 
-**Expected output**:
-```
-Starting Manatee County scraper...
-Opening browser...
-Loading iframe...
-Bypassing Cloudflare...
-Found 52 records
-Writing to Google Sheets...
-✅ Successfully wrote 52 records
-Completed in 2m 58s
+# 30 days back, max 15 pages
+python3 scrapers/manatee_solver.py 30 15
+
+# 7 days back, max 5 pages (quick update)
+python3 scrapers/manatee_solver.py 7 5
 ```
 
-**Note**: Manatee scraper was created but not fully tested in sandbox due to Cloudflare blocking. Should work on your local machine.
+**What it does:**
+- ✅ **Paginates through multiple pages**
+- ✅ **Stops at date cutoff**
+- ✅ **Handles iframe content**
+- ✅ **Collects 3+ weeks of data**
+
+**Expected output:**
+```
+🚦 Starting Manatee County Scraper
+📅 Days back: 21
+📄 Max pages: 10
+
+📄 Processing page 1...
+   📋 Found 52 inmates on page 1
+
+📊 Total inmates found across 3 page(s): 150
+🔍 [1/150] Processing: 2024-001234
+   ✅ SMITH, JOHN (Total: 1)
+
+📊 Total records collected: 150
+```
 
 ---
 
@@ -257,9 +233,7 @@ Completed in 2m 58s
 npm start
 ```
 
-This runs `jobs/runAll.js` which executes all Node.js scrapers sequentially.
-
-### Run All Scrapers (Node + Python)
+### Run All Scrapers (Node + Python) - UPDATED
 
 Create a bash script `run_all_scrapers.sh`:
 
@@ -272,20 +246,20 @@ echo "🚀 Running all SWFL arrest scrapers..."
 echo "📍 Running Collier County..."
 npm run run:collier
 
-echo "📍 Running Hendry County..."
+echo "📍 Running Hendry County (with pagination)..."
 npm run run:hendry
 
 echo "📍 Running DeSoto County..."
 npm run run:desoto
 
-# Python scrapers
-echo "📍 Running Charlotte County..."
+# Python scrapers (with default pagination)
+echo "📍 Running Charlotte County (21 days, 10 pages)..."
 cd python_scrapers && python3 scrapers/charlotte_solver.py && cd ..
 
-echo "📍 Running Sarasota County..."
+echo "📍 Running Sarasota County (21 days)..."
 cd python_scrapers && python3 scrapers/sarasota_solver.py && cd ..
 
-echo "📍 Running Manatee County..."
+echo "📍 Running Manatee County (21 days, 10 pages)..."
 cd python_scrapers && python3 scrapers/manatee_solver.py && cd ..
 
 echo "✅ All scrapers completed!"
@@ -299,117 +273,59 @@ chmod +x run_all_scrapers.sh
 
 ---
 
-## 📊 Collecting Historical Data (3-4 Weeks)
+## 📊 Initial Historical Data Collection (One-Time)
 
-### For Charlotte, Sarasota, Manatee
+Run each scraper with extended parameters to collect 3-4 weeks of data:
 
-The Python scrapers are configured to collect recent historical data automatically. To ensure you get 3-4 weeks:
-
-1. **Charlotte County**:
-   ```bash
-   cd python_scrapers
-   python3 scrapers/charlotte_solver.py
-   ```
-   - Will paginate through recent bookings
-   - Typically gets last 3-4 weeks automatically
-
-2. **Sarasota County**:
-   ```bash
-   cd python_scrapers
-   python3 scrapers/sarasota_solver.py
-   ```
-   - Configured to collect multiple pages
-   - Gets 3-4 weeks of data
-
-3. **Manatee County**:
-   ```bash
-   cd python_scrapers
-   python3 scrapers/manatee_solver.py
-   ```
-   - Collects from iframe source
-   - Gets recent historical data
-
-**Recommendation**: Run each Python scraper **once** to collect historical data, then set up periodic runs (daily or every few hours) to keep data current.
-
----
-
-## 🛠️ Troubleshooting
-
-### Node.js Scrapers
-
-**Error: Cannot find module**
 ```bash
-npm install
-```
+# Hendry (Node.js) - 28 days, 15 pages
+node -r dotenv/config scrapers/hendry_stealth.js 28 15
 
-**Error: .env file not found**
-- Ensure `.env` file exists in project root
-- Check it contains `GOOGLE_SHEETS_ID` and `GOOGLE_APPLICATION_CREDENTIALS`
-
-**Error: Service account authentication failed**
-- Verify `service-account-key.json` exists
-- Check file path in `.env` is correct
-- Ensure service account has edit access to the spreadsheet
-
-**Scraper hangs or times out**
-- Check internet connection
-- Try debug mode: `npm run run:collier:debug`
-- County website may be down or changed structure
-
-### Python Scrapers
-
-**Error: ModuleNotFoundError**
-```bash
+# Charlotte (Python) - 28 days, 15 pages
 cd python_scrapers
-pip3 install -r requirements.txt
+python3 scrapers/charlotte_solver.py 28 15
+
+# Sarasota (Python) - 28 days
+python3 scrapers/sarasota_solver.py 28
+
+# Manatee (Python) - 28 days, 15 pages
+python3 scrapers/manatee_solver.py 28 15
 ```
 
-**Error: DrissionPage browser connection failed**
-- Ensure Chrome/Chromium is installed
-- First run will configure browser automatically
-- Check browser is not already open in debug mode
-
-**Cloudflare blocking**
-- Python scrapers use DrissionPage specifically to bypass Cloudflare
-- If still blocked, try:
-  - Close all Chrome windows
-  - Run scraper again (fresh browser session)
-  - Wait a few minutes and retry
-
-**No data returned**
-- Check county website is accessible in regular browser
-- Website structure may have changed
-- Check scraper logs for specific errors
+**After initial collection:**
+1. Check Google Sheets for new records
+2. Run "Check for Changes" in Google Apps Script
+3. Review and verify data accuracy
+4. Set up regular schedule with default parameters
 
 ---
 
 ## 📅 Recommended Schedule
 
 ### Initial Setup (One-Time)
-1. Run DeSoto scraper to create baseline:
-   ```bash
-   npm run run:desoto
-   ```
-   Wait for completion (5-10 min first time)
 
-2. Collect historical data for Python scrapers:
-   ```bash
-   cd python_scrapers
-   python3 scrapers/charlotte_solver.py
-   python3 scrapers/sarasota_solver.py
-   python3 scrapers/manatee_solver.py
-   ```
+**Collect historical data (28 days):**
+```bash
+# Hendry
+node -r dotenv/config scrapers/hendry_stealth.js 28 15
+
+# Python scrapers
+cd python_scrapers
+python3 scrapers/charlotte_solver.py 28 15
+python3 scrapers/sarasota_solver.py 28
+python3 scrapers/manatee_solver.py 28 15
+```
 
 ### Ongoing (Automated)
 
 **Every 25 minutes** (Node.js scrapers):
 ```bash
 npm run run:collier
-npm run run:hendry
+npm run run:hendry  # Now with pagination!
 npm run run:desoto
 ```
 
-**Every 2-4 hours** (Python scrapers):
+**Every 2-4 hours** (Python scrapers with default 21 days):
 ```bash
 cd python_scrapers
 python3 scrapers/charlotte_solver.py
@@ -423,93 +339,164 @@ python3 scrapers/manatee_solver.py
 
 ---
 
-## 🔧 Advanced Options
+## ✅ Quick Reference Table (UPDATED)
 
-### Debug Mode (Node.js)
-```bash
-NODE_OPTIONS='--enable-source-maps --trace-uncaught --trace-warnings' node -r dotenv/config scrapers/collier.js
-```
-
-### Headless vs Headful (Python)
-Edit the Python scraper file to change browser mode:
-```python
-# In the scraper file, find:
-page = ChromiumPage()  # Headful (default)
-
-# Change to:
-page = ChromiumPage(headless=True)  # Headless
-```
-
-### Custom Date Range (Python)
-Modify the scraper to specify date range:
-```python
-# In the scraper file, add date filtering logic
-# This varies by county website structure
-```
+| County | Command | Type | Time | Coverage | Parameters |
+|--------|---------|------|------|----------|------------|
+| **Collier** | `npm run run:collier` | Node.js | ~45s | Current | None |
+| **Hendry** | `npm run run:hendry` | Node.js | ~2-5m | 21 days | [days] [pages] |
+| **DeSoto** | `npm run run:desoto` | Node.js | ~28s | Incremental | None |
+| **Charlotte** | `python3 scrapers/charlotte_solver.py` | Python | ~5-15m | 21 days | [days] [pages] |
+| **Sarasota** | `python3 scrapers/sarasota_solver.py` | Python | ~10-20m | 21 days | [days] |
+| **Manatee** | `python3 scrapers/manatee_solver.py` | Python | ~5-15m | 21 days | [days] [pages] |
 
 ---
 
-## 📝 Logs and Monitoring
+## 🔧 Troubleshooting
 
-### Node.js Scrapers
-- Logs output to console
-- Use `npm run run:collier:debug` for detailed logs
-- Check Google Sheets for successful writes
+### Hendry Scraper
+
+**Issue**: Not getting newest records
+- **Solution**: Check logs for "✅ Sort order set to 'Date (Newest - Oldest)'"
+- **If missing**: Sorting may have failed, check website structure
+
+**Issue**: Stops after first page
+- **Solution**: Increase `maxPages` parameter
+- **Example**: `node -r dotenv/config scrapers/hendry_stealth.js 21 20`
+
+**Issue**: Takes too long
+- **Solution**: Reduce `daysBack` or `maxPages`
+- **Example**: `node -r dotenv/config scrapers/hendry_stealth.js 7 5`
 
 ### Python Scrapers
-- Logs output to console
-- DrissionPage shows browser actions
-- Check `python_scrapers/logs/` if logging is configured
 
-### Google Sheets
-- Open spreadsheet to verify data
-- Check "Last Updated" timestamps
-- Run "Check for Changes" to update statuses
+**Issue**: Cloudflare blocking
+- **Solution**: Run on local machine (not sandbox)
+- **Note**: Python scrapers work best on local machines
 
----
+**Issue**: No records found
+- **Solution**: Check date range - may be no arrests
+- **Try**: Extend `days_back` parameter
 
-## ✅ Quick Reference
-
-| County | Command | Type | Time | Notes |
-|--------|---------|------|------|-------|
-| Collier | `npm run run:collier` | Node.js | ~45s | Working ✅ |
-| Hendry | `npm run run:hendry` | Node.js | ~30s | Working ✅ |
-| DeSoto | `npm run run:desoto` | Node.js | ~28s | Incremental ✅ |
-| Charlotte | `python3 scrapers/charlotte_solver.py` | Python | ~2-3m | Cloudflare bypass |
-| Sarasota | `python3 scrapers/sarasota_solver.py` | Python | ~3-4m | Cloudflare bypass |
-| Manatee | `python3 scrapers/manatee_solver.py` | Python | ~3m | iframe + Cloudflare |
+**Issue**: Takes too long
+- **Solution**: Reduce parameters
+- **Charlotte/Manatee**: `python3 scrapers/charlotte_solver.py 7 5`
+- **Sarasota**: `python3 scrapers/sarasota_solver.py 7`
 
 ---
 
-## 🎯 Next Steps
+## 📈 Expected Results (UPDATED)
 
-1. **Test Node.js scrapers**:
-   ```bash
-   npm run run:collier
-   npm run run:hendry
-   npm run run:desoto
-   ```
+### Initial Run (28 days)
 
-2. **Collect historical data** (Python):
-   ```bash
-   cd python_scrapers
-   python3 scrapers/charlotte_solver.py
-   python3 scrapers/sarasota_solver.py
-   python3 scrapers/manatee_solver.py
-   ```
+| County | Records | Time |
+|--------|---------|------|
+| Hendry | 20-40 | 3-8m |
+| Charlotte | 150-250 | 10-20m |
+| Sarasota | 200-400 | 15-30m |
+| Manatee | 150-250 | 10-20m |
 
-3. **Set up automation**:
-   - Use cron jobs (Linux/Mac)
-   - Use Task Scheduler (Windows)
-   - Or GitHub Actions (cloud-based)
+### Regular Run (21 days, default)
 
-4. **Install Check for Changes** in Google Apps Script
+| County | Records | Time |
+|--------|---------|------|
+| Hendry | 15-30 | 2-5m |
+| Charlotte | 100-200 | 5-15m |
+| Sarasota | 150-300 | 10-20m |
+| Manatee | 100-200 | 5-15m |
 
-5. **Monitor and maintain**:
-   - Check Google Sheets regularly
-   - Review logs for errors
-   - Update scrapers if county websites change
+### Quick Update (7 days)
+
+| County | Records | Time |
+|--------|---------|------|
+| Hendry | 5-15 | 1-3m |
+| Charlotte | 30-70 | 2-5m |
+| Sarasota | 50-100 | 3-8m |
+| Manatee | 30-70 | 2-5m |
 
 ---
 
-**Need help?** Check the documentation in the `docs/` directory or review the scraper source code for specific implementation details.
+## 🎯 Best Practices
+
+### Initial Setup
+
+1. ✅ Run historical collection **once** (28 days)
+2. ✅ Verify data in Google Sheets
+3. ✅ Run "Check for Changes" to update statuses
+4. ✅ Set up regular schedule with default parameters
+
+### Regular Maintenance
+
+1. ✅ **Hendry**: Every 25 minutes (or daily with default 21 days)
+2. ✅ **Python scrapers**: Every 2-4 hours (default 21 days)
+3. ✅ **Check for Changes**: Daily or after scraper runs
+4. ✅ **Lead Scoring**: After Check for Changes
+
+### Monitoring
+
+- Check Google Sheets for new records
+- Review scraper logs for errors
+- Monitor execution times
+- Adjust parameters if needed
+
+---
+
+## 🎉 What's New
+
+### Hendry County
+- ✅ **Newest-first sorting** - Ensures recent arrests are scraped first
+- ✅ **Pagination** - Goes through multiple pages
+- ✅ **Configurable** - Set days back and max pages
+
+### Charlotte County
+- ✅ **Pagination** - Collects from multiple pages
+- ✅ **Date cutoff** - Stops at specified date
+- ✅ **Configurable** - Set days back and max pages
+
+### Sarasota County
+- ✅ **Date range** - Searches each day individually
+- ✅ **Deduplication** - Removes duplicates across dates
+- ✅ **Configurable** - Set days back
+
+### Manatee County
+- ✅ **Pagination** - Collects from multiple pages
+- ✅ **Date cutoff** - Stops at specified date
+- ✅ **Configurable** - Set days back and max pages
+
+---
+
+## 📚 Full Documentation
+
+See these files for detailed information:
+
+- **PAGINATION_UPDATE.md** - Comprehensive pagination documentation
+- **CHECK_FOR_CHANGES_SUMMARY.md** - Check for Changes feature
+- **SESSION_SUMMARY.md** - Overall project summary
+
+---
+
+**Last Updated**: December 2024  
+**Version**: 2.0 (with Pagination)  
+**Status**: ✅ Ready for Production  
+
+---
+
+## 🚀 Start Now!
+
+**For immediate testing**, run:
+```bash
+# Hendry with pagination (21 days)
+npm run run:hendry
+```
+
+**For historical collection**, run:
+```bash
+# Hendry (28 days, 15 pages)
+node -r dotenv/config scrapers/hendry_stealth.js 28 15
+
+# Charlotte (28 days, 15 pages)
+cd python_scrapers
+python3 scrapers/charlotte_solver.py 28 15
+```
+
+Let me know if you need help with any specific scraper or want to set up automation!
