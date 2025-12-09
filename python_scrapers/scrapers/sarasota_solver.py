@@ -40,11 +40,11 @@ def scrape_sarasota(arrest_date):
     try:
         co = ChromiumOptions()
         co.set_browser_path('/usr/bin/chromium-browser')
-        co.auto_port() # Use a random port
-        co.set_argument('--ignore-certificate-errors')
+        co.headless(True)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--headless=new')
+        co.set_argument('--disable-gpu')
+        co.set_argument('--ignore-certificate-errors')
         
         page = ChromiumPage(co)
         

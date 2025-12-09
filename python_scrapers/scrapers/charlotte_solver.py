@@ -39,11 +39,11 @@ def scrape_charlotte():
         # Configure DrissionPage
         co = ChromiumOptions()
         co.set_browser_path('/usr/bin/chromium-browser')
-        co.auto_port() # Use a random port to avoid conflicts
-        co.set_argument('--ignore-certificate-errors')
+        co.headless(True)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--headless=new')
+        co.set_argument('--disable-gpu')
+        co.set_argument('--ignore-certificate-errors')
         
         # Try to find a valid browser path if needed, but auto usually works.
         # mac_browser_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
