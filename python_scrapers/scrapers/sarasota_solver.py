@@ -2,8 +2,7 @@ import sys
 import json
 import time
 import re
-import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
 def clean_charge_text(raw_charge):
@@ -34,7 +33,13 @@ def clean_charge_text(raw_charge):
     
     return text.strip()
 
-def scrape_sarasota(arrest_date):
+def scrape_sarasota(days_back=21):
+    """
+    Scrape Sarasota County with date range support
+    
+    Args:
+        days_back: Number of days to go back (default: 21 for 3 weeks)
+    """
     records = []
     
     try:
@@ -47,10 +52,6 @@ def scrape_sarasota(arrest_date):
         co.set_argument('--ignore-certificate-errors')
         
         page = ChromiumPage(co)
-        
-        # 1. Navigate to the iframe URL directly as it's the app
-        url = 'https://cms.revize.com/revize/apps/sarasota/index.php'
-        page.get(url)
         
         # Custom CF Handler
         def handle_cloudflare(page):
@@ -72,71 +73,103 @@ def scrape_sarasota(arrest_date):
                 time.sleep(2)
             return False
 
-        handle_cloudflare(page)
+        # Generate date range (today back to days_back)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
         
-        # Verify we are on the real page
-        if not page.wait.ele_displayed('tag:body', timeout=10):
-             sys.stderr.write("Body not displayed after CF check.\n")
+        sys.stderr.write(f"🚀 Starting Sarasota County scraper\n")
+        sys.stderr.write(f"📅 Date range: {start_date.strftime('%m/%d/%Y')} to {end_date.strftime('%m/%d/%Y')}\n\n")
+        
+        # We'll search by date, one day at a time
+        current_date = start_date
+        all_detail_urls = set()
+        
+        while current_date <= end_date:
+            arrest_date = current_date.strftime('%m/%d/%Y')
+            sys.stderr.write(f"\n📅 Searching for arrests on {arrest_date}...\n")
+            
+            # 1. Navigate to the iframe URL directly as it's the app
+            url = 'https://cms.revize.com/revize/apps/sarasota/index.php'
+            page.get(url)
+            
+            handle_cloudflare(page)
+            
+            # Verify we are on the real page
+            if not page.wait.ele_displayed('tag:body', timeout=10):
+                sys.stderr.write("Body not displayed after CF check.\n")
+                current_date += timedelta(days=1)
+                continue
 
-        # Save HTML for debugging
-        with open('sarasota_debug.html', 'w', encoding='utf-8') as f:
-            f.write(page.html)
-             
-        # 2. Search by date
-        # Click "Arrest Date" tab to be sure
-        tab = page.ele('text:Arrest Date', timeout=5)
-        if tab:
-            tab.click()
+            # Save HTML for debugging (first date only)
+            if current_date == start_date:
+                with open('sarasota_debug.html', 'w', encoding='utf-8') as f:
+                    f.write(page.html)
+                 
+            # 2. Search by date
+            # Click "Arrest Date" tab to be sure
+            tab = page.ele('text:Arrest Date', timeout=5)
+            if tab:
+                tab.click()
+                time.sleep(1)
+
+            # Input: Look for placeholder "mm/dd/yyyy" as seen in screenshot
+            date_input = page.ele('@placeholder=mm/dd/yyyy') or \
+                         page.ele('css:input[name="arrest_date"]') or \
+                         page.ele('@name=arrest_date') or \
+                         page.ele('css:input.form-control')
+                         
+            if not date_input:
+                sys.stderr.write("Could not find arrest_date input. Saved HTML to sarasota_debug.html\n")
+                current_date += timedelta(days=1)
+                continue
+
+            # Clear and type
+            date_input.clear()
+            date_input.input(arrest_date)
             time.sleep(1)
-
-        # Input: Look for placeholder "mm/dd/yyyy" as seen in screenshot
-        date_input = page.ele('@placeholder=mm/dd/yyyy') or \
-                     page.ele('css:input[name="arrest_date"]') or \
-                     page.ele('@name=arrest_date') or \
-                     page.ele('css:input.form-control') # Generic fallback
-                     
-        if not date_input:
-             sys.stderr.write("Could not find arrest_date input. Saved HTML to sarasota_debug.html\n")
-             return
-
-        # Clear and type
-        date_input.clear()
-        date_input.input(arrest_date)
-        time.sleep(1)
+            
+            # Click Search - Green button saying "SEARCH"
+            search_btn = page.ele('text:SEARCH') or page.ele('css:button.btn-success') or page.ele('@type=submit')
+            if search_btn:
+                search_btn.click()
+            else:
+                sys.stderr.write("Could not find SEARCH button.\n")
+                current_date += timedelta(days=1)
+                continue
+            
+            # Wait for results
+            time.sleep(3)
+            
+            # 3. Extract URLs
+            links = page.eles('css:a[href*="viewInmate.php"]')
+            base_url = 'https://cms.revize.com/revize/apps/sarasota/'
+            
+            date_urls = []
+            for link in links:
+                href = link.attr('href')
+                if href:
+                    if href.startswith('http'):
+                        date_urls.append(href)
+                    else:
+                        date_urls.append(base_url + href)
+            
+            date_urls = list(set(date_urls))
+            sys.stderr.write(f"   📋 Found {len(date_urls)} inmates for {arrest_date}\n")
+            all_detail_urls.update(date_urls)
+            
+            # Move to next date
+            current_date += timedelta(days=1)
+            time.sleep(2)  # Be nice to the server
         
-        # Click Search - Green button saying "SEARCH"
-        search_btn = page.ele('text:SEARCH') or page.ele('css:button.btn-success') or page.ele('@type=submit')
-        if search_btn:
-            search_btn.click()
-        else:
-             sys.stderr.write("Could not find SEARCH button.\n")
-             return
+        sys.stderr.write(f"\n📊 Total unique inmates found: {len(all_detail_urls)}\n")
         
-        # Wait for results
-        # Look for links to viewInmate.php OR "No records found" message
-        if not page.wait.ele_displayed('css:a[href*="viewInmate.php"]', timeout=30):
-             sys.stderr.write("No results found after wait.\n")
-        
-        # 3. Extract URLs
-        links = page.eles('css:a[href*="viewInmate.php"]')
-        detail_urls = []
-        base_url = 'https://cms.revize.com/revize/apps/sarasota/'
-        
-        for link in links:
-            href = link.attr('href')
-            if href:
-                if href.startswith('http'):
-                    detail_urls.append(href)
-                else:
-                    detail_urls.append(base_url + href)
-                    
-        detail_urls = list(set(detail_urls))
-        # Cap
-        detail_urls = detail_urls[:100]
+        # Convert set to list for processing
+        detail_urls = list(all_detail_urls)
         
         # 4. Visit details
-        for detail_url in detail_urls:
+        for i, detail_url in enumerate(detail_urls):
             try:
+                sys.stderr.write(f"\n🔍 [{i+1}/{len(detail_urls)}] Processing {detail_url}\n")
                 page.get(detail_url)
                 
                 # Check CF on detail page too!
@@ -147,10 +180,9 @@ def scrape_sarasota(arrest_date):
                     data['Detail_URL'] = detail_url
                     
                     # Wait for load
-                    time.sleep(1) # Give JS a moment to replace elements if needed
+                    time.sleep(1)
                     
                     # 1. NAME Extraction (H1)
-                    # Content: "BRADY,PATRICK JOHN                  Print "
                     h1 = page.ele('css:h1.page-title')
                     if h1:
                         raw_name = h1.text.split('Print')[0].strip()
@@ -162,17 +194,10 @@ def scrape_sarasota(arrest_date):
                             data['First_Name'] = parts[1].strip()
 
                     # 2. Personal Info (Div Rows)
-                    # Look for divs with "text-right" class which contain labels with ":"
                     label_divs = page.eles('css:div.text-right')
                     for ld in label_divs:
                         key = ld.text.replace(':', '').strip()
-                        # Value is in the next sibling col-sm-7
-                        # Structure: col-sm-5 (key) -> sibling col-sm-7 (val)
-                        # We can try getting the parent row's text or traversing
                         try:
-                            parent_row = ld.parent()
-                            # The text of the row should be "Key: Value"
-                            # Let's try to get specific value div if possible
                             val_div = ld.next()
                             if val_div:
                                 val = val_div.text.strip()
@@ -184,11 +209,6 @@ def scrape_sarasota(arrest_date):
                             pass
 
                     # 3. Charges (Table #data-table)
-                    # Headers: Booking Number, Offense Description, Counts, Arraign Date, Bond Amount...
-                    # We want to capture these into a list or specific fields
-                    # The schema expects "Charges", "Bond_Amount".
-                    # If multiple charges, we join them?
-                    
                     charges = []
                     total_bond = 0.0
                     
@@ -197,13 +217,11 @@ def scrape_sarasota(arrest_date):
                         cells = row.eles('tag:td')
                         if len(cells) > 4:
                             # 0: Booking Number, 1: Offense, 3: Arraign, 4: Bond
-                            # Data Mapping based on HTML
                             if 'Booking_Number' not in data:
                                 data['Booking_Number'] = cells[0].text.strip()
                             
                             charge_desc = cells[1].text.strip()
                             if charge_desc:
-                                # Clean the charge text to extract only the description
                                 clean_desc = clean_charge_text(charge_desc)
                                 if clean_desc:
                                     charges.append(clean_desc)
@@ -220,10 +238,6 @@ def scrape_sarasota(arrest_date):
                                 intake_dt = cells[6].text.strip()
                                 if intake_dt:
                                     data['Booking_Date'] = intake_dt
-                    
-                    # Use the search arrest_date as Arrest_Date if not found in personal info
-                    if 'Arrest_Date' not in data and arrest_date:
-                        data['Arrest_Date'] = arrest_date
                                 
                     if charges:
                         data['Charges'] = " | ".join(charges)
@@ -233,21 +247,18 @@ def scrape_sarasota(arrest_date):
                     img = page.ele('css:.mug img')
                     if img:
                         src = img.attr('src')
-                        data['Mugshot_URL'] = src # Will be base64, handled by normalizer?
+                        data['Mugshot_URL'] = src
                         
                     sys.stderr.write(f"Scraped {len(data)} keys from {detail_url}\n") 
-                    
-                    # Debug print keys found
-                    if len(data) > 0:
-                         sys.stderr.write(f"Found: {list(data.keys())}\n")
 
                     if 'Booking_Number' in data or 'Full_Name' in data:
                         records.append(data)
+                        sys.stderr.write(f"   ✅ Added record (Total: {len(records)})\n")
                     else:
                         sys.stderr.write(f"Skipping {detail_url}, missing critical data.\n")
                         
                 else:
-                    sys.stderr.write(f"Table not found on {detail_url}\n")
+                    sys.stderr.write(f"Body not found on {detail_url}\n")
                     with open('sarasota_detail_fail.html', 'w', encoding='utf-8') as f:
                         f.write(page.html)
 
@@ -255,6 +266,8 @@ def scrape_sarasota(arrest_date):
             except Exception as e:
                 sys.stderr.write(f"Error processing {detail_url}: {str(e)}\n")
                 continue
+        
+        sys.stderr.write(f"\n📊 Total records collected: {len(records)}\n")
                 
         page.quit()
         
@@ -264,8 +277,16 @@ def scrape_sarasota(arrest_date):
     print(json.dumps(records))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("date", help="Arrest date MM/DD/YYYY")
-    args = parser.parse_args()
+    # Parse command line arguments
+    days_back = 21  # Default 3 weeks
     
-    scrape_sarasota(args.date)
+    if len(sys.argv) > 1:
+        try:
+            days_back = int(sys.argv[1])
+        except:
+            pass
+    
+    sys.stderr.write(f"🚀 Starting Sarasota County scraper\n")
+    sys.stderr.write(f"📅 Days back: {days_back}\n\n")
+    
+    scrape_sarasota(days_back)

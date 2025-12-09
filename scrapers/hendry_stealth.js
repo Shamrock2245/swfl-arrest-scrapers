@@ -1,5 +1,5 @@
 // scrapers/hendry_stealth.js
-// Hendry County scraper with Puppeteer stealth mode, "Read More" click-through, and 34-column schema output
+// Hendry County scraper with Puppeteer stealth mode, pagination, newest-first sorting, and 34-column schema output
 
 import { normalizeRecord34 } from '../normalizers/normalize34.js';
 import { upsertRecords34, logIngestion } from '../writers/sheets34.js';
@@ -19,15 +19,17 @@ const BASE_URL = 'https://www.hendrysheriff.org';
 const ROSTER_URL = `${BASE_URL}/inmateSearch`;
 
 /**
- * Main Hendry County scraper with stealth mode and "Read More" functionality (34-column output)
- * @param {number} daysBack - Number of days to go back (default: 30 for last month)
+ * Main Hendry County scraper with stealth mode, pagination, and "Read More" functionality (34-column output)
+ * @param {number} daysBack - Number of days to go back (default: 21 for 3 weeks)
+ * @param {number} maxPages - Maximum number of pages to scrape (default: 10)
  */
-export async function runHendrySteal(daysBack = 30) {
+export async function runHendrySteal(daysBack = 21, maxPages = 10) {
   const startTime = Date.now();
   console.log('═══════════════════════════════════════');
-  console.log('🚦 Starting Hendry County Scraper (Stealth + Read More + 34-column)');
+  console.log('🚦 Starting Hendry County Scraper (Stealth + Pagination + 34-column)');
   console.log('═══════════════════════════════════════');
   console.log(`📅 Scraping last ${daysBack} days of arrests`);
+  console.log(`📄 Maximum pages to scrape: ${maxPages}`);
 
   let browser = null;
 
@@ -42,30 +44,90 @@ export async function runHendrySteal(daysBack = 30) {
     await navigateWithRetry(page, ROSTER_URL, { timeout: 60000 });
     await randomDelay(2000, 500);
 
-    // 3) Set sorting to "Date (Newest - Oldest)" - optional, may not always be available
-    console.log('🔽 Attempting to set sort order to "Date (Newest - Oldest)"...');
+    // 3) Set sorting to "Date (Newest - Oldest)" - CRITICAL for getting newest arrests
+    console.log('🔽 Setting sort order to "Date (Newest - Oldest)"...');
     try {
       const sortSelect = await page.$('select#sort');
       if (sortSelect) {
-        await page.select('select#sort', 'dateDesc');
+        // Select option by index 0 (Date Newest - Oldest)
+        await page.evaluate(() => {
+          const select = document.querySelector('select#sort');
+          if (select) {
+            select.selectedIndex = 0; // Option 0 = "Date (Newest - Oldest)"
+            // Trigger change event to reload page with new sorting
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+        
+        console.log('⏳ Waiting for page to reload with new sorting...');
         await randomDelay(2000, 500);
+        
         // Wait for page to reload with new sorting
         await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => { });
         await randomDelay(1500, 300);
-        console.log('✅ Sort order set successfully');
+        
+        console.log('✅ Sort order set to "Date (Newest - Oldest)"');
       } else {
-        console.log('ℹ️  Sort dropdown not found, continuing with default order...');
+        console.log('⚠️  Sort dropdown not found, may not get newest inmates!');
       }
     } catch (err) {
-      console.log(`ℹ️  Could not set sort order (${err.message}), continuing with default order...`);
+      console.log(`⚠️  Could not set sort order (${err.message}), may not get newest inmates!`);
     }
 
-    // 4) Extract all inmate detail URLs from the list page
-    console.log('📋 Extracting inmate detail URLs...');
-    const detailUrls = await extractDetailUrls(page);
-    console.log(`📋 Found ${detailUrls.length} inmate detail URLs`);
+    // 4) Extract all inmate detail URLs from multiple pages
+    const allDetailUrls = [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    let currentPage = 1;
+    let shouldContinue = true;
 
-    if (detailUrls.length === 0) {
+    while (shouldContinue && currentPage <= maxPages) {
+      console.log(`\n📄 Processing page ${currentPage}...`);
+      
+      // Extract URLs from current page
+      const pageUrls = await extractDetailUrls(page);
+      console.log(`   📋 Found ${pageUrls.length} inmates on page ${currentPage}`);
+      
+      if (pageUrls.length === 0) {
+        console.log('   ⚠️  No inmates found on this page, stopping pagination');
+        break;
+      }
+      
+      allDetailUrls.push(...pageUrls);
+      
+      // Check if there's a next page
+      const hasNextPage = await page.evaluate(() => {
+        const nextButton = document.querySelector('button[aria-label="Page Right"]');
+        return nextButton && !nextButton.disabled;
+      });
+      
+      if (!hasNextPage) {
+        console.log('   ℹ️  No more pages available');
+        break;
+      }
+      
+      // Click next page if we haven't reached max pages
+      if (currentPage < maxPages) {
+        console.log('   ➡️  Navigating to next page...');
+        try {
+          await page.click('button[aria-label="Page Right"]');
+          await randomDelay(2000, 500);
+          await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => { });
+          await randomDelay(1500, 300);
+          currentPage++;
+        } catch (err) {
+          console.log(`   ⚠️  Error navigating to next page: ${err.message}`);
+          break;
+        }
+      } else {
+        console.log(`   ℹ️  Reached maximum pages (${maxPages})`);
+        break;
+      }
+    }
+
+    console.log(`\n📊 Total inmates found across ${currentPage} page(s): ${allDetailUrls.length}`);
+
+    if (allDetailUrls.length === 0) {
       await browser.close();
       await logIngestion('HENDRY', true, 0, startTime);
       console.log('ℹ️  No inmates found');
@@ -74,12 +136,11 @@ export async function runHendrySteal(daysBack = 30) {
 
     // 5) Visit each detail page and extract full information
     const records = [];
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    let stoppedEarly = false;
 
-    for (let i = 0; i < detailUrls.length; i++) {
-      const url = detailUrls[i];
-      console.log(`🔍 [${i + 1}/${detailUrls.length}] Navigating to ${url}`);
+    for (let i = 0; i < allDetailUrls.length; i++) {
+      const url = allDetailUrls[i];
+      console.log(`🔍 [${i + 1}/${allDetailUrls.length}] Navigating to ${url}`);
 
       try {
         await randomDelay(800, 600);
@@ -93,6 +154,7 @@ export async function runHendrySteal(daysBack = 30) {
           const bookedDate = new Date(rawData['Booked Date']);
           if (bookedDate < cutoffDate) {
             console.log(`   ⏸️  Reached cutoff date (${bookedDate.toLocaleDateString()}), stopping...`);
+            stoppedEarly = true;
             break;
           }
         }
@@ -112,6 +174,9 @@ export async function runHendrySteal(daysBack = 30) {
     }
 
     console.log(`\n📊 Parsed ${records.length} valid records from last ${daysBack} days`);
+    if (stoppedEarly) {
+      console.log('ℹ️  Stopped early due to date cutoff');
+    }
 
     // 6) Write to Sheets
     if (records.length > 0) {
@@ -150,8 +215,7 @@ async function extractDetailUrls(page) {
       if (/inmateSearch\/\d+/.test(href)) {
         let fullUrl = href;
         if (!href.startsWith('http')) {
-          fullUrl = `https
-://www.hendrysheriff.org${href}`;
+          fullUrl = `https://www.hendrysheriff.org${href}`;
         }
         uniqueUrls.add(fullUrl);
       }
@@ -339,11 +403,12 @@ async function extractDetailPageData(page, sourceUrl) {
   return data;
 }
 
-// Allow direct execution via `node scrapers/hendry_stealth.js [daysBack]`
+// Allow direct execution via `node scrapers/hendry_stealth.js [daysBack] [maxPages]`
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const daysBack = parseInt(process.argv[2]) || 30;
+  const daysBack = parseInt(process.argv[2]) || 21;  // Default 3 weeks
+  const maxPages = parseInt(process.argv[3]) || 10;  // Default 10 pages
 
-  runHendrySteal(daysBack).catch(err => {
+  runHendrySteal(daysBack, maxPages).catch(err => {
     console.error('Fatal error:', err);
     process.exit(1);
   });

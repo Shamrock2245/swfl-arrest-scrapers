@@ -2,12 +2,13 @@
 """
 Manatee County Arrest Scraper using DrissionPage
 Bypasses Cloudflare/iframe security and extracts detailed arrest information
+Now with pagination support for historical data collection
 """
 
 import json
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
 def clean_text(text):
@@ -16,21 +17,20 @@ def clean_text(text):
         return ""
     return " ".join(text.strip().split())
 
-def scrape_manatee_arrests(search_date=None):
+def scrape_manatee_arrests(days_back=21, max_pages=10):
     """
-    Scrape Manatee County arrests for a given date
+    Scrape Manatee County arrests with pagination support
     
     Args:
-        search_date: Date string in MM/DD/YYYY format (defaults to today)
+        days_back: Number of days to go back (default: 21 for 3 weeks)
+        max_pages: Maximum number of pages to scrape (default: 10)
     
     Returns:
         List of arrest records as dictionaries
     """
-    if not search_date:
-        search_date = datetime.now().strftime("%m/%d/%Y")
-    
     print(f"🚦 Starting Manatee County Scraper", file=sys.stderr)
-    print(f"📅 Search Date: {search_date}", file=sys.stderr)
+    print(f"📅 Days back: {days_back}", file=sys.stderr)
+    print(f"📄 Max pages: {max_pages}", file=sys.stderr)
     
     # Configure browser with stealth settings
     co = ChromiumOptions()
@@ -43,32 +43,64 @@ def scrape_manatee_arrests(search_date=None):
     
     page = ChromiumPage(addr_or_opts=co)
     arrests = []
+    cutoff_date = datetime.now() - timedelta(days=days_back)
     
     try:
         # Navigate directly to the bookings iframe URL
-        # The main page uses an iframe that loads from manatee-sheriff.revize.com/bookings
-        url = "https://manatee-sheriff.revize.com/bookings"
-        print(f"📡 Loading: {url}", file=sys.stderr)
-        page.get(url)
-        time.sleep(5)  # Wait for page and table to load
+        base_url = "https://manatee-sheriff.revize.com/bookings"
         
-        print(f"🔍 Extracting booking numbers from results", file=sys.stderr)
+        # Pagination loop
+        current_page = 1
+        all_booking_links = []
         
-        # Extract booking links from the table
-        # Look for links that go to booking detail pages
-        booking_links = page.eles('xpath://a[contains(@href, "/bookings/")]')
+        while current_page <= max_pages:
+            print(f"\n📄 Processing page {current_page}...", file=sys.stderr)
+            
+            # Navigate to list page (with page parameter if not first page)
+            if current_page == 1:
+                url = base_url
+            else:
+                url = f"{base_url}?page={current_page}"
+            
+            print(f"📡 Loading: {url}", file=sys.stderr)
+            page.get(url)
+            time.sleep(5)  # Wait for page and table to load
+            
+            print(f"🔍 Extracting booking numbers from page {current_page}", file=sys.stderr)
+            
+            # Extract booking links from the table
+            booking_links = page.eles('xpath://a[contains(@href, "/bookings/")]')
+            
+            # Filter out the main /bookings link (no ID)
+            booking_links = [link for link in booking_links if link.attr('href') and not link.attr('href').endswith('/bookings') and not link.attr('href').endswith('/bookings/')]
+            
+            print(f"   📋 Found {len(booking_links)} inmates on page {current_page}", file=sys.stderr)
+            
+            if len(booking_links) == 0:
+                print("   ⚠️  No inmates found on this page, stopping pagination", file=sys.stderr)
+                break
+            
+            all_booking_links.extend(booking_links)
+            
+            # Check if there's a next page button
+            # Look for pagination controls - common patterns: "Next", "›", page numbers
+            next_button = page.ele('text:Next') or page.ele('css:.pagination .next') or page.ele('css:a[rel="next"]') or page.ele('xpath://a[contains(text(), "›")]')
+            
+            if not next_button or current_page >= max_pages:
+                if current_page >= max_pages:
+                    print(f"   ℹ️  Reached maximum pages ({max_pages})", file=sys.stderr)
+                else:
+                    print("   ℹ️  No more pages available", file=sys.stderr)
+                break
+            
+            current_page += 1
+            time.sleep(2)  # Be nice to the server
         
-        # Filter out the main /bookings link (no ID)
-        booking_links = [link for link in booking_links if link.attr('href') and not link.attr('href').endswith('/bookings') and not link.attr('href').endswith('/bookings/')]
-        
-        if not booking_links:
-            print("ℹ️  No arrests found for this date", file=sys.stderr)
-            return []
-        
-        print(f"📋 Found {len(booking_links)} booking records", file=sys.stderr)
+        print(f"\n📊 Total inmates found across {current_page} page(s): {len(all_booking_links)}", file=sys.stderr)
         
         # Process each booking
-        for idx, link in enumerate(booking_links[:50], 1):  # Limit to 50 for safety
+        stopped_early = False
+        for idx, link in enumerate(all_booking_links, 1):
             try:
                 booking_number = link.text.strip()
                 detail_url = link.attr('href')
@@ -77,7 +109,7 @@ def scrape_manatee_arrests(search_date=None):
                 if not detail_url.startswith('http'):
                     detail_url = f"https://www.manateesheriff.com{detail_url}"
                 
-                print(f"🔍 [{idx}/{len(booking_links)}] Processing: {booking_number}", file=sys.stderr)
+                print(f"\n🔍 [{idx}/{len(all_booking_links)}] Processing: {booking_number}", file=sys.stderr)
                 
                 # Navigate to detail page
                 page.get(detail_url)
@@ -86,9 +118,20 @@ def scrape_manatee_arrests(search_date=None):
                 # Extract data from detail page
                 record = extract_detail_data(page, booking_number, detail_url)
                 
+                # Check date cutoff
+                if record and 'Book Date' in record:
+                    try:
+                        book_date = datetime.strptime(record['Book Date'], '%m/%d/%Y')
+                        if book_date < cutoff_date:
+                            print(f"   ⏸️  Reached cutoff date ({book_date.strftime('%Y-%m-%d')}), stopping...", file=sys.stderr)
+                            stopped_early = True
+                            break
+                    except:
+                        pass  # Continue if date parsing fails
+                
                 if record:
                     arrests.append(record)
-                    print(f"   ✅ {record.get('Full Name', 'Unknown')}", file=sys.stderr)
+                    print(f"   ✅ {record.get('Full Name', 'Unknown')} (Total: {len(arrests)})", file=sys.stderr)
                 
                 # Small delay between requests
                 time.sleep(1)
@@ -97,7 +140,9 @@ def scrape_manatee_arrests(search_date=None):
                 print(f"   ⚠️  Error processing {booking_number}: {e}", file=sys.stderr)
                 continue
         
-        print(f"\n✅ Successfully scraped {len(arrests)} arrests", file=sys.stderr)
+        print(f"\n📊 Total records collected: {len(arrests)}", file=sys.stderr)
+        if stopped_early:
+            print("ℹ️  Stopped early due to date cutoff", file=sys.stderr)
         
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)
@@ -152,6 +197,10 @@ def extract_detail_data(page, booking_number, source_url):
                     value = value_elem.attr('value') or value_elem.text
                     if value:
                         data[output_key] = clean_text(value)
+        
+        # Build Full Name
+        if 'First Name' in data and 'Last Name' in data:
+            data['Full Name'] = f"{data['Last Name']}, {data['First Name']}"
         
         # Extract Bookings table data (Book #, Book Date, Released Date)
         booking_table = page.ele('xpath://table[.//th[contains(text(), "Book #")]]')
@@ -211,7 +260,7 @@ def extract_detail_data(page, booking_number, source_url):
         
         if bonds_list:
             data['Bond Amount'] = bonds_list[0]
-            data['Total Bond'] = sum(float(b.replace(',', '')) for b in bonds_list if b.replace(',', '').replace('.', '').isdigit())
+            data['Total Bond'] = sum(float(b.replace(',', '').replace('$', '')) for b in bonds_list if b.replace(',', '').replace('$', '').replace('.', '').isdigit())
         
         if statutes_list:
             data['Statute'] = ' | '.join(statutes_list)
@@ -235,11 +284,24 @@ def extract_detail_data(page, booking_number, source_url):
 
 def main():
     """Main entry point"""
-    # Get search date from command line or use today
-    search_date = sys.argv[1] if len(sys.argv) > 1 else None
+    # Parse command line arguments
+    days_back = 21  # Default 3 weeks
+    max_pages = 10  # Default 10 pages
+    
+    if len(sys.argv) > 1:
+        try:
+            days_back = int(sys.argv[1])
+        except:
+            pass
+    
+    if len(sys.argv) > 2:
+        try:
+            max_pages = int(sys.argv[2])
+        except:
+            pass
     
     try:
-        arrests = scrape_manatee_arrests(search_date)
+        arrests = scrape_manatee_arrests(days_back, max_pages)
         
         # Output as JSON
         print(json.dumps(arrests, indent=2))
