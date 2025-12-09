@@ -34,6 +34,8 @@ logs/
 .env.*
 *.pem
 *.key
+.venv/
+
 
 # ----------------------------
 # Debug Output (your repo)
