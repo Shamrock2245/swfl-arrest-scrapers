@@ -1,13 +1,13 @@
-*# ----------------------------
-# Node / Puppeteer
-# ----------------------------
+# ============================
+# Node / Puppeteer / Playwright
+# ============================
 node_modules/
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 
-# Puppeteer / Chromium temp files
+# Chromium / Browser Artifacts
 .chromium/
 .puppeteer/
 chrome-data/
@@ -15,31 +15,35 @@ user-data-dir/
 screenshots/
 captures/
 
-# Cache
+# Cache / Temp
 .cache/
 .tmp/
 temp/
 tmp/
 
-# ----------------------------
 # Logs
-# ----------------------------
 logs/
 *.log
 
-# ----------------------------
-# Environment / Secrets
-# ----------------------------
-.env
-.env.*
-*.pem
-*.key
+# ============================
+# Python / DrissionPage / Virtualenv
+# ============================
 .venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
 
+# Ignore large frameworks copied into repo accidentally
+python_scrapers/.venv/
+python_scrapers/__pycache__/
+python_scrapers/*/cache/
+python_scrapers/*/__pycache__/
 
-# ----------------------------
-# Debug Output (your repo)
-# ----------------------------
+# ============================
+# Debug Output (Your Scraper Repo)
+# ============================
 *debug*.html
 *debug*.js
 *debug*.png
@@ -47,23 +51,27 @@ logs/
 *_debug.*
 sarasota_detail_fail.html
 
-# County test files
-test_*.js
-test_*.py
-
 # Local HTML snapshots
 *.html
 
-# ----------------------------
-# Python experimental code
-# ----------------------------
-scrapers/python/
-*.pyc
-__pycache__/
+# ============================
+# Test Files
+# ============================
+test_*.js
+test_*.py
+tests/
 
-# ----------------------------
+# ============================
+# Environment Keys / Secrets
+# ============================
+.env
+.env.*
+*.pem
+*.key
+
+# ============================
 # OS / Editor Trash
-# ----------------------------
+# ============================
 .DS_Store
 Thumbs.db
 .idea/
@@ -71,15 +79,15 @@ Thumbs.db
 *.swp
 *.swo
 
-# ----------------------------
+# ============================
 # Build / Distribution
-# ----------------------------
+# ============================
 dist/
 build/
 out/
 
-# ----------------------------
-# Git merge conflict leftovers
-# ----------------------------
+# ============================
+# Git Merge Conflict Junk
+# ============================
 *.orig
 *.rej
