@@ -2,6 +2,7 @@ import sys
 import json
 import time
 import re
+import os
 from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
@@ -35,20 +36,37 @@ def clean_charge_text(raw_charge):
 
 def scrape_sarasota(days_back=21):
     """
-    Scrape Sarasota County with date range support
-    
-    Args:
-        days_back: Number of days to go back (default: 21 for 3 weeks)
+    Scrape Sarasota County with date range support and RESUME capability
     """
     records = []
+    progress_file = 'sarasota_progress.jsonl'
+    
+    # Load existing progress to skip duplicates
+    processed_ids = set()
+    if os.path.exists(progress_file):
+        try:
+            with open(progress_file, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            rec = json.loads(line)
+                            if 'Detail_URL' in rec:
+                                processed_ids.add(rec['Detail_URL'])
+                        except: pass
+        except Exception as e:
+            sys.stderr.write(f"Warning: Could not read progress file: {e}\n")
+            
+    sys.stderr.write(f"ℹ️  Found {len(processed_ids)} previously scraped records. Resuming...\n")
     
     try:
         co = ChromiumOptions()
-        co.set_browser_path('/usr/bin/chromium-browser')
-        co.headless(True)
+        # co.set_browser_path('/usr/bin/chromium-browser')
+        
+        # HEADFUL mode for Cloudflare
+        co.headless(False)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--disable-gpu')
+        # co.set_argument('--disable-gpu') 
         co.set_argument('--ignore-certificate-errors')
         
         page = ChromiumPage(co)
@@ -57,19 +75,18 @@ def scrape_sarasota(days_back=21):
         def handle_cloudflare(page):
             sys.stderr.write("Checking for Cloudflare...\n")
             # Wait loop
-            for _ in range(10):
+            for i in range(15):
                 title = page.title.lower()
-                sys.stderr.write(f"Page Title: {page.title}\n")
-                if "just a moment" not in title and "security challenge" not in title:
+                sys.stderr.write(f"[{i+1}/15] Page Title: {page.title}\n")
+                
+                if "just a moment" not in title and "security challenge" not in title and "attention" not in title:
                     sys.stderr.write("Cloudflare cleared (title check).\n")
                     return True
                 
                 # Check for specifics
                 if page.ele('@id=turnstile-wrapper', timeout=1):
                     sys.stderr.write("Waiting for Turnstile...\n")
-                    time.sleep(2)
-                    continue
-                    
+                
                 time.sleep(2)
             return False
 
@@ -88,7 +105,7 @@ def scrape_sarasota(days_back=21):
             arrest_date = current_date.strftime('%m/%d/%Y')
             sys.stderr.write(f"\n📅 Searching for arrests on {arrest_date}...\n")
             
-            # 1. Navigate to the iframe URL directly as it's the app
+            # 1. Navigate to the iframe URL directly
             url = 'https://cms.revize.com/revize/apps/sarasota/index.php'
             page.get(url)
             
@@ -100,19 +117,17 @@ def scrape_sarasota(days_back=21):
                 current_date += timedelta(days=1)
                 continue
 
-            # Save HTML for debugging (first date only)
-            if current_date == start_date:
-                with open('sarasota_debug.html', 'w', encoding='utf-8') as f:
-                    f.write(page.html)
-                 
             # 2. Search by date
             # Click "Arrest Date" tab to be sure
-            tab = page.ele('text:Arrest Date', timeout=5)
-            if tab:
-                tab.click()
-                time.sleep(1)
+            try:
+                tab = page.ele('text:Arrest Date', timeout=5)
+                if tab:
+                    tab.click()
+                    time.sleep(1)
+            except:
+                pass
 
-            # Input: Look for placeholder "mm/dd/yyyy" as seen in screenshot
+            # Input: Look for placeholder "mm/dd/yyyy"
             date_input = page.ele('@placeholder=mm/dd/yyyy') or \
                          page.ele('css:input[name="arrest_date"]') or \
                          page.ele('@name=arrest_date') or \
@@ -166,6 +181,14 @@ def scrape_sarasota(days_back=21):
         # Convert set to list for processing
         detail_urls = list(all_detail_urls)
         
+        # FILTER: Removed processed
+        original_count = len(detail_urls)
+        detail_urls = [u for u in detail_urls if u not in processed_ids]
+        skipped_count = original_count - len(detail_urls)
+        
+        if skipped_count > 0:
+             sys.stderr.write(f"📉 Skipping {skipped_count} already scraped records. {len(detail_urls)} remaining.\n")
+        
         # 4. Visit details
         for i, detail_url in enumerate(detail_urls):
             try:
@@ -192,6 +215,9 @@ def scrape_sarasota(days_back=21):
                             parts = raw_name.split(',', 1)
                             data['Last_Name'] = parts[0].strip()
                             data['First_Name'] = parts[1].strip()
+                    else:
+                         # Fallback for name
+                         pass
 
                     # 2. Personal Info (Div Rows)
                     label_divs = page.eles('css:div.text-right')
@@ -201,7 +227,16 @@ def scrape_sarasota(days_back=21):
                             val_div = ld.next()
                             if val_div:
                                 val = val_div.text.strip()
-                                data[key] = val
+                                # Normalize Keys
+                                if key == 'DOB': data['DOB'] = val
+                                elif key == 'Race': data['Race'] = val
+                                elif key == 'Sex': data['Sex'] = val
+                                elif key == 'Height': data['Height'] = val
+                                elif key == 'Weight': data['Weight'] = val
+                                elif key == 'Address': data['Address'] = val
+                                elif key == 'City': data['City'] = val
+                                elif key == 'State': data['State'] = val
+                                elif key == 'Zip Code': data['ZIP'] = val
                                 # Map common variations to standard fields
                                 if key.lower() in ['arrest date', 'arrested', 'date arrested']:
                                     data['Arrest_Date'] = val
@@ -250,10 +285,19 @@ def scrape_sarasota(days_back=21):
                         data['Mugshot_URL'] = src
                         
                     sys.stderr.write(f"Scraped {len(data)} keys from {detail_url}\n") 
+                    
+                    # Log Name
+                    name = data.get('Full_Name', 'Unknown')
+                    sys.stderr.write(f"   👤 Name: {name}\n")
 
                     if 'Booking_Number' in data or 'Full_Name' in data:
                         records.append(data)
-                        sys.stderr.write(f"   ✅ Added record (Total: {len(records)})\n")
+                        
+                        # IMMEDIATE SAVE to JSONL
+                        with open(progress_file, 'a') as f:
+                            f.write(json.dumps(data) + '\n')
+                            
+                        sys.stderr.write(f"   ✅ Added & Saved record (Total New: {len(records)})\n")
                     else:
                         sys.stderr.write(f"Skipping {detail_url}, missing critical data.\n")
                         
@@ -267,14 +311,26 @@ def scrape_sarasota(days_back=21):
                 sys.stderr.write(f"Error processing {detail_url}: {str(e)}\n")
                 continue
         
-        sys.stderr.write(f"\n📊 Total records collected: {len(records)}\n")
+        sys.stderr.write(f"\n📊 Total new records collected: {len(records)}\n")
                 
         page.quit()
         
     except Exception as e:
         sys.stderr.write(f"Fatal error: {str(e)}\n")
 
-    print(json.dumps(records))
+    # Combine all records for final output
+    final_records = []
+    if os.path.exists(progress_file):
+        with open(progress_file, 'r') as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        final_records.append(json.loads(line))
+                    except: pass
+    else:
+        final_records = records
+
+    print(json.dumps(final_records))
 
 if __name__ == "__main__":
     # Parse command line arguments
