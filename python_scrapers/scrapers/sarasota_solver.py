@@ -9,34 +9,27 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 def clean_charge_text(raw_charge):
     """
     Clean charge text to extract only the human-readable description.
-    Input: "New Charge: 843.02 - Resisting Officer Without Violence (LEV:M DEG:F 3143) (Principal - P)"
-    Output: "Resisting Officer Without Violence"
     """
     if not raw_charge:
         return ''
     
-    # Remove "New Charge:" or "Weekender:" prefix
     text = re.sub(r'^(New Charge:|Weekender:)\s*', '', raw_charge, flags=re.IGNORECASE)
-    
-    # Extract the description part (between statute and parentheses)
-    # Pattern: [statute] - [Description] (LEV:...)
     match = re.search(r'[\d.]+[a-z]*\s*-\s*([^(]+)', text, re.IGNORECASE)
     if match:
         description = match.group(1).strip()
         return description
     
-    # Fallback: if no statute pattern, try to get text before first parenthesis
     if '(' in text:
         description = text.split('(')[0].strip()
-        # Remove leading statute if present
         description = re.sub(r'^[\d.]+[a-z]*\s*-\s*', '', description)
         return description.strip()
     
     return text.strip()
 
-def scrape_sarasota(days_back=21):
+def scrape_sarasota(days_back=1):
     """
     Scrape Sarasota County with date range support and RESUME capability
+    Default days_back=1 (Today and Yesterday)
     """
     records = []
     progress_file = 'sarasota_progress.jsonl'
@@ -73,19 +66,31 @@ def scrape_sarasota(days_back=21):
         
         # Custom CF Handler
         def handle_cloudflare(page):
-            sys.stderr.write("Checking for Cloudflare...\n")
-            # Wait loop
-            for i in range(15):
+            sys.stderr.write("Checking for Cloudflare... (Please solve CAPTCHA manually if it appears)\n")
+            
+            # Wait up to 60 seconds
+            for i in range(30):
                 title = page.title.lower()
-                sys.stderr.write(f"[{i+1}/15] Page Title: {page.title}\n")
+                sys.stderr.write(f"[{i*2}s] Page Title: {page.title}\n")
                 
-                if "just a moment" not in title and "security challenge" not in title and "attention" not in title:
-                    sys.stderr.write("Cloudflare cleared (title check).\n")
-                    return True
+                # Success condition
+                if "just a moment" not in title and "security" not in title and "attention" not in title:
+                    # Double check we have body content
+                    if page.ele('tag:body'):
+                        sys.stderr.write("✅ Cloudflare cleared!\n")
+                        return True
                 
-                # Check for specifics
-                if page.ele('@id=turnstile-wrapper', timeout=1):
-                    sys.stderr.write("Waiting for Turnstile...\n")
+                # Attempt to find and click Turnstile (Cloudflare checkbox)
+                try:
+                    # Look for the iframe or shadow root element
+                    if page.ele('@id=turnstile-wrapper') or page.ele('text:Verify you are human'):
+                         sys.stderr.write("   👉 Found Turnstile wrapper...\n")
+                except:
+                    pass
+
+                # If we are stuck for a while, ask user
+                if i == 5:
+                     sys.stderr.write("⚠️  STUCK? Please click the Cloudflare checkbox manually in the browser window!\n")
                 
                 time.sleep(2)
             return False
@@ -109,7 +114,9 @@ def scrape_sarasota(days_back=21):
             url = 'https://cms.revize.com/revize/apps/sarasota/index.php'
             page.get(url)
             
-            handle_cloudflare(page)
+            if not handle_cloudflare(page):
+                 sys.stderr.write("❌ Could not clear Cloudflare. Stopping.\n")
+                 break
             
             # Verify we are on the real page
             if not page.wait.ele_displayed('tag:body', timeout=10):
@@ -128,6 +135,7 @@ def scrape_sarasota(days_back=21):
                 pass
 
             # Input: Look for placeholder "mm/dd/yyyy"
+            # Based on screenshot, it's a standard date input with ID or Name
             date_input = page.ele('@placeholder=mm/dd/yyyy') or \
                          page.ele('css:input[name="arrest_date"]') or \
                          page.ele('@name=arrest_date') or \
@@ -139,13 +147,23 @@ def scrape_sarasota(days_back=21):
                 continue
 
             # Clear and type
-            date_input.clear()
-            date_input.input(arrest_date)
-            time.sleep(1)
+            try:
+                date_input.click()
+                date_input.clear()
+                time.sleep(0.5)
+                date_input.input(arrest_date)
+                page.actions.type('\n') # Press Enter
+                time.sleep(1)
+            except Exception as e:
+                sys.stderr.write(f"Error typing date: {e}\n")
             
             # Click Search - Green button saying "SEARCH"
             search_btn = page.ele('text:SEARCH') or page.ele('css:button.btn-success') or page.ele('@type=submit')
             if search_btn:
+                # Scroll to ensure visible
+                try: search_btn.run_js('this.scrollIntoView()')
+                except: pass
+                
                 search_btn.click()
             else:
                 sys.stderr.write("Could not find SEARCH button.\n")
@@ -269,6 +287,7 @@ def scrape_sarasota(days_back=21):
                                 pass
                             
                             # Intake Date (Booking Date) - Index 6
+                            # This is critical for spreadsheet
                             if len(cells) > 6 and 'Booking_Date' not in data:
                                 intake_dt = cells[6].text.strip()
                                 if intake_dt:
@@ -288,7 +307,35 @@ def scrape_sarasota(days_back=21):
                     
                     # Log Name
                     name = data.get('Full_Name', 'Unknown')
-                    sys.stderr.write(f"   👤 Name: {name}\n")
+                    
+                    # NORMALIZE DATA FOR SHEETS
+                    data['County'] = 'Sarasota'
+                    if 'ZIP' in data:
+                        data['Zipcode'] = data.pop('ZIP')
+                    
+                    # Fallback for Arrest_Date
+                    if 'Arrest_Date' not in data and 'Booking_Date' in data:
+                        # Use Booking Date as Arrest Date if missing
+                        # Assuming format YYYY-MM-DD HH:MM:SS from table
+                        bd = data['Booking_Date']
+                        if ' ' in bd:
+                            data['Arrest_Date'] = bd.split(' ')[0]
+                        else:
+                            data['Arrest_Date'] = bd
+                            
+                    # Clean up Booking Date format if needed
+                    # Scraper output: 2025-11-26 00:29:52.000
+                    if 'Booking_Date' in data:
+                        # Make sure we have just the date part for the main Booking_Date field 
+                        # if the schema expects YYYY-MM-DD. 
+                        # But wait, schema says: Booking_Date: str (Fields 10)
+                        # The user provided JSON shows full datetime.
+                        # Let's clean it to be safe, or leave it if Sheets handles it.
+                        # For now, let's leave it, but ensure we populate Arrest_Date
+                        pass
+
+                    bdate = data.get('Arrest_Date', data.get('Booking_Date', 'N/A'))
+                    sys.stderr.write(f"   👤 Name: {name} | Date: {bdate}\n")
 
                     if 'Booking_Number' in data or 'Full_Name' in data:
                         records.append(data)
@@ -334,7 +381,7 @@ def scrape_sarasota(days_back=21):
 
 if __name__ == "__main__":
     # Parse command line arguments
-    days_back = 21  # Default 3 weeks
+    days_back = 1  # Default Today + Yesterday
     
     if len(sys.argv) > 1:
         try:

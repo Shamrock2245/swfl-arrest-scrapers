@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Sarasota County Scraper Runner - Production Ready
+Manatee County Scraper Runner - Production Ready
 
-Integrates sarasota_solver.py with the Python scraper infrastructure:
+Integrates manatee_solver.py with the Python scraper infrastructure:
 - Calls the solver to scrape raw data
 - Converts to ArrestRecord objects
 - Scores records with LeadScorer
@@ -32,13 +32,13 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     
     # Map raw fields to ArrestRecord schema
     record = ArrestRecord(
-        County="Sarasota",
+        County="Manatee",
         Booking_Number=raw_data.get('Booking_Number', ''),
         Full_Name=raw_data.get('Full_Name', ''),
         First_Name=raw_data.get('First_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
-        DOB=raw_data.get('DOB', raw_data.get('Date of Birth', '')),
-        Sex=raw_data.get('Sex', raw_data.get('Gender', '')),
+        DOB=raw_data.get('DOB', ''),
+        Sex=raw_data.get('Sex', ''),
         Race=raw_data.get('Race', ''),
         Arrest_Date=raw_data.get('Arrest_Date', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
@@ -47,8 +47,7 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         State=raw_data.get('State', 'FL'),
         Zipcode=raw_data.get('Zipcode', ''),
         Charges=raw_data.get('Charges', ''),
-        Bond_Amount=raw_data.get('Bond_Amount', ''),
-        Bond_Type=raw_data.get('Bond_Type', ''),
+        Bond_Amount=raw_data.get('Bond_Amount', '0'),
         Status=raw_data.get('Status', 'IN CUSTODY'),
         Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         source_url=raw_data.get('Detail_URL', '')
@@ -59,46 +58,93 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 
 def main():
     """Main execution function."""
-    parser = argparse.ArgumentParser(description='Run Sarasota County scraper')
-    parser.add_argument('days_back', nargs='?', type=int, default=1, help='Number of days back to scrape (default: 1)')
+    parser = argparse.ArgumentParser(description='Run Manatee County scraper')
+    parser.add_argument('--days-back', type=int, default=21, help='Days back to scrape')
+    parser.add_argument('--max-pages', type=int, default=10, help='Max pages to scrape')
     args = parser.parse_args()
-
+    
     print(f"\n{'='*80}")
-    print(f"🚦 Sarasota County Scraper - Production Runner")
+    print(f"🚦 Manatee County Scraper - Production Runner")
     print(f"{'='*80}\n")
     
     # Get script directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    solver_path = os.path.join(script_dir, 'sarasota_solver.py')
+    solver_path = os.path.join(script_dir, 'manatee_solver.py')
     
     # Run the solver
-    print(f"📡 Running Sarasota solver (days_back={args.days_back})...")
+    # manatee_solver.py args: [days_back] [max_pages]
+    print(f"📡 Running Manatee solver (days_back={args.days_back}, max_pages={args.max_pages})...")
+    
     try:
-        result = subprocess.run(
-            ['python3', solver_path, str(args.days_back)],
-            capture_output=True,
+        # We start the process and capture output
+        # Manatee solver prints JSON to stdout at the very end
+        # We use Popen to stream stderr (logs) to console in real-time
+        process = subprocess.Popen(
+            ['python3', solver_path, str(args.days_back), str(args.max_pages)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=300  # 5 minute timeout
+            bufsize=1,  # Line buffered
+            universal_newlines=True
         )
         
-        # Print stderr (debug info)
-        if result.stderr:
-            sys.stderr.write(result.stderr)
+        # Stream stderr in real-time
+        chunks = []
+        while True:
+            # Check if process is still running
+            return_code = process.poll()
+            
+            # Read all available lines from stderr
+            for line in process.stderr:
+                sys.stderr.write(line)
+                sys.stderr.flush()
+                
+            if return_code is not None:
+                break
+            
+            # Small sleep to prevent tight loop if no output
+            import time
+            time.sleep(0.1)
+            
+        # Get standard output (which should be the JSON)
+        stdout, _ = process.communicate()
         
-        if result.returncode != 0:
-            print(f"❌ Solver failed with return code {result.returncode}")
-            return
+        if process.returncode != 0:
+            print(f"❌ Solver failed with return code {process.returncode}")
+            if not stdout:
+                return
         
         # Parse JSON output
-        raw_records = json.loads(result.stdout)
+        stdout_clean = stdout.strip()
+        # Find the last valid JSON array
+        try:
+            raw_records = json.loads(stdout_clean)
+        except:
+             # Try to find array brackets - handle case where unrelated text is in stdout
+             try:
+                 # Look for the last occurrence of ']'
+                 end_idx = stdout_clean.rfind(']')
+                 if end_idx != -1:
+                     # Look for the matching '[' before it
+                     # This is heuristic; assuming the largest JSON array at the end is our data
+                     # A safer way is to find the last '[' that starts a valid JSON array ending at end_idx
+                     subset = stdout_clean[:end_idx+1]
+                     start_idx = subset.rfind('[')
+                     if start_idx != -1:
+                        candidate = subset[start_idx:]
+                        raw_records = json.loads(candidate)
+                     else:
+                        raw_records = []
+                 else:
+                     raw_records = []
+             except Exception as e:
+                 print(f"Failed to extract JSON from output: {e}")
+                 raw_records = []
+
         print(f"✅ Solver extracted {len(raw_records)} raw records")
         
     except subprocess.TimeoutExpired:
-        print("❌ Solver timed out after 5 minutes")
-        return
-    except json.JSONDecodeError as e:
-        print(f"❌ Failed to parse solver output: {e}")
-        # print(f"Output was: {result.stdout[:500]}")
+        print("❌ Solver timed out after 20 minutes")
         return
     except Exception as e:
         print(f"❌ Error running solver: {e}")
@@ -152,22 +198,19 @@ def main():
                 creds_path = path
                 break
         
-        if not creds_path:
-             print("⚠️  Warning: credentials not found. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH.")
-        
         writer = SheetsWriter(
             spreadsheet_id=sheets_id,
             credentials_path=creds_path
         )
         
-        # Write to Sarasota tab
-        stats = writer.write_records(scored_records, county="Sarasota")
+        # Write to Manatee tab
+        stats = writer.write_records(scored_records, county="Manatee")
         
         # Also log to ingestion log
-        writer.log_ingestion("Sarasota", stats)
+        writer.log_ingestion("Manatee", stats)
         
         print(f"\n{'='*80}")
-        print(f"✅ Sarasota County Scraper Complete!")
+        print(f"✅ Manatee County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
         print(f"   Updated: {stats.get('updated_records', 0)}")

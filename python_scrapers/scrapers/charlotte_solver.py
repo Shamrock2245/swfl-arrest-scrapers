@@ -329,7 +329,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
 
 if __name__ == "__main__":
     days_back = 21
-    max_pages = 10
+    max_pages = 1
     if len(sys.argv) > 1:
         try: days_back = int(sys.argv[1])
         except: pass

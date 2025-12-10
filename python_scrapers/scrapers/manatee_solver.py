@@ -48,13 +48,18 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
     print(f"ℹ️  Found {len(processed_ids)} previously scraped records. Resuming...", file=sys.stderr)
 
     co = ChromiumOptions()
+    co.auto_port()  # Avoid port conflicts
     co.headless(False) # Headful for CF
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
     co.set_argument('--disable-blink-features=AutomationControlled')
     co.set_user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
-    page = ChromiumPage(addr_or_opts=co)
+    try:
+        page = ChromiumPage(addr_or_opts=co)
+    except Exception as e:
+        print(f"❌ Failed to start browser: {e}", file=sys.stderr)
+        raise e
     arrests = [] # New records only
     cutoff_date = datetime.now() - timedelta(days=days_back)
     
@@ -74,8 +79,15 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
                 url = f"{base_url}?page={current_page}"
             
             print(f"📡 Loading: {url}", file=sys.stderr)
-            page.get(url)
-            
+            try:
+                page.get(url)
+            except Exception as nav_err:
+                 print(f"⚠️ Page {current_page} nav error: {nav_err}. Restarting page...", file=sys.stderr)
+                 try: page.quit() 
+                 except: pass
+                 page = ChromiumPage(addr_or_opts=co)
+                 page.get(url)
+
             if "just a moment" in page.title.lower():
                  print("   ⚠️  Encountered Cloudflare, waiting...", file=sys.stderr)
                  time.sleep(5)
@@ -158,6 +170,12 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
                 if "just a moment" in page.title.lower():
                     time.sleep(3)
                 
+                # DEBUG: Dump HTML and exit
+                with open('manatee_debug_detail.html', 'w', encoding='utf-8') as f:
+                    f.write(page.html)
+                print("🚨 DUMPED HTML to manatee_debug_detail.html - STOPPING FOR DEBUG", file=sys.stderr)
+                sys.exit(0)
+
                 record = extract_detail_data(page, booking_number, detail_url)
                 
                 if record and 'Booking_Date' in record:
@@ -179,7 +197,35 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
                 time.sleep(1)
                 
             except Exception as e:
-                print(f"   ⚠️  Error processing {booking_number}: {e}", file=sys.stderr)
+                err_msg = str(e)
+                print(f"   ⚠️  Error processing {booking_number}: {err_msg}", file=sys.stderr)
+                
+                # RECOVERY LOGIC
+                if "disconnected" in err_msg.lower() or "connection" in err_msg.lower():
+                    print("   🔄 Browser disconnected! Restarting...", file=sys.stderr)
+                    try:
+                        page.quit()
+                    except: pass
+                    
+                    # Restart Browser
+                    time.sleep(2)
+                    page = ChromiumPage(addr_or_opts=co)
+                    
+                    # Retry this one
+                    try:
+                         print(f"   🔄 Retrying {booking_number}...", file=sys.stderr)
+                         page.get(detail_url)
+                         time.sleep(2)
+                         
+                         record = extract_detail_data(page, booking_number, detail_url)
+                         if record:
+                             arrests.append(record)
+                             with open(progress_file, 'a') as f:
+                                 f.write(json.dumps(record) + '\n')
+                             print(f"   ✅ Saved {record.get('Full_Name', 'Unknown')} (Recovered)", file=sys.stderr)
+                    except Exception as retry_err:
+                         print(f"   ❌ Retry failed for {booking_number}: {retry_err}", file=sys.stderr)
+                
                 continue
         
         print(f"\n📊 Total new records collected: {len(arrests)}", file=sys.stderr)
@@ -191,7 +237,8 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
         pass
     
     finally:
-        page.quit()
+        try: page.quit()
+        except: pass
     
     # OUTPUT ALL
     final_records = []
@@ -316,7 +363,7 @@ def extract_detail_data(page, booking_number, source_url):
 
 def main():
     days_back = 21
-    max_pages = 10
+    max_pages = 1
     if len(sys.argv) > 1:
         try: days_back = int(sys.argv[1])
         except: pass
