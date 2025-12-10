@@ -263,7 +263,11 @@ def extract_detail_data(page, booking_number, source_url):
     }
     
     try:
-        personal_fields = {
+        # 1. Personal Info (Form Inputs)
+        # Look for labels and their corresponding inputs
+        # The HTML shows <label class="form-label">...</label><input ... value="...">
+        
+        personal_fields_map = {
             'First Name': 'First_Name',
             'Last Name': 'Last_Name',
             'Middle Name': 'Middle_Name',
@@ -273,89 +277,130 @@ def extract_detail_data(page, booking_number, source_url):
             'Hair': 'Hair_Color',
             'Eye': 'Eye_Color',
             'Height': 'Height',
-            'Weight': 'Weight'
+            'Weight': 'Weight',
+            'Address': 'Address',
+            'City': 'City',
+            'State': 'State',
+            'Zip Code': 'Zipcode'
         }
-        
-        for field_label, output_key in personal_fields.items():
-            field_elem = page.ele(f'xpath://text()[contains(., "{field_label}")]')
-            if field_elem:
-                parent = field_elem.parent()
-                value_elem = parent.ele('tag:input') or parent.next()
-                if value_elem:
-                    value = value_elem.attr('value') or value_elem.text
-                    if value:
-                        data[output_key] = clean_text(value)
-        
+
+        for label_text, data_key in personal_fields_map.items():
+            # Find label by text
+            try:
+                # Use flexible xpath to find label containing text
+                label = page.ele(f'xpath://label[contains(text(), "{label_text}")]')
+                if label:
+                    # Input is usually the next sibling or inside the same parent div
+                    # In dump: <div class="col-lg-6"><label>...</label><input></div>
+                    input_ele = label.next('tag:input')
+                    if input_ele:
+                        val = input_ele.attr('value')
+                        if val:
+                            data[data_key] = clean_text(val)
+            except:
+                pass
+
         if 'First_Name' in data and 'Last_Name' in data:
             data['Full_Name'] = f"{data['Last_Name']}, {data['First_Name']}"
-        
-        booking_table = page.ele('xpath://table[.//th[contains(text(), "Book #")]]')
+            if 'Middle_Name' in data and data['Middle_Name']:
+                data['Full_Name'] += f" {data['Middle_Name']}"
+
+        # 2. Booking Info (Main Table)
+        # Table ID: #bookings-table
+        # Row structure: <td><button></td><td>Book#</td><td>Date</td><td>Released</td>
+        booking_table = page.ele('#bookings-table')
         if booking_table:
-            rows = booking_table.eles('tag:tr')[1:]
-            for row in rows:
-                cells = row.eles('tag:td')
-                if len(cells) >= 3:
-                    book_num = clean_text(cells[0].text)
-                    book_date = clean_text(cells[1].text)
-                    released = clean_text(cells[2].text)
-                    if book_num:
-                        data['Booking_Date'] = book_date
-                        data['Released_Date'] = released
-        
-        charges_table = page.ele('xpath://table[.//th[contains(text(), "Arrest Date")] or .//th[contains(text(), "Statute")]]')
+            # Find the row that contains the booking number (or just the first one)
+            # tr data-booking="0"
+            data_row = booking_table.ele('css:tr[data-booking]')
+            if data_row:
+                cells = data_row.eles('tag:td')
+                if len(cells) >= 4:
+                    # Index 0 is button
+                    # Index 1 is Book Number
+                    # Index 2 is Book Date
+                    # Index 3 is Released Date
+                    
+                    # b_num = clean_text(cells[1].text) # Already extracted from URL/list, but can confirm
+                    b_date = clean_text(cells[2].text)
+                    status = clean_text(cells[3].text)
+                    
+                    if b_date:
+                        data['Booking_Date'] = b_date
+                    if status:
+                        data['Status'] = status
+
+        # 3. Charges (Inner Table)
+        # Class: .arrest-table inside the expansion row
         charges_list = []
-        bonds_list = []
-        statutes_list = []
-        arrest_dates = []
+        bond_amt = 0.0
         
-        if charges_table:
-            rows = charges_table.eles('tag:tr')[1:]
+        # Determine if we need to click the button to show it? 
+        # DrissionPage usually sees hidden elements if they exist in DOM.
+        # The dump shows the table exists in DOM inside tr data-arrest="0"
+        
+        arrest_table = page.ele('css:table.arrest-table')
+        if arrest_table:
+            rows = arrest_table.eles('css:tbody tr')
             for row in rows:
                 cells = row.eles('tag:td')
                 if len(cells) >= 6:
-                    arrest_date = clean_text(cells[0].text)
+                    # 0: Arrest Date
+                    # 1: Statute
+                    # 2: Desc
+                    # 3: Sec Desc
+                    # 4: OBTS
+                    # 5: Bond Amt
+                    
+                    arr_date = clean_text(cells[0].text)
                     statute = clean_text(cells[1].text)
                     desc = clean_text(cells[2].text)
                     sec_desc = clean_text(cells[3].text)
-                    # obts = clean_text(cells[4].text)
-                    bond_amt = clean_text(cells[5].text)
+                    bond_str = clean_text(cells[5].text)
                     
-                    if desc:
-                        charge_text = desc
-                        if statute:
-                            charge_text = f"{statute} - {charge_text}"
-                        if sec_desc and sec_desc != 'A/W':
-                            charge_text = f"{charge_text} ({sec_desc})"
+                    # Set Arrest Date from first charge if not set
+                    if 'Arrest_Date' not in data and arr_date:
+                        data['Arrest_Date'] = arr_date
                         
-                        charges_list.append(charge_text)
+                    # Build charge string
+                    charge_str = desc
+                    if sec_desc and sec_desc != 'A/W':
+                        charge_str += f" ({sec_desc})"
+                    if statute:
+                        charge_str = f"{statute} - {charge_str}"
                         
-                        if statute:
-                            statutes_list.append(statute)
-                        if bond_amt:
-                            bonds_list.append(bond_amt)
-                        if arrest_date:
-                            arrest_dates.append(arrest_date)
+                    charges_list.append(charge_str)
+                    
+                    # Sum Bond
+                    try:
+                        b = float(bond_str.replace('$', '').replace(',', ''))
+                        bond_amt += b
+                    except:
+                        pass
         
         if charges_list:
-            data['Charges'] = ' | '.join(charges_list)
+            data['Charges'] = " | ".join(charges_list)
         
-        if bonds_list:
-            total_bond = sum(float(b.replace(',', '').replace('$', '')) for b in bonds_list if b.replace(',', '').replace('$', '').replace('.', '').isdigit())
-            data['Bond_Amount'] = str(total_bond)
-        else:
-            data['Bond_Amount'] = '0'
+        data['Bond_Amount'] = str(bond_amt)
+
+        # 4. Mugshot
+        # Usually /photo?bookingNumber=...
+        # or img with source 
+        # HTML Dump doesn't show mugshot img tag in the personal info card explicitly except maybe "data:image..."
+        # Dump has: <img src="data:image;base64, ...">
+        # Let's look for that
         
-        if arrest_dates:
-            data['Arrest_Date'] = arrest_dates[0]
+        img = page.ele('css:img[src^="data:image"]')
+        if img:
+            src = img.attr('src')
+            if len(src) > 100: # Ensure it's not a tiny icon
+                data['Mugshot_URL'] = src
         
-        mugshot = page.ele('xpath://img[contains(@src, "photo") or contains(@src, "mugshot") or contains(@src, "image")]')
-        if mugshot:
-            mugshot_src = mugshot.attr('src')
-            if mugshot_src and not mugshot_src.startswith('data:'):
-                if not mugshot_src.startswith('http'):
-                    mugshot_src = f"https://www.manateesheriff.com{mugshot_src}"
-                data['Mugshot_URL'] = mugshot_src
-        
+        # Fallback for mugshot if not base64
+        if 'Mugshot_URL' not in data:
+             # Try Manatee specific pattern
+             data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
+
     except Exception as e:
         print(f"   ⚠️  Error extracting data: {e}", file=sys.stderr)
     
