@@ -56,6 +56,7 @@ def scrape_sarasota(days_back=1):
         # co.set_browser_path('/usr/bin/chromium-browser')
         
         # HEADFUL mode for Cloudflare
+        co.auto_port() # Use a free port to avoid conflicts
         co.headless(False)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
@@ -135,11 +136,11 @@ def scrape_sarasota(days_back=1):
                 pass
 
             # Input: Look for placeholder "mm/dd/yyyy"
-            # Based on screenshot, it's a standard date input with ID or Name
-            date_input = page.ele('@placeholder=mm/dd/yyyy') or \
-                         page.ele('css:input[name="arrest_date"]') or \
-                         page.ele('@name=arrest_date') or \
-                         page.ele('css:input.form-control')
+            # Based on diagnosis: name="date", id="date"
+            date_input = page.ele('css:input[name="date"]') or \
+                         page.ele('#date') or \
+                         page.ele('@placeholder=mm/dd/yyyy') or \
+                         page.ele('css:input[name="arrest_date"]')
                          
             if not date_input:
                 sys.stderr.write("Could not find arrest_date input. Saved HTML to sarasota_debug.html\n")
@@ -190,6 +191,7 @@ def scrape_sarasota(days_back=1):
             sys.stderr.write(f"   📋 Found {len(date_urls)} inmates for {arrest_date}\n")
             all_detail_urls.update(date_urls)
             
+            # Move to next date
             # Move to next date
             current_date += timedelta(days=1)
             time.sleep(2)  # Be nice to the server
@@ -260,6 +262,10 @@ def scrape_sarasota(days_back=1):
                                     data['Arrest_Date'] = val
                         except:
                             pass
+                    
+                    # Force set Arrest_Date from search context if missing
+                    if 'Arrest_Date' not in data and 'arrest_date' in locals():
+                        data['Arrest_Date'] = arrest_date
 
                     # 3. Charges (Table #data-table)
                     charges = []
@@ -268,6 +274,12 @@ def scrape_sarasota(days_back=1):
                     rows = page.eles('css:#data-table tr')
                     for row in rows:
                         cells = row.eles('tag:td')
+                        if len(cells) > 0:
+                             # DEBUG: Print columns for the first row to verify mappings
+                             if i == 0 and rows.index(row) == 0:
+                                 cell_values = [f"[{idx}] {c.text}" for idx, c in enumerate(cells)]
+                                 sys.stderr.write(f"   📊 TABLE COLUMNS: { ' | '.join(cell_values) }\n")
+
                         if len(cells) > 4:
                             # 0: Booking Number, 1: Offense, 3: Arraign, 4: Bond
                             if 'Booking_Number' not in data:

@@ -30,5 +30,5 @@ Thumbs.db
 .cache/
 __pycache__/
 *.pyc
-*_debug.html
+# *_debug.html
 data/

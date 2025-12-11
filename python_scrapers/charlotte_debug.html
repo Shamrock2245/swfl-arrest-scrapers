@@ -1,0 +1,331 @@
+<!DOCTYPE html><html lang="en"><head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="GqZAuDpQHAnpZcS0JkHMNfNRxhYNw5RxjriZKVb3">
+
+        <title>Charlotte County FL Inmate Search</title>
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&amp;display=swap">
+
+        <!-- Styles -->
+        <link rel="stylesheet" href="https://inmates.charlottecountyfl.revize.com/css/app.css">
+
+        <!-- Scripts -->
+        <script src="https://inmates.charlottecountyfl.revize.com/js/app.js" defer=""></script>
+    </head>
+    <body class="bg-light">
+        <script>
+    var framed = false;
+    try {
+        framed = window.self !== window.top;
+    } catch (e) {
+        framed = true;
+    }
+    if (framed) {
+        var frameStyle = document.createElement("style");
+        frameStyle.innerHTML = "body.bg-light{background-color:transparent!important;padding:25px 0}#app-logo{display:none}"
+        document.querySelector("head").append(frameStyle);
+        document.querySelector("body").classList.add("framed");
+
+        var RZlastWidth = 0;
+
+        function frameResize(message) {
+            message = message || "";
+
+            if (message !== "") {
+                console.log(message);
+            }
+
+            RZlastWidth = window.innerWidth;
+            var height = document.getElementsByTagName("body")[0].scrollHeight;
+            window.parent.postMessage(["setNotifyHeight", height], "*");
+        }
+
+
+        window.addEventListener("resize", function () {
+            if (window.innerWidth !== RZlastWidth) {
+                frameResize("");
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            var tabs = document.querySelectorAll("#app-nav-tabs .nav-item");
+            console.log(tabs);
+            if (tabs.length) {
+                //if (window.location.href.indexOf("incidents") > -1) { tabs[0].remove(); } else { tabs[1].remove(); }
+                document.querySelector("#app-nav-tabs").remove();
+            }
+            frameResize("");
+        });
+
+        window.addEventListener("load", function() { frameResize(""); })
+        setTimeout(function() { frameResize(""); },500);
+    }
+</script>        <nav x-data="{ open: false }" class="bg-white" style="position:relative;z-index:1">
+    <!-- Primary Navigation Menu -->
+    <div class="container pt-3">
+        <div class="row mb-3">
+            <div class="col-3">
+                <!-- Logo -->
+                <div id="app-logo" class="p-0 pt-2">
+                    <a href="../">
+                        <!--<svg xmlns="http://www.w3.org/2000/svg" width="88.906" height="22.281" viewBox="0 0 88.906 22.281" class="application-logo text-left" >
+    <path fill-rule:="" evenodd;="" id="revizelogo" class="cls-1" d="M0.93,22H5.49v-5.94a6.067,6.067,0,0,1,1.3-4.29,4.7,4.7,0,0,1,3.585-1.38h0.24V5.624a4.6,4.6,0,0,0-3.24.9,6.688,6.688,0,0,0-1.89,2.64V5.924H0.93V22Zm14.73-9.3a4.666,4.666,0,0,1,1.155-2.49,3.062,3.062,0,0,1,2.325-.93,2.99,2.99,0,0,1,2.31.945A4.443,4.443,0,0,1,22.53,12.7H15.66Zm7.74,8.865a8.092,8.092,0,0,0,2.76-2.2l-2.61-2.31a6.939,6.939,0,0,1-1.86,1.26,5.083,5.083,0,0,1-2.04.39,4.085,4.085,0,0,1-2.565-.8,3.84,3.84,0,0,1-1.365-2.355H26.91q0.03-.33.045-0.63t0.015-.57a11.548,11.548,0,0,0-.465-3.285,8.058,8.058,0,0,0-1.44-2.79A7.081,7.081,0,0,0,22.62,6.344a7.834,7.834,0,0,0-3.48-.72,7.626,7.626,0,0,0-5.73,2.46,8.237,8.237,0,0,0-1.635,2.67,8.994,8.994,0,0,0-.585,3.24v0.06a8.708,8.708,0,0,0,.63,3.375,7.906,7.906,0,0,0,1.755,2.625,7.738,7.738,0,0,0,2.67,1.71,9.164,9.164,0,0,0,3.345.6A8.561,8.561,0,0,0,23.4,21.569Zm10.35,0.555h4.14l6.33-16.2H39.48l-3.63,10.77-3.6-10.77H27.42ZM45.57,22h4.56V5.924H45.57V22ZM45.45,4.154h4.8V0.1h-4.8v4.05ZM52.38,22H66.36v-3.69H58.02l8.34-9.18V5.924H52.65v3.69h8.04l-8.31,9.18V22ZM72,12.7a4.666,4.666,0,0,1,1.155-2.49,3.062,3.062,0,0,1,2.325-.93,2.99,2.99,0,0,1,2.31.945,4.443,4.443,0,0,1,1.08,2.475H72Zm7.74,8.865a8.092,8.092,0,0,0,2.76-2.2l-2.61-2.31a6.939,6.939,0,0,1-1.86,1.26,5.083,5.083,0,0,1-2.04.39,4.085,4.085,0,0,1-2.565-.8,3.84,3.84,0,0,1-1.365-2.355h11.19q0.03-.33.045-0.63t0.015-.57a11.548,11.548,0,0,0-.465-3.285,8.058,8.058,0,0,0-1.44-2.79,7.081,7.081,0,0,0-2.445-1.935,7.834,7.834,0,0,0-3.48-.72,7.626,7.626,0,0,0-5.73,2.46,8.237,8.237,0,0,0-1.635,2.67,8.994,8.994,0,0,0-.585,3.24v0.06a8.708,8.708,0,0,0,.63,3.375,7.906,7.906,0,0,0,1.755,2.625,7.738,7.738,0,0,0,2.67,1.71,9.164,9.164,0,0,0,3.345.6A8.561,8.561,0,0,0,79.739,21.569ZM85.019,22h4.83V17.2h-4.83V22Z" transform="translate(-0.938 -0.094)"></path>
+</svg>-->
+<img src="/logo.jpg" style="height:60px;border-radius:50%">
+                    </a>
+                </div>
+            </div>
+
+            <!-- Settings Dropdown -->
+                    </div>
+        <div>
+            <ul id="app-nav-tabs" class="nav nav-tabs">
+                                <li class="nav-item">
+                    <a class="nav-link active" href="https://inmates.charlottecountyfl.revize.com/bookings">Arrest Inquiries</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " href="https://inmates.charlottecountyfl.revize.com/warrants">Warrants</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " href="https://inmates.charlottecountyfl.revize.com/lostfound">Lost &amp; Found</a>
+                </li>
+                            </ul>
+        </div>
+    </div>
+
+    <!-- Responsive Navigation Menu -->
+    <div x-show="open" class="container-fluid d-md-none" style="display:none" x-transition="">
+
+        <!-- Responsive Settings Options -->
+            </div>
+</nav>
+
+        <!-- Page Heading -->
+        <header class="container-fluid bg-white border-bottom">
+            <div class="container">
+                
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="container py-3">
+            <div class="row justify-content-center">
+        <div class="col-lg-12 bg-white p-3 rounded border">
+            <div class="text-center mb-4">
+                <img id="inmate-mugshot" src="data:image/png;base64,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" style="width:220px;max-width:100%">
+                <script>
+                    var mugshotData = "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".trim();
+                    if (mugshotData.length) {
+                        if (mugshotData.indexOf("0x") === 0) {
+                            mugshotData = mugshotData.substr(2);
+                        }
+
+                        /* var bits = new Array();
+                        for (var i = 0; i < mugshotData.length; i += 2) {
+                            bits.push(parseInt(mugshotData.substr(i, 2), 16));
+                        }
+                        var arrayBuffer = new Uint8Array(bits);
+                        var blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+
+                        document.querySelector("#inmate-mugshot").src = URL.createObjectURL(blob); */
+
+                        document.querySelector("#inmate-mugshot").src = 'data:image/png;base64,' + mugshotData;
+                    }
+                </script>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">Personal Information</div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" value="CARLISA" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" value="HERNANDEZ-DANIELS" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-3">
+                            <label class="form-label">Middle Name</label>
+                            <input type="text" class="form-control" value="" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Suffix</label>
+                            <input type="text" class="form-control" value="" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="text" class="form-control" value="1975-01-14" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Juvenile</label>
+                            <input type="text" class="form-control" value="No" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Gender</label>
+                            <input type="text" class="form-control" value="Female" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Race</label>
+                            <input type="text" class="form-control" value="White" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Ethnicity</label>
+                            <input type="text" class="form-control" value="Not Hispanic" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Citizenship</label>
+                            <input type="text" class="form-control" value="UNITED STATES" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Hair</label>
+                            <input type="text" class="form-control" value="Brown" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Eye</label>
+                            <input type="text" class="form-control" value="Green" readonly="">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <label class="form-label">Height</label>
+                            <input type="text" class="form-control" value="5 ft. 5 in." readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Weight</label>
+                            <input type="text" class="form-control" value="135" readonly="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Bookings</div>
+                <div class="card-body">
+                    <table id="bookings-table" class="table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Book #</th>
+                                <th>Agency</th>
+                                <th>Book Date</th>
+                                <th>Release Date</th>
+                                <th>Rel. Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-booking="0">
+                                <td><button onclick="toggleArrests(0)">▼</button></td>
+                                <td>202504537</td>
+                                <td>CCSO</td>
+                                <td>08-19-2025</td>
+                                                            <td style="color:#CCC">N/A</td>
+                                <td style="color:#CCC">N/A</td>
+                                                        </tr>
+                            <tr data-arrest="0">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 831.09 - Uttering Forged Bills, Checks, Drafts, or Notes (LEV:F DEG:T 3058) (Principal - P)</td>
+                                                <td>Third Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>218 VIA DE LUNA, ENGLEWOOD, FL</td>
+                                                <td>3500.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table id="bookings-table-mobile" class="table table-mobile w-100">
+                        <tbody>
+                            <tr data-booking="0-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202504537</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">08-19-2025</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">N/A</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block"></span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('0-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="0-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 831.09 - Uttering Forged Bills, Checks, Drafts, or Notes (LEV:F DEG:T 3058) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Third Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">218 VIA DE LUNA, ENGLEWOOD, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">3500.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+        </main>
+
+        <style>
+            #bookings-table button{font-family:sans-serif}
+        </style>
+        <script>
+            function toggleArrests(ind) {
+                var booking = document.querySelector('[data-booking="'+ind+'"]');
+                booking.querySelector("button").innerText = (booking.querySelector("button").innerText == "▼") ? "►" : "▼";
+                var arrest = document.querySelector('[data-arrest="'+ind+'"]');
+                arrest.style.display = (arrest.style.display == "none") ? "table-row" : "none";
+            }
+        </script>
+    
+
+</body></html>

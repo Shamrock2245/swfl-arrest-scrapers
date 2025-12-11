@@ -197,6 +197,10 @@ def scrape_charlotte(days_back=21, max_pages=10):
                         parts = data['Full_Name'].split(',', 1)
                         data['Last_Name'] = parts[0].strip()
                         data['First_Name'] = parts[1].strip()
+                else:
+                    sys.stderr.write(f"   ⚠️  Name element not found! Saving charlotte_debug.html\n")
+                    with open('charlotte_debug.html', 'w', encoding='utf-8') as f:
+                        f.write(page.html)
                 
                 dts = page.eles('tag:dt')
                 for dt in dts:

@@ -41,7 +41,7 @@ export async function runCharlotteStealth() {
 
     // Wait for page to load and check for Cloudflare
     await randomDelay(3000, 1000);
-    
+
     // Simulate human behavior - scroll the page
     await humanScroll(page, 200);
     await randomDelay(1000, 500);
@@ -51,7 +51,7 @@ export async function runCharlotteStealth() {
       console.log('⚠️  Cloudflare detected, waiting for challenge to resolve...');
       await waitForCloudflare(page, 30000);
     }
-    
+
     if (await hasCaptcha(page)) {
       throw new Error('CAPTCHA detected');
     }
@@ -89,7 +89,7 @@ export async function runCharlotteStealth() {
             continue;
           }
         }
-        
+
         // Simulate human behavior
         await humanScroll(page, 150);
         await randomDelay(500, 300);
@@ -138,7 +138,7 @@ export async function runCharlotteStealth() {
 async function extractDetailUrls(page) {
   const urls = await page.$$eval('a[href*="/bookings/"]', (links, baseUrl) => {
     const uniqueUrls = new Set();
-    
+
     links.forEach(link => {
       let href = link.getAttribute('href');
       if (!href) return;
@@ -160,51 +160,107 @@ async function extractDetailUrls(page) {
 
 /**
  * Extract label/value pairs from a detail page using Puppeteer
+ * Charlotte uses Bootstrap forms with label.form-label + input[readonly] pairs
  */
 async function extractDetailPairs(page, sourceUrl) {
   const data = {};
 
-  // Extract table-based data
-  const tableData = await page.$$eval('table tr', rows => {
+  // Extract Bootstrap form-based data (label.form-label + input[readonly])
+  const formData = await page.$$eval('.card-body', cards => {
     const result = {};
-    rows.forEach(row => {
-      const tds = row.querySelectorAll('td');
-      if (tds.length >= 2) {
-        const label = tds[0].textContent.trim();
-        const value = tds[1].textContent.trim();
-        if (label && value) result[label] = value;
-      }
-    });
-    return result;
-  });
-
-  Object.assign(data, tableData);
-
-  // Extract dl/dt/dd structure
-  const dlData = await page.$$eval('dl', dls => {
-    const result = {};
-    dls.forEach(dl => {
-      const dts = dl.querySelectorAll('dt');
-      dts.forEach(dt => {
-        const label = dt.textContent.trim();
-        const dd = dt.nextElementSibling;
-        if (dd && dd.tagName === 'DD') {
-          const value = dd.textContent.trim();
-          if (label && value) result[label] = value;
+    cards.forEach(card => {
+      // Find all rows with labels and inputs
+      const labels = card.querySelectorAll('label.form-label');
+      labels.forEach(label => {
+        const labelText = label.textContent.trim();
+        // Find the next input sibling
+        const input = label.parentElement.querySelector('input');
+        if (input) {
+          const value = input.getAttribute('value') || input.value || '';
+          if (labelText && value) {
+            result[labelText] = value;
+          }
         }
       });
     });
     return result;
   });
 
-  Object.assign(data, dlData);
+  Object.assign(data, formData);
 
-  // Extract mugshot
+  // Extract the most recent booking info from bookings-table (first tr with data-booking)
+  const bookingData = await page.$$eval('#bookings-table tbody tr[data-booking]', rows => {
+    if (rows.length === 0) return {};
+    // Get the first (most recent) booking
+    const firstRow = rows[0];
+    const tds = firstRow.querySelectorAll('td');
+    // Columns: [button], Book #, Agency, Book Date, Release Date, Rel. Reason
+    if (tds.length >= 4) {
+      return {
+        'Book #': tds[1]?.textContent.trim() || '',
+        'Agency': tds[2]?.textContent.trim() || '',
+        'Book Date': tds[3]?.textContent.trim() || '',
+        'Release Date': tds[4]?.textContent.trim() || '',
+        'Rel. Reason': tds[5]?.textContent.trim() || ''
+      };
+    }
+    return {};
+  }).catch(() => ({}));
+
+  Object.assign(data, bookingData);
+
+  // Construct Full_Name from First Name and Last Name (Charlotte provides them separately)
+  if (data['First Name'] && data['Last Name']) {
+    data['Full_Name'] = `${data['Last Name']}, ${data['First Name']}`;
+  }
+
+  // Determine Status from Release Date / Release Reason
+  if (data['Rel. Reason'] && data['Rel. Reason'] !== 'N/A') {
+    data['Status'] = data['Rel. Reason'];
+  } else if (data['Release Date'] && data['Release Date'] !== 'N/A') {
+    data['Status'] = 'Released';
+  } else {
+    data['Status'] = 'In Custody';
+  }
+
+  // Extract charges from arrest-table (multiple possible)
+  const charges = await page.$$eval('.arrest-table tbody tr', rows => {
+    const chargeList = [];
+    rows.forEach(row => {
+      const tds = row.querySelectorAll('td');
+      // Columns: Desc., Degree, Agency, Location, Bond Amt.
+      if (tds.length >= 5) {
+        const desc = tds[0]?.textContent.trim() || '';
+        const bondAmt = tds[4]?.textContent.trim() || '0';
+        if (desc) {
+          chargeList.push({ description: desc, bondAmount: bondAmt });
+        }
+      }
+    });
+    return chargeList;
+  }).catch(() => []);
+
+  // Combine charges into pipe-separated string
+  if (charges.length > 0) {
+    data['Charges'] = charges.map(c => c.description).join(' | ');
+    // Sum up bond amounts
+    const totalBond = charges.reduce((sum, c) => {
+      const amt = parseFloat(c.bondAmount.replace(/[^0-9.]/g, '')) || 0;
+      return sum + amt;
+    }, 0);
+    data['Bond_Amount'] = totalBond.toString();
+  }
+
+  // Extract mugshot (inline base64 or URL)
   const mugshot = await page.$eval(
-    'img[src*="mug"], img[src*="photo"], img[src*="mugshots"]',
+    '#inmate-mugshot, img[src*="mug"], img[src*="photo"]',
     (img, baseUrl) => {
       let src = img.getAttribute('src');
       if (!src) return null;
+      // If it's a base64 image, return it directly
+      if (src.startsWith('data:image')) {
+        return src;
+      }
       if (!src.startsWith('http')) {
         src = baseUrl.replace(/\/$/, '') + (src.startsWith('/') ? src : `/${src}`);
       }
@@ -219,6 +275,8 @@ async function extractDetailPairs(page, sourceUrl) {
 
   data['source_url'] = sourceUrl;
   data['detail_url'] = sourceUrl;
+
+  console.log('   📋 Extracted fields:', Object.keys(data).join(', '));
 
   return data;
 }

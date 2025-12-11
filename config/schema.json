@@ -112,7 +112,8 @@
       "date booked",
       "intake date",
       "booking_date",
-      "admit date"
+      "admit date",
+      "book date"
     ],
     "Booking_Time": [
       "booking time",

@@ -170,13 +170,21 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
                 if "just a moment" in page.title.lower():
                     time.sleep(3)
                 
-                # DEBUG: Dump HTML and exit
-                with open('manatee_debug_detail.html', 'w', encoding='utf-8') as f:
-                    f.write(page.html)
-                print("🚨 DUMPED HTML to manatee_debug_detail.html - STOPPING FOR DEBUG", file=sys.stderr)
-                sys.exit(0)
-
+                # record = extract_detail_data(page, booking_number, detail_url)
+                # MOVED: Logic to extract data is now robust.
+                
                 record = extract_detail_data(page, booking_number, detail_url)
+                
+                # Sanity Check: Booking Date vs Statute
+                # User reported Statute (e.g. 948.06) appearing in Booking Date
+                if record and 'Booking_Date' in record:
+                    bd = record['Booking_Date']
+                    # detailed check: if it looks like a float (statute) or doesn't have separators
+                    if '.' in bd or ('-' not in bd and '/' not in bd):
+                        print(f"   ⚠️  Suspicious Booking Date '{bd}' detected (looks like statute?). Clearing.", file=sys.stderr)
+                        del record['Booking_Date']
+
+
                 
                 if record and 'Booking_Date' in record:
                     try:
@@ -256,6 +264,7 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
 def extract_detail_data(page, booking_number, source_url):
     """
     Extract detailed arrest information from booking detail page
+    Uses JavaScript execution for more robust DOM traversal (ported from V2)
     """
     data = {
         'Booking_Number': booking_number,
@@ -263,143 +272,164 @@ def extract_detail_data(page, booking_number, source_url):
     }
     
     try:
-        # 1. Personal Info (Form Inputs)
-        # Look for labels and their corresponding inputs
-        # The HTML shows <label class="form-label">...</label><input ... value="...">
+        # Use JavaScript to extract all data in one go
+        # This is more robust against minor layout changes
+        js_data = page.run_js("""
+            const result = {};
+            
+            // 1. Personal Info - Iterate labels
+            const labels = document.querySelectorAll('label, th, td, dt');
+            labels.forEach(label => {
+                const text = label.textContent.trim().replace(/:$/, '');
+                let value = null;
+                
+                // Try parent input (Bootstrap style)
+                const parent = label.parentElement;
+                const input = parent ? parent.querySelector('input') : null;
+                
+                // Try next sibling
+                const nextSibling = label.nextElementSibling;
+                
+                if (input) value = input.value || input.textContent;
+                else if (nextSibling) value = nextSibling.textContent || nextSibling.value;
+                
+                if (value) result[text] = value.trim();
+            });
+            
+            // 2. Booking Info from Main Table (#bookings-table)
+            const bookTable = document.querySelector('#bookings-table');
+            if (bookTable) {
+                // Must explicitly target the booking row
+                const row = bookTable.querySelector('tr[data-booking]');
+                if (row) {
+                    const cells = row.querySelectorAll('td');
+                    // cells[0]=button, cells[1]=Book#, cells[2]=BookDate, cells[3]=Status
+                    if (cells.length >= 3) {
+                        result['__Booking_Date'] = cells[2].textContent.trim();
+                        if (cells.length > 3) result['__Status'] = cells[3].textContent.trim();
+                    }
+                }
+            }
+            
+            // 3. Charges from .arrest-table (Exclude mobile duplicate)
+            const charges = [];
+            document.querySelectorAll('table.arrest-table:not(.table-mobile)').forEach(table => {
+                // Ensure we are in a valid table (has headers)
+                const headers = Array.from(table.querySelectorAll('th')).map(h => h.textContent.trim());
+                if (headers.some(h => h.includes('Statute') || h.includes('Desc'))) {
+                    table.querySelectorAll('tbody tr').forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        // 0:Date, 1:Statute, 2:Desc, 3:SecDesc, 5:Bond
+                        if (cells.length >= 6) {
+                            charges.push({
+                                date: cells[0].textContent.trim(),
+                                statute: cells[1].textContent.trim(),
+                                desc: cells[2].textContent.trim(),
+                                sec_desc: cells[3].textContent.trim(),
+                                bond: cells[5].textContent.trim()
+                            });
+                        }
+                    });
+                }
+            });
+            result['__CHARGES_ARR'] = charges;
+            
+            // 4. Mugshot
+            const img = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[src*="image"]');
+            if (img && !img.src.startsWith('data:')) result['__Mugshot'] = img.src;
+            if (img && img.src.startsWith('data:')) result['__Mugshot_Base64'] = img.src;
+
+            return result;
+        """)
         
-        personal_fields_map = {
+        # --- Map JS Result to Schema ---
+        
+        # Personal Info Mapping
+        field_map = {
             'First Name': 'First_Name',
             'Last Name': 'Last_Name',
             'Middle Name': 'Middle_Name',
             'Date of Birth': 'DOB',
             'Race': 'Race',
             'Gender': 'Sex',
-            'Hair': 'Hair_Color',
-            'Eye': 'Eye_Color',
-            'Height': 'Height',
-            'Weight': 'Weight',
             'Address': 'Address',
             'City': 'City',
             'State': 'State',
-            'Zip Code': 'Zipcode'
+            'Zip Code': 'Zipcode',
+            'Height': 'Height',
+            'Weight': 'Weight',
+            'Hair': 'Hair_Color',
+            'Eye': 'Eye_Color'
         }
-
-        for label_text, data_key in personal_fields_map.items():
-            # Find label by text
-            try:
-                # Use flexible xpath to find label containing text
-                label = page.ele(f'xpath://label[contains(text(), "{label_text}")]')
-                if label:
-                    # Input is usually the next sibling or inside the same parent div
-                    # In dump: <div class="col-lg-6"><label>...</label><input></div>
-                    input_ele = label.next('tag:input')
-                    if input_ele:
-                        val = input_ele.attr('value')
-                        if val:
-                            data[data_key] = clean_text(val)
-            except:
-                pass
-
+        
+        for js_key, py_key in field_map.items():
+            if js_key in js_data:
+                data[py_key] = clean_text(js_data[js_key])
+                
+        # Full Name Construction
         if 'First_Name' in data and 'Last_Name' in data:
             data['Full_Name'] = f"{data['Last_Name']}, {data['First_Name']}"
             if 'Middle_Name' in data and data['Middle_Name']:
                 data['Full_Name'] += f" {data['Middle_Name']}"
 
-        # 2. Booking Info (Main Table)
-        # Table ID: #bookings-table
-        # Row structure: <td><button></td><td>Book#</td><td>Date</td><td>Released</td>
-        booking_table = page.ele('#bookings-table')
-        if booking_table:
-            # Find the row that contains the booking number (or just the first one)
-            # tr data-booking="0"
-            data_row = booking_table.ele('css:tr[data-booking]')
-            if data_row:
-                cells = data_row.eles('tag:td')
-                if len(cells) >= 4:
-                    # Index 0 is button
-                    # Index 1 is Book Number
-                    # Index 2 is Book Date
-                    # Index 3 is Released Date
-                    
-                    # b_num = clean_text(cells[1].text) # Already extracted from URL/list, but can confirm
-                    b_date = clean_text(cells[2].text)
-                    status = clean_text(cells[3].text)
-                    
-                    if b_date:
-                        data['Booking_Date'] = b_date
-                    if status:
-                        data['Status'] = status
-
-        # 3. Charges (Inner Table)
-        # Class: .arrest-table inside the expansion row
+        # Booking Info
+        if '__Booking_Date' in js_data:
+            bd = clean_text(js_data['__Booking_Date'])
+            # 2nd Validation Check for Date
+            if len(bd) > 5 and ('-' in bd or '/' in bd) and not any(c.isalpha() for c in bd):
+                data['Booking_Date'] = bd
+        
+        if '__Status' in js_data:
+            data['Status'] = clean_text(js_data['__Status'])
+            
+        # Charges & Bond
         charges_list = []
-        bond_amt = 0.0
+        total_bond = 0.0
+        seen_charges = set()
         
-        # Determine if we need to click the button to show it? 
-        # DrissionPage usually sees hidden elements if they exist in DOM.
-        # The dump shows the table exists in DOM inside tr data-arrest="0"
-        
-        arrest_table = page.ele('css:table.arrest-table')
-        if arrest_table:
-            rows = arrest_table.eles('css:tbody tr')
-            for row in rows:
-                cells = row.eles('tag:td')
-                if len(cells) >= 6:
-                    # 0: Arrest Date
-                    # 1: Statute
-                    # 2: Desc
-                    # 3: Sec Desc
-                    # 4: OBTS
-                    # 5: Bond Amt
-                    
-                    arr_date = clean_text(cells[0].text)
-                    statute = clean_text(cells[1].text)
-                    desc = clean_text(cells[2].text)
-                    sec_desc = clean_text(cells[3].text)
-                    bond_str = clean_text(cells[5].text)
-                    
-                    # Set Arrest Date from first charge if not set
-                    if 'Arrest_Date' not in data and arr_date:
-                        data['Arrest_Date'] = arr_date
-                        
-                    # Build charge string
-                    charge_str = desc
-                    if sec_desc and sec_desc != 'A/W':
-                        charge_str += f" ({sec_desc})"
-                    if statute:
-                        charge_str = f"{statute} - {charge_str}"
-                        
-                    charges_list.append(charge_str)
-                    
-                    # Sum Bond
-                    try:
-                        b = float(bond_str.replace('$', '').replace(',', ''))
-                        bond_amt += b
-                    except:
-                        pass
-        
+        charge_entries = js_data.get('__CHARGES_ARR', [])
+        for entry in charge_entries:
+            desc = clean_text(entry.get('desc', ''))
+            statute = clean_text(entry.get('statute', ''))
+            sec_desc = clean_text(entry.get('sec_desc', ''))
+            bond_str = clean_text(entry.get('bond', '0'))
+            arr_date = clean_text(entry.get('date', ''))
+            
+            # Use first charge date as Arrest Date if missing
+            if 'Arrest_Date' not in data and arr_date:
+                data['Arrest_Date'] = arr_date
+                
+            # Build charge string
+            # Format: Statute - Desc (Sec Desc)
+            c_str = desc
+            if sec_desc and sec_desc != 'A/W':
+                c_str += f" ({sec_desc})"
+            if statute:
+                c_str = f"{statute} - {c_str}"
+            
+            if c_str:
+                charges_list.append(c_str)
+                
+            # Bond
+            try:
+                b_val = float(bond_str.replace('$', '').replace(',', ''))
+                total_bond += b_val
+            except: pass
+
+            
         if charges_list:
             data['Charges'] = " | ".join(charges_list)
         
-        data['Bond_Amount'] = str(bond_amt)
-
-        # 4. Mugshot
-        # Usually /photo?bookingNumber=...
-        # or img with source 
-        # HTML Dump doesn't show mugshot img tag in the personal info card explicitly except maybe "data:image..."
-        # Dump has: <img src="data:image;base64, ...">
-        # Let's look for that
+        data['Bond_Amount'] = str(total_bond)
         
-        img = page.ele('css:img[src^="data:image"]')
-        if img:
-            src = img.attr('src')
-            if len(src) > 100: # Ensure it's not a tiny icon
-                data['Mugshot_URL'] = src
-        
-        # Fallback for mugshot if not base64
-        if 'Mugshot_URL' not in data:
-             # Try Manatee specific pattern
-             data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
+        # Mugshot
+        if '__Mugshot' in js_data:
+            data['Mugshot_URL'] = js_data['__Mugshot']
+        elif '__Mugshot_Base64' in js_data:
+            data['Mugshot_URL'] = js_data['__Mugshot_Base64']
+        else:
+            # Fallback
+            data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
 
     except Exception as e:
         print(f"   ⚠️  Error extracting data: {e}", file=sys.stderr)
