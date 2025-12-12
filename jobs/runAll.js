@@ -1,17 +1,17 @@
 import runCollier from '../scrapers/collier.js';
-import runCharlotte from '../scrapers/charlotte.js';
-import runSarasota from '../scrapers/sarasota.js';
-import runHendry from '../scrapers/hendry.js';
+import runCharlotteV2 from '../scrapers/charlotte_v2.js';
+import runSarasotaV2 from '../scrapers/sarasota_v2.js';
+import runHendryV2 from '../scrapers/hendry_v2.js';
 import runDesoto from '../scrapers/desoto.js';
-import runManatee from '../scrapers/manatee.js';
+import { runManatee } from '../scrapers/manatee.js'; // Python Bridge
 
 const COUNTY_RUNNERS = [
-  { name: 'Collier', fn: runCollier, offsetMs: 0 },
-  { name: 'Hendry', fn: runHendry, offsetMs: 90000 },      // +1.5 min
-  { name: 'Charlotte', fn: runCharlotte, offsetMs: 180000 }, // +3 min
-  { name: 'Sarasota', fn: runSarasota, offsetMs: 270000 },  // +4.5 min
-  { name: 'DeSoto', fn: runDesoto, offsetMs: 360000 },      // +6 min
-  { name: 'Manatee', fn: runManatee, offsetMs: 450000 }     // +7.5 min
+  // { name: 'Collier', fn: runCollier, offsetMs: 0 }, // Returning 0 records
+  { name: 'Hendry', fn: runHendryV2, offsetMs: 1000 },      // Python V2
+  { name: 'Charlotte', fn: runCharlotteV2, offsetMs: 60000 }, // Python V2
+  { name: 'Sarasota', fn: runSarasotaV2, offsetMs: 120000 },  // Python V2
+  { name: 'Manatee', fn: runManatee, offsetMs: 180000 },     // Python Bridge
+  // { name: 'DeSoto', fn: runDesoto, offsetMs: 360000 },      // Slow/Unknown
 ];
 
 /**
@@ -19,7 +19,7 @@ const COUNTY_RUNNERS = [
  */
 export async function runAll(options = {}) {
   const { parallel = false, stopOnError = false } = options;
-  
+
   console.log('╔═══════════════════════════════════════╗');
   console.log('║   SWFL Arrest Scrapers - Run All     ║');
   console.log('╚═══════════════════════════════════════╝\n');
@@ -58,7 +58,7 @@ export async function runAll(options = {}) {
       } catch (error) {
         console.error(`❌ ${county.name} failed:`, error.message);
         results.push({ county: county.name, success: false, count: 0, error: error.message });
-        
+
         if (stopOnError) {
           console.error('🛑 Stopping due to error (stopOnError=true)');
           break;

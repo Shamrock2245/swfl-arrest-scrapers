@@ -448,7 +448,7 @@ def main():
     
     try:
         arrests = scrape_manatee_arrests(days_back, max_pages)
-        print(json.dumps(arrests, indent=2))
+        print(json.dumps(arrests))
         return 0 if arrests else 1
     except Exception as e:
         print(f"❌ Fatal error: {e}", file=sys.stderr)
