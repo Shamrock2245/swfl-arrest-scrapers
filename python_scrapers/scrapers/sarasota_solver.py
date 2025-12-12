@@ -334,6 +334,11 @@ def scrape_sarasota(days_back=1):
                             data['Arrest_Date'] = bd.split(' ')[0]
                         else:
                             data['Arrest_Date'] = bd
+                    
+                    # FINAL FALLBACK: If still no Arrest_Date, use Today (Scrape Date)
+                    if 'Arrest_Date' not in data:
+                        data['Arrest_Date'] = datetime.now().strftime('%Y-%m-%d')
+                        sys.stderr.write("   ⚠️  Missing Arrest_Date, defaulting to Scrape Date (Today)\n")
                             
                     # Clean up Booking Date format if needed
                     # Scraper output: 2025-11-26 00:29:52.000
