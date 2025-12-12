@@ -50,6 +50,10 @@ python_scrapers/*/__pycache__/
 *_debug*
 *_debug.*
 sarasota_detail_fail.html
+charlotte_debug.html
+hendry_debug.html
+sarasota_debug.html
+
 
 # Local HTML snapshots
 *.html
