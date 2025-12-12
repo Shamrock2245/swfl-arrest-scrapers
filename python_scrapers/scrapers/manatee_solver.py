@@ -53,6 +53,7 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
     co.set_argument('--disable-blink-features=AutomationControlled')
+    co.set_argument('--window-size=1920,1080')
     co.set_user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     try:
@@ -88,10 +89,19 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
                  page = ChromiumPage(addr_or_opts=co)
                  page.get(url)
 
-            if "just a moment" in page.title.lower():
-                 print("   ⚠️  Encountered Cloudflare, waiting...", file=sys.stderr)
-                 time.sleep(5)
+            # Cloudflare / Turnstile Check
+            cf_retries = 0
+            while "just a moment" in page.title.lower() and cf_retries < 30:
+                 print(f"   ⚠️  Cloudflare challenge detected. Waiting... ({cf_retries}/30)", file=sys.stderr)
+                 time.sleep(1)
+                 cf_retries += 1
             
+            if "just a moment" in page.title.lower():
+                 print("   ❌ Cloudflare challenge failed to clear.", file=sys.stderr)
+                 # Refresh and try one more time?
+                 page.refresh()
+                 time.sleep(5)
+
             time.sleep(3)
             
             booking_links = page.eles('xpath://a[contains(@href, "/bookings/")]')
