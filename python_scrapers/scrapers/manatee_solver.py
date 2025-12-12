@@ -93,6 +93,22 @@ def scrape_manatee_arrests(days_back=21, max_pages=10):
             cf_retries = 0
             while "just a moment" in page.title.lower() and cf_retries < 30:
                  print(f"   ⚠️  Cloudflare challenge detected. Waiting... ({cf_retries}/30)", file=sys.stderr)
+                 
+                 # ACTIVE BYPASS ATTEMPT
+                 try:
+                     # Try clicking "Verify you are human" if found
+                     verify = page.ele('text:Verify you are human')
+                     if verify:
+                         print("   🖱️ Found verify button, clicking...", file=sys.stderr)
+                         verify.click()
+                         time.sleep(2)
+                     
+                     # Try generic checkbox
+                     cb = page.ele('css:input[type=checkbox]')
+                     if cb:
+                         cb.click()
+                 except: pass
+                 
                  time.sleep(1)
                  cf_retries += 1
             

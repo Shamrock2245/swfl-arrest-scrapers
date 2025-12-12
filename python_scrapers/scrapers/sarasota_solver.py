@@ -83,10 +83,23 @@ def scrape_sarasota(days_back=1):
                 
                 # Attempt to find and click Turnstile (Cloudflare checkbox)
                 try:
-                    # Look for the iframe or shadow root element
-                    if page.ele('@id=turnstile-wrapper') or page.ele('text:Verify you are human'):
-                         sys.stderr.write("   👉 Found Turnstile wrapper...\n")
-                except:
+                    # Strategy 1: Look for the specific Cloudflare checkbox in Shadow DOM
+                    # This often appears within a shadow root under #turnstile-wrapper or similar
+                    cb = page.ele('css:input[type=checkbox]')
+                    if cb and 'turnstile' in str(cb.html).lower():
+                         sys.stderr.write("   🖱️ Found generic Turnstile checkbox, clicking...\n")
+                         cb.click()
+                         time.sleep(2)
+
+                    # Strategy 2: Look for the iframe and click coordinates (DrissionPage handles this well usually)
+                    # or look for text 'Verify you are human' and click it
+                    verify_text = page.ele('text:Verify you are human')
+                    if verify_text:
+                         sys.stderr.write("   �️ Found 'Verify you are human' text, clicking...\n")
+                         verify_text.click()
+                         time.sleep(2)
+                except Exception as cf_error:
+                    # sys.stderr.write(f"   (CF interaction error: {cf_error})\n")
                     pass
 
                 # If we are stuck for a while, ask user
