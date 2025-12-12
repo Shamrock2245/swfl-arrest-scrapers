@@ -423,12 +423,16 @@ def extract_detail_data(page, booking_number, source_url):
         data['Bond_Amount'] = str(total_bond)
         
         # Mugshot
+        # Mugshot
         if '__Mugshot' in js_data:
             data['Mugshot_URL'] = js_data['__Mugshot']
-        elif '__Mugshot_Base64' in js_data:
-            data['Mugshot_URL'] = js_data['__Mugshot_Base64']
         else:
-            # Fallback
+            # Fallback to constructed URL - Do NOT use Base64 as it exceeds Sheets cell limits (50k chars)
+            data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
+
+        # FINAL SAFETY CHECK
+        if data.get('Mugshot_URL') and len(data['Mugshot_URL']) > 2000:
+            print(f"   ⚠️  Mugshot URL too long ({len(data['Mugshot_URL'])} chars). Truncating to fallback.", file=sys.stderr)
             data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
 
     except Exception as e:
