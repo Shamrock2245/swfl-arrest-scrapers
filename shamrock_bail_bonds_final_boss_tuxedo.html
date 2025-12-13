@@ -1,463 +1,471 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shamrock Bail Bonds - Smart Paperwork System v3</title>
     <style>
-    /* TUXEDO THEME - Light/Dark with Shamrock Accent */
-    :root {
-      /* Light Mode */
-      --bg-body: #f4f6f8;
-      --bg-container: #ffffff;
-      --text-main: #1a1a1a;
-      --text-secondary: #555555;
-      --border-color: #e0e0e0;
-      --header-bg: #1a1a1a;
-      --header-text: #ffffff;
-      --accent-color: #27ae60;
-      --accent-hover: #219150;
-      --info-bg: rgba(39, 174, 96, 0.06);
-      --warning-bg: #fff7e0;
-      --warning-border: #f1c40f;
-      --muted-bg: #f2f3f5;
-    }
+        /* TUXEDO THEME - Light/Dark with Shamrock Accent */
+        :root {
+            /* Light Mode */
+            --bg-body: #f4f6f8;
+            --bg-container: #ffffff;
+            --text-main: #1a1a1a;
+            --text-secondary: #555555;
+            --border-color: #e0e0e0;
+            --header-bg: #1a1a1a;
+            --header-text: #ffffff;
+            --accent-color: #27ae60;
+            --accent-hover: #219150;
+            --info-bg: rgba(39, 174, 96, 0.06);
+            --warning-bg: #fff7e0;
+            --warning-border: #f1c40f;
+            --muted-bg: #f2f3f5;
+        }
 
-    body.dark-mode {
-      --bg-body: #121212;
-      --bg-container: #1e1e1e;
-      --text-main: #e0e0e0;
-      --text-secondary: #aaaaaa;
-      --border-color: #333333;
-      --header-bg: #000000;
-      --header-text: #27ae60;
-      --info-bg: rgba(39, 174, 96, 0.16);
-      --warning-bg: #2a2510;
-      --warning-border: #f1c40f;
-      --muted-bg: #222327;
-    }
+        body.dark-mode {
+            --bg-body: #121212;
+            --bg-container: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --border-color: #333333;
+            --header-bg: #000000;
+            --header-text: #27ae60;
+            --info-bg: rgba(39, 174, 96, 0.16);
+            --warning-bg: #2a2510;
+            --warning-border: #f1c40f;
+            --muted-bg: #222327;
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-        
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--bg-body);
-      color: var(--text-main);
-      min-height: 100vh;
-      padding: 24px;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
-        
-    .container {
-      max-width: 1150px;
-      margin: 0 auto;
-      background: var(--bg-container);
-      border-radius: 10px;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border-color);
-      overflow: hidden;
-      position: relative;
-    }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    /* Theme toggle switch */
-    .theme-toggle-container {
-      position: absolute;
-      top: 18px;
-      right: 24px;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--header-text);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0.85;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
 
-    .toggle-checkbox {
-      display: none;
-    }
+        .container {
+            max-width: 1150px;
+            margin: 0 auto;
+            background: var(--bg-container);
+            border-radius: 10px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            position: relative;
+        }
 
-    .toggle-label {
-      background-color: #333;
-      border: 2px solid var(--accent-color);
-      border-radius: 999px;
-      cursor: pointer;
-      display: inline-block;
-      position: relative;
-      height: 24px;
-      width: 46px;
-      transition: background-color 0.3s, border-color 0.3s;
-    }
+        /* Theme toggle switch */
+        .theme-toggle-container {
+            position: absolute;
+            top: 18px;
+            right: 24px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--header-text);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.85;
+        }
 
-    .toggle-label .toggle-ball {
-      background-color: #fff;
-      border-radius: 50%;
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      height: 16px;
-      width: 16px;
-      transition: transform 0.3s;
-    }
+        .toggle-checkbox {
+            display: none;
+        }
 
-    .toggle-checkbox:checked + .toggle-label .toggle-ball {
-      transform: translateX(20px);
-      background-color: var(--accent-color);
-    }
-        
-    .header {
-      background: var(--header-bg);
-      color: var(--header-text);
-      padding: 26px 32px 24px;
-      border-bottom: 4px solid var(--accent-color);
-    }
-        
-    .header h1 {
-      font-size: 26px;
-      margin-bottom: 4px;
-      font-weight: 300;
-      letter-spacing: 1px;
-    }
-        
-    .header p {
-      font-size: 13px;
-      opacity: 0.9;
-    }
+        .toggle-label {
+            background-color: #333;
+            border: 2px solid var(--accent-color);
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-block;
+            position: relative;
+            height: 24px;
+            width: 46px;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
 
-    .company-info {
-      font-size: 12px;
-      margin-top: 10px;
-      opacity: 0.85;
-      font-family: 'Courier New', Courier, monospace;
-    }
-        
-    .import-section {
-      padding: 22px 32px;
-      border-bottom: 1px solid var(--border-color);
-      background: var(--muted-bg);
-    }
-        
-    .import-section h3 {
-      font-size: 16px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-      color: var(--text-main);
-    }
-        
-    .import-section p {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-    }
+        .toggle-label .toggle-ball {
+            background-color: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            height: 16px;
+            width: 16px;
+            transition: transform 0.3s;
+        }
 
-    .import-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 18px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      background-color: var(--accent-color);
-      color: #fff;
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
-    }
-        
-    .import-btn:hover {
-      background-color: var(--accent-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 8px 18px rgba(39, 174, 96, 0.25);
-    }
+        .toggle-checkbox:checked+.toggle-label .toggle-ball {
+            transform: translateX(20px);
+            background-color: var(--accent-color);
+        }
 
-    .paste-actions {
-      margin-top: 10px;
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-        
-    .content-wrapper {
-      padding: 0 32px 28px;
-    }
-        
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 20px;
-      background: var(--bg-container);
-    }
-        
-    .tab {
-      flex: 1;
-      padding: 16px 10px;
-      text-align: center;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.95rem;
-      transition: all 0.25s ease;
-      border: none;
-      background: transparent;
-      position: relative;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-    }
-        
-    .tab:hover {
-      background: rgba(0,0,0,0.02);
-      color: var(--accent-color);
-    }
-        
-    .tab.active {
-      background: var(--bg-container);
-      color: var(--accent-color);
-    }
-        
-    .tab.active::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 20%;
-      right: 20%;
-      height: 3px;
-      border-radius: 999px;
-      background: var(--accent-color);
-    }
-        
-    .tab-content {
-      display: none;
-      padding: 24px 0 0;
-    }
-        
-    .tab-content.active {
-      display: block;
-    }
-        
-    .section-title {
-      font-size: 16px;
-      text-transform: uppercase;
-      letter-spacing: 1.4px;
-      color: var(--text-main);
-      margin-bottom: 18px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border-color);
-    }
-        
-    .info-box {
-      background: var(--info-bg);
-      border: 1px solid var(--accent-color);
-      padding: 14px 16px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 16px;
-      color: var(--text-main);
-    }
-        
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 18px;
-      margin-bottom: 14px;
-    }
-        
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-        
-    label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      letter-spacing: 0.5px;
-    }
-        
-    input, select, textarea {
-      width: 100%;
-      padding: 10px 11px;
-      border: 1px solid var(--border-color);
-      border-radius: 5px;
-      font-size: 14px;
-      background-color: var(--bg-container);
-      color: var(--text-main);
-      transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, color 0.25s ease;
-    }
-        
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--accent-color);
-      box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.2);
-    }
-        
-    textarea {
-      min-height: 80px;
-      resize: vertical;
-      font-family: inherit;
-    }
-        
-    .charge-item {
-      background: var(--muted-bg);
-      padding: 18px 18px 16px;
-      border-radius: 8px;
-      margin-bottom: 14px;
-      border: 1px solid var(--border-color);
-    }
-        
-    .add-charge-btn {
-      margin-top: 4px;
-      padding: 10px 18px;
-      border-radius: 999px;
-      border: 1px dashed var(--accent-color);
-      background: transparent;
-      color: var(--accent-color);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.2s, color 0.2s;
-    }
-        
-    .add-charge-btn:hover {
-      background: rgba(39,174,96,0.08);
-    }
-        
-    .remove-charge-btn {
-      background: transparent;
-      border-radius: 999px;
-      border: 1px solid #c0392b;
-      color: #c0392b;
-      padding: 6px 12px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: background-color 0.2s, color 0.2s;
-    }
-        
-    .remove-charge-btn:hover {
-      background: #c0392b;
-      color: #fff;
-    }
-        
-    .premium-summary {
-      background: var(--warning-bg);
-      padding: 16px 18px;
-      border-radius: 8px;
-      margin: 18px 0 10px;
-      border-left: 4px solid var(--warning-border);
-      font-size: 13px;
-    }
-        
-    .premium-summary h4 {
-      color: var(--text-main);
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-        
-    .action-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 26px;
-      padding: 16px 18px;
-      background: var(--muted-bg);
-      border-radius: 8px;
-      border: 1px dashed var(--border-color);
-    }
-        
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 18px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-      transition: background-color 0.25s, color 0.25s, box-shadow 0.25s, border-color 0.25s, transform 0.1s;
-      background: var(--muted-bg);
-      color: var(--text-main);
-    }
-        
-    .btn:hover {
-      transform: translateY(-1px);
-    }
-        
-    .btn-primary {
-      background-color: var(--accent-color);
-      color: #ffffff;
-      border-color: var(--accent-color);
-    }
-        
-    .btn-primary:hover {
-      background-color: var(--accent-hover);
-      box-shadow: 0 8px 18px rgba(39, 174, 96, 0.25);
-    }
-        
-    .btn-secondary {
-      background-color: transparent;
-      color: var(--text-secondary);
-      border-color: var(--border-color);
-    }
-        
-    .btn-secondary:hover {
-      background-color: var(--border-color);
-      color: var(--text-main);
-    }
-        
-    .btn-success {
-      background: #28a745;
-      color: #ffffff;
-      border-color: #28a745;
-    }
-        
-    .btn-success:hover {
-      background: #1f8a39;
-      box-shadow: 0 8px 18px rgba(40, 167, 69, 0.3);
-    }
-        
-    .btn-warning {
-      background: #ffc107;
-      color: #212529;
-      border-color: #ffc107;
-    }
-        
-    .btn-warning:hover {
-      background: #e0a800;
-      box-shadow: 0 8px 18px rgba(255, 193, 7, 0.3);
-    }
+        .header {
+            background: var(--header-bg);
+            color: var(--header-text);
+            padding: 26px 32px 24px;
+            border-bottom: 4px solid var(--accent-color);
+        }
 
-    .helper-text {
-      font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-    }
+        .header h1 {
+            font-size: 26px;
+            margin-bottom: 4px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
 
-    @media (max-width: 768px) {
-      .header {
-        padding-right: 20%;
-      }
-      .theme-toggle-container {
-        right: 12px;
-      }
-      .content-wrapper {
-        padding: 0 18px 22px;
-      }
-    }
-  </style>
+        .header p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .company-info {
+            font-size: 12px;
+            margin-top: 10px;
+            opacity: 0.85;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .import-section {
+            padding: 22px 32px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--muted-bg);
+        }
+
+        .import-section h3 {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            color: var(--text-main);
+        }
+
+        .import-section p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .import-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            background-color: var(--accent-color);
+            color: #fff;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+        }
+
+        .import-btn:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(39, 174, 96, 0.25);
+        }
+
+        .paste-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .content-wrapper {
+            padding: 0 32px 28px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            background: var(--bg-container);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 16px 10px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.25s ease;
+            border: none;
+            background: transparent;
+            position: relative;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }
+
+        .tab:hover {
+            background: rgba(0, 0, 0, 0.02);
+            color: var(--accent-color);
+        }
+
+        .tab.active {
+            background: var(--bg-container);
+            color: var(--accent-color);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 20%;
+            right: 20%;
+            height: 3px;
+            border-radius: 999px;
+            background: var(--accent-color);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 24px 0 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            color: var(--text-main);
+            margin-bottom: 18px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-box {
+            background: var(--info-bg);
+            border: 1px solid var(--accent-color);
+            padding: 14px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-bottom: 14px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 11px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 14px;
+            background-color: var(--bg-container);
+            color: var(--text-main);
+            transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.2);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .charge-item {
+            background: var(--muted-bg);
+            padding: 18px 18px 16px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .add-charge-btn {
+            margin-top: 4px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: 1px dashed var(--accent-color);
+            background: transparent;
+            color: var(--accent-color);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .add-charge-btn:hover {
+            background: rgba(39, 174, 96, 0.08);
+        }
+
+        .remove-charge-btn {
+            background: transparent;
+            border-radius: 999px;
+            border: 1px solid #c0392b;
+            color: #c0392b;
+            padding: 6px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .remove-charge-btn:hover {
+            background: #c0392b;
+            color: #fff;
+        }
+
+        .premium-summary {
+            background: var(--warning-bg);
+            padding: 16px 18px;
+            border-radius: 8px;
+            margin: 18px 0 10px;
+            border-left: 4px solid var(--warning-border);
+            font-size: 13px;
+        }
+
+        .premium-summary h4 {
+            color: var(--text-main);
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 26px;
+            padding: 16px 18px;
+            background: var(--muted-bg);
+            border-radius: 8px;
+            border: 1px dashed var(--border-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            transition: background-color 0.25s, color 0.25s, box-shadow 0.25s, border-color 0.25s, transform 0.1s;
+            background: var(--muted-bg);
+            color: var(--text-main);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border-color: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            box-shadow: 0 8px 18px rgba(39, 174, 96, 0.25);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: #ffffff;
+            border-color: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1f8a39;
+            box-shadow: 0 8px 18px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+            border-color: #ffc107;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            box-shadow: 0 8px 18px rgba(255, 193, 7, 0.3);
+        }
+
+        .helper-text {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding-right: 20%;
+            }
+
+            .theme-toggle-container {
+                right: 12px;
+            }
+
+            .content-wrapper {
+                padding: 0 18px 22px;
+            }
+        }
+    </style>
 </head>
+
 <body>
     <div class="container">
         <div class="theme-toggle-container">
@@ -476,7 +484,7 @@
                 📞 239-332-2245
             </div>
         </div>
-        
+
         <div class="import-section">
             <h3>🔗 Quick Import from Booking Sheet</h3>
             <p style="margin-bottom: 15px;">Extract data using the bookmarklet, then click below to import:</p>
@@ -487,33 +495,38 @@
         </div>
         <div class="import-section">
             <h3>🧷 Quick Paste (URL / Text)</h3>
-            <p style="margin-bottom: 10px;">Paste a booking URL, query string, or copied booking text below, then click <strong>Paste &amp; Fill</strong>.</p>
-            <textarea id="rawPaste" placeholder="Paste booking URL, query string, or copied jail record text here..." style="width: 100%; min-height: 80px; padding: 8px; border-radius: 6px; border: 1px solid #ced4da;"></textarea>
+            <p style="margin-bottom: 10px;">Paste a booking URL, query string, or copied booking text below, then click
+                <strong>Paste &amp; Fill</strong>.
+            </p>
+            <textarea id="rawPaste" placeholder="Paste booking URL, query string, or copied jail record text here..."
+                style="width: 100%; min-height: 80px; padding: 8px; border-radius: 6px; border: 1px solid #ced4da;"></textarea>
             <div class="paste-actions">
-                <button class="btn btn-secondary" type="button" onclick="pasteRawFromClipboard()">📋 Paste from Clipboard</button>
+                <button class="btn btn-secondary" type="button" onclick="pasteRawFromClipboard()">📋 Paste from
+                    Clipboard</button>
                 <button class="btn btn-primary" type="button" onclick="pasteAndFill()">✨ Paste &amp; Fill</button>
             </div>
         </div>
 
-        
+
         <div class="tabs">
             <button class="tab active" onclick="switchTab(0)">📋 Bond & Charges</button>
             <button class="tab" onclick="switchTab(1)">👤 Defendant</button>
             <button class="tab" onclick="switchTab(2)">📝 Indemnitor</button>
         </div>
-        
+
         <!-- Tab 1: Bond & Charges -->
         <div class="tab-content active">
             <h2 class="section-title">Charges & Offenses</h2>
-            
+
             <div class="info-box">
-                <strong>💡 Smart Tip:</strong> Add each charge/offense below. Premium is automatically calculated as $100 minimum OR 10% of bond amount (whichever is greater).
+                <strong>💡 Smart Tip:</strong> Add each charge/offense below. Premium is automatically calculated as
+                $100 minimum OR 10% of bond amount (whichever is greater).
             </div>
-            
+
             <div id="chargesContainer"></div>
-            
+
             <button class="add-charge-btn" onclick="addCharge()">+ Add Charge/Offense</button>
-            
+
             <div class="premium-summary">
                 <h4>💰 Premium Calculation Summary</h4>
                 <div id="premiumBreakdown"></div>
@@ -522,12 +535,13 @@
                     <span>Total Bond Amount:</span>
                     <span id="totalBond">$0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold; margin-top: 10px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold; margin-top: 10px;">
                     <span>Total Premium Due:</span>
                     <span id="totalPremium">$0.00</span>
                 </div>
             </div>
-            
+
             <h3 class="section-title" style="margin-top: 40px;">Collateral Information</h3>
             <div class="form-group">
                 <label>
@@ -535,7 +549,7 @@
                     Collateral is being provided for this bond
                 </label>
             </div>
-            
+
             <div id="collateralSection" style="display: none;">
                 <div class="form-row">
                     <div class="form-group">
@@ -575,11 +589,11 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Tab 2: Defendant -->
         <div class="tab-content">
             <h2 class="section-title">Defendant Information</h2>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Full Legal Name *</label>
@@ -590,7 +604,7 @@
                     <input type="text" id="defendantArrestNumber" placeholder="From booking sheet">
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Nickname / Alias</label>
@@ -601,7 +615,7 @@
                     <input type="date" id="defendantDOB" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Social Security Number</label>
@@ -616,16 +630,16 @@
                     <input type="text" id="defendantDLState" value="FL" maxlength="2">
                 </div>
             </div>
-            
+
             <h3 class="section-title">Contact Information</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Street Address *</label>
                     <input type="text" id="defendantStreetAddress" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>City *</label>
@@ -640,7 +654,7 @@
                     <input type="text" id="defendantZip" maxlength="5" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Phone Number *</label>
@@ -651,9 +665,9 @@
                     <input type="email" id="defendantEmail">
                 </div>
             </div>
-            
+
             <h3 class="section-title">Physical Description</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Height</label>
@@ -672,7 +686,7 @@
                     <input type="text" id="defendantHair">
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Race</label>
@@ -687,9 +701,9 @@
                     </select>
                 </div>
             </div>
-            
+
             <h3 class="section-title">Employment</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Employer Name</label>
@@ -700,7 +714,7 @@
                     <input type="text" id="defendantBoss">
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Employer Address</label>
@@ -711,9 +725,9 @@
                     <input type="tel" id="defendantEmployerPhone">
                 </div>
             </div>
-            
+
             <h3 class="section-title">Vehicle Information</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Vehicle (Year, Make, Model, Color)</label>
@@ -725,11 +739,11 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Tab 3: Indemnitor -->
         <div class="tab-content">
             <h2 class="section-title">Primary Indemnitor</h2>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Full Name *</label>
@@ -740,7 +754,7 @@
                     <input type="text" id="indemnitorRelationship" placeholder="e.g., Mother, Spouse, Friend" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Date of Birth</label>
@@ -755,14 +769,14 @@
                     <input type="text" id="indemnitorDL">
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Street Address *</label>
                     <input type="text" id="indemnitorStreetAddress" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>City *</label>
@@ -777,7 +791,7 @@
                     <input type="text" id="indemnitorZip" maxlength="5" required>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Cell Phone *</label>
@@ -788,9 +802,9 @@
                     <input type="email" id="indemnitorEmail">
                 </div>
             </div>
-            
+
             <h3 class="section-title">Employment & Financial</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Employer Name</label>
@@ -801,12 +815,12 @@
                     <input type="tel" id="indemnitorEmployerPhone">
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>Employer Address</label>
                 <input type="text" id="indemnitorEmployerAddress">
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Home Owner?</label>
@@ -825,9 +839,9 @@
                     <input type="number" id="indemnitorAmountOwed" step="0.01">
                 </div>
             </div>
-            
+
             <h3 class="section-title">References</h3>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Reference 1 - Name</label>
@@ -842,12 +856,12 @@
                     <input type="tel" id="reference1Phone">
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>Reference 1 - Address</label>
                 <input type="text" id="reference1Address">
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Reference 2 - Name</label>
@@ -862,21 +876,21 @@
                     <input type="tel" id="reference2Phone">
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>Reference 2 - Address</label>
                 <input type="text" id="reference2Address">
             </div>
-            
+
             <h3 class="section-title">Co-Indemnitor (For Higher Risk Bonds)</h3>
-            
+
             <div class="form-group">
                 <label>
                     <input type="checkbox" id="hasCoIndemnitor" onchange="toggleCoIndemnitor()">
                     Add Co-Indemnitor or Additional Indemnitor
                 </label>
             </div>
-            
+
             <div id="coIndemnitorSection" style="display: none;">
                 <div class="form-row">
                     <div class="form-group">
@@ -888,14 +902,14 @@
                         <input type="text" id="coIndemnitorRelationship">
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>Street Address</label>
                         <input type="text" id="coIndemnitorAddress">
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>City</label>
@@ -910,7 +924,7 @@
                         <input type="text" id="coIndemnitorZip" maxlength="5">
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>Phone</label>
@@ -927,7 +941,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="action-buttons">
             <button class="btn btn-secondary" onclick="clearAll()">🗑️ Clear All</button>
             <button class="btn btn-primary" onclick="saveProgress()">💾 Save Progress</button>
@@ -964,23 +978,23 @@
 
         let charges = [];
         let chargeCounter = 0;
-        
+
         // Initialize with one charge
-        window.onload = function() {
+        window.onload = function () {
             addCharge();
             loadProgress();
-            
+
             // Set execution date to today
             const today = new Date().toISOString().split('T')[0];
             if (document.getElementById('executionDate')) {
                 document.getElementById('executionDate').value = today;
             }
         };
-        
+
         function switchTab(index) {
             const tabs = document.querySelectorAll('.tab');
             const contents = document.querySelectorAll('.tab-content');
-            
+
             tabs.forEach((tab, i) => {
                 if (i === index) {
                     tab.classList.add('active');
@@ -991,11 +1005,11 @@
                 }
             });
         }
-        
+
         function addCharge() {
             chargeCounter++;
             const chargeId = chargeCounter;
-            
+
             const chargeHtml = `
                 <div class="charge-item" id="charge-${chargeId}">
                     <h4 style="margin-bottom: 15px;">Charge #${chargeId}</h4>
@@ -1032,72 +1046,72 @@
                     ${chargeId > 1 ? '<button class="remove-charge-btn" onclick="removeCharge(' + chargeId + ')">Remove Charge</button>' : ''}
                 </div>
             `;
-            
+
             document.getElementById('chargesContainer').insertAdjacentHTML('beforeend', chargeHtml);
             charges.push(chargeId);
             updatePremiums();
         }
-        
+
         function removeCharge(id) {
             document.getElementById(`charge-${id}`).remove();
             charges = charges.filter(c => c !== id);
             updatePremiums();
         }
-        
+
         function calculatePremium(bondAmount) {
             const amount = parseFloat(bondAmount) || 0;
             const tenPercent = amount * 0.10;
             return Math.max(100, tenPercent);
         }
-        
+
         function updatePremiums() {
             let totalBond = 0;
             let totalPremium = 0;
             let breakdown = '';
-            
+
             charges.forEach((id, index) => {
                 const bondInput = document.getElementById(`charge${id}BondAmount`);
                 const premiumInput = document.getElementById(`charge${id}Premium`);
                 const descInput = document.getElementById(`charge${id}Description`);
-                
+
                 if (bondInput && bondInput.value) {
                     const bondAmount = parseFloat(bondInput.value) || 0;
                     const premium = calculatePremium(bondAmount);
-                    
+
                     if (premiumInput) {
                         premiumInput.value = premium.toFixed(2);
                     }
-                    
+
                     totalBond += bondAmount;
                     totalPremium += premium;
-                    
+
                     const desc = descInput ? descInput.value || `Charge #${index + 1}` : `Charge #${index + 1}`;
                     breakdown += `<div style="margin: 5px 0;">${desc}: $${bondAmount.toFixed(2)} → $${premium.toFixed(2)}</div>`;
                 }
             });
-            
+
             document.getElementById('premiumBreakdown').innerHTML = breakdown || '<div>Add charges to see premium breakdown</div>';
             document.getElementById('totalBond').textContent = '$' + totalBond.toFixed(2);
             document.getElementById('totalPremium').textContent = '$' + totalPremium.toFixed(2);
         }
-        
+
         function toggleCollateral() {
             const section = document.getElementById('collateralSection');
             const checkbox = document.getElementById('hasCollateral');
             section.style.display = checkbox.checked ? 'block' : 'none';
         }
-        
+
         function toggleCoIndemnitor() {
             const section = document.getElementById('coIndemnitorSection');
             const checkbox = document.getElementById('hasCoIndemnitor');
             section.style.display = checkbox.checked ? 'block' : 'none';
         }
-        
+
         async function importFromClipboard() {
             try {
                 const text = await navigator.clipboard.readText();
                 const data = JSON.parse(text);
-                
+
                 // Populate defendant fields
                 if (data.defendantFullName) document.getElementById('defendantFullName').value = data.defendantFullName;
                 if (data.defendantArrestNumber) document.getElementById('defendantArrestNumber').value = data.defendantArrestNumber;
@@ -1110,7 +1124,7 @@
                 if (data.defendantCity) document.getElementById('defendantCity').value = data.defendantCity;
                 if (data.defendantState) document.getElementById('defendantState').value = data.defendantState;
                 if (data.defendantZip) document.getElementById('defendantZip').value = data.defendantZip;
-                
+
                 // Populate charges
                 if (data.charges && data.charges.length > 0) {
                     // Clear existing charges
@@ -1120,7 +1134,7 @@
                     });
                     charges = [];
                     chargeCounter = 0;
-                    
+
                     // Add charges from data
                     data.charges.forEach((charge, index) => {
                         addCharge();
@@ -1131,19 +1145,19 @@
                         if (charge.courtLocation) document.getElementById(`charge${id}CourtLocation`).value = charge.courtLocation;
                         if (charge.hearing) document.getElementById(`charge${id}Hearing`).value = charge.hearing;
                     });
-                    
+
                     updatePremiums();
                 }
-                
+
                 alert('✅ Data imported successfully!\n\nDefendant info and charges have been populated.\n\nPlease review and fill in the Indemnitor information.');
                 switchTab(1); // Switch to defendant tab to show imported data
-                
+
             } catch (error) {
                 alert('❌ Could not import data from clipboard.\n\nMake sure you:\n1. Ran the bookmarklet on the booking sheet\n2. Clicked "Import from Clipboard" button\n\nError: ' + error.message);
             }
         }
-        
-        
+
+
         async function pasteRawFromClipboard() {
             try {
                 if (!navigator.clipboard) {
@@ -1336,12 +1350,12 @@
             }
         }
 
-function saveProgress() {
+        function saveProgress() {
             const data = collectFormData();
             localStorage.setItem('shamrockBailBondData', JSON.stringify(data));
             alert('✅ Progress saved!');
         }
-        
+
         function loadProgress() {
             const saved = localStorage.getItem('shamrockBailBondData');
             if (saved) {
@@ -1363,7 +1377,7 @@ function saveProgress() {
                 }
             }
         }
-        
+
         function clearAll() {
             if (confirm('Are you sure you want to clear all data?')) {
                 document.querySelectorAll('input, select, textarea').forEach(el => {
@@ -1373,7 +1387,7 @@ function saveProgress() {
                         el.value = '';
                     }
                 });
-                
+
                 // Reset charges
                 charges.forEach(id => {
                     const elem = document.getElementById(`charge-${id}`);
@@ -1382,12 +1396,12 @@ function saveProgress() {
                 charges = [];
                 chargeCounter = 0;
                 addCharge();
-                
+
                 localStorage.removeItem('shamrockBailBondData');
                 alert('✅ All data cleared!');
             }
         }
-        
+
         function collectFormData() {
             const data = {};
             document.querySelectorAll('input, select, textarea').forEach(el => {
@@ -1397,40 +1411,51 @@ function saveProgress() {
             });
             return data;
         }
-        
+
         function generateDocuments() {
             const data = collectFormData();
             data.charges = [];
-            
+
             charges.forEach(id => {
                 const charge = {
                     description: document.getElementById(`charge${id}Description`)?.value || '',
                     caseNumber: document.getElementById(`charge${id}CaseNumber`)?.value || '',
                     bondAmount: document.getElementById(`charge${id}BondAmount`)?.value || '',
-                    premium: document.getElementById(`charge${id}Premium`)?.value || ''
+                    premium: document.getElementById(`charge${id}Premium`)?.value || '',
+                    powerNumber: document.getElementById(`charge${id}PowerNumber`)?.value || '',
+                    courtDate: document.getElementById(`charge${id}CourtDate`)?.value || '',
+                    courtTime: document.getElementById(`charge${id}CourtTime`)?.value || ''
                 };
                 data.charges.push(charge);
             });
-            
-            data.generatedAt = new Date().toISOString();
-            data.company = {
-                name: 'Shamrock Bail Bonds',
-                address: '1528 Broadway',
-                city: 'Fort Myers',
-                state: 'FL',
-                zip: '33901',
-                phone: '239-332-2245'
-            };
-            
-            const json = JSON.stringify(data, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bail_bond_data_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            
-            alert('✅ Document data generated!\n\nJSON file has been downloaded.\n\nYou can now use this file to generate PDFs using the Python script.');
+
+            // Show loading indicator
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Generating...';
+            btn.disabled = true;
+
+            // Call the server-side Code.gs function
+            google.script.run
+                .withSuccessHandler(function (result) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+
+                    if (result.success) {
+                        alert('✅ Complete bond packet generated successfully!\n\n' +
+                            'Document: ' + result.documentName + '\n' +
+                            'Document ID: ' + result.documentId + '\n\n' +
+                            'View in SignNow: https://app.signnow.com/webapp/documents/');
+                    } else {
+                        alert('❌ Error generating documents:\n\n' + result.error);
+                    }
+                })
+                .withFailureHandler(function (error) {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    alert('❌ Error:\n\n' + error.message);
+                })
+                .generateBailBondPacket(data);
         }
 
         async function copySignNowPayload() {
@@ -1444,27 +1469,37 @@ function saveProgress() {
                         caseNumber: document.getElementById(`charge${id}CaseNumber`)?.value || '',
                         bondAmount: document.getElementById(`charge${id}BondAmount`)?.value || '',
                         premium: document.getElementById(`charge${id}Premium`)?.value || '',
-                        courtLocation: document.getElementById(`charge${id}CourtLocation`)?.value || '',
-                        hearing: document.getElementById(`charge${id}Hearing`)?.value || ''
+                        powerNumber: document.getElementById(`charge${id}PowerNumber`)?.value || '',
+                        courtDate: document.getElementById(`charge${id}CourtDate`)?.value || '',
+                        courtTime: document.getElementById(`charge${id}CourtTime`)?.value || ''
                     };
                     data.charges.push(charge);
                 });
             }
 
-            data.generatedAt = new Date().toISOString();
-
-            const json = JSON.stringify(data, null, 2);
-            try {
-                await navigator.clipboard.writeText(json);
-                alert('📤 SignNow payload copied to clipboard.\n\nPaste this JSON into your SignNow or automation workflow.');
-            } catch (err) {
-                console.error(err);
-                alert('Could not copy to clipboard. JSON has been logged to the console instead.');
-                console.log(json);
-            }
+            // Call the server-side Code.gs function to get the payload
+            google.script.run
+                .withSuccessHandler(async function (payload) {
+                    const json = JSON.stringify(payload, null, 2);
+                    try {
+                        await navigator.clipboard.writeText(json);
+                        alert('📤 SignNow payload copied to clipboard!\n\n' +
+                            'Template ID: ' + payload.masterTemplateId + '\n' +
+                            'Fields mapped: ' + Object.keys(payload.fields || {}).length + '\n\n' +
+                            'Paste this JSON into your SignNow API or automation workflow.');
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not copy to clipboard. JSON has been logged to the console instead.');
+                        console.log(json);
+                    }
+                })
+                .withFailureHandler(function (error) {
+                    alert('❌ Error creating payload:\n\n' + error.message);
+                })
+                .getSignNowPayload(data);
         }
 
-        
+
         // Auto-save every 2 minutes
         setInterval(saveProgress, 120000);
     </script>
@@ -1494,4 +1529,5 @@ function saveProgress() {
     <input type="hidden" id="charge3_hearing">
 
 </body>
+
 </html>
