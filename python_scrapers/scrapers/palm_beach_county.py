@@ -194,14 +194,36 @@ def scrape_palm_beach(days_back=1):
                             # iterate div.row inside this result
                             inner_rows = row.eles('css:div.row')
                             for ir in inner_rows:
-                                txt = ir.text.strip()
-                                # Check for charge pattern? 
-                                # Screenshot: "843.15 1B (MF) FAILURE TO APPEAR -"
-                                # Let's assume lines with a statute number are charges
+                                txt = ir.text.strip().replace('\n', ' ')
+                                # Check for charge pattern (Statute number)
                                 if re.search(r'\d+\.\d+', txt) and "Booking" not in txt:
-                                    # Likely a charge
-                                    # Clean up
-                                    charges.append(txt.replace('\n', ' ').strip())
+                                    # Clean up Charge String
+                                    cleaned = txt
+                                    
+                                    # 1. Remove Bond Info
+                                    # Split on "Original Bond", "Current Bond", "Bond Information", or pipe
+                                    splitters = ["Original Bond", "Current Bond", "Bond Information", "|"]
+                                    for s in splitters:
+                                        if s in cleaned:
+                                            cleaned = cleaned.split(s)[0]
+                                            
+                                    cleaned = cleaned.strip()
+                                    
+                                    # 2. Remove Statute Number (e.g. "843.15 ")
+                                    cleaned = re.sub(r'^\d+(\.\d+)?\s+', '', cleaned)
+                                    
+                                    # 3. Remove Degree/Level (e.g. "1B (MF)", "1 (MS)", "(F)")
+                                    # Matches: Optional Alphanumeric prefix + (Letters)
+                                    cleaned = re.sub(r'^([0-9A-Za-z]+\s+)?\([A-Za-z]+\)\s+', '', cleaned)
+                                    
+                                    # 4. Remove secondary numeric codes (e.g. "8888" in "888.8888 8888")
+                                    cleaned = re.sub(r'^\d+\s+', '', cleaned)
+                                    
+                                    # 5. Remove trailing dash/hyphen
+                                    cleaned = cleaned.strip(' -')
+                                    
+                                    if cleaned:
+                                        charges.append(cleaned)
                                     
                             # Bond
                             # Look for text "Current Bond: $..."
