@@ -358,17 +358,27 @@ def scrape_palm_beach(days_back=1):
                                 
                                 if last_idx > 0:
                                     potential_next = links[last_idx - 1]
-                                    # Ensure it's not a page number?
-                                    # If it's "Next", it shouldn't be a number.
-                                    # If it IS a number (e.g. ... 13 14 Last), then there is no Next button? 
-                                    # Wait, usually it's [1] [2] ... [Next] [Last]
-                                    # User says: "button before the 'last' button, that appears to be a 'next' sign"
                                     
-                                    # Verify if it looks like a Next button (short text, or symbol)
+                                    # Logic: The Next button is strictly between the page numbers and "Last".
+                                    # It might be an arrow character (>) or an icon (empty text).
+                                    # It should NOT be a number (which would be a page link).
+                                    
                                     txt = potential_next.text.strip()
-                                    if len(txt) < 5 or "next" in txt.lower() or ">" in txt:
+                                    
+                                    # Check if it's likely the Next button
+                                    # 1. Matches arrow symbols
+                                    # 2. Or is empty/short and NOT a digit (to avoid clicking page "5" when we want ">")
+                                    is_next_candidate = False
+                                    
+                                    if any(x in txt for x in [">", "»", "Next"]):
+                                        is_next_candidate = True
+                                    elif not txt.isdigit(): 
+                                        # If it's not a digit (page number), it's likely the navigation control
+                                        is_next_candidate = True
+                                        
+                                    if is_next_candidate:
                                          next_btn = potential_next
-                                         sys.stderr.write("Found likely Next button before Last button.\n")
+                                         sys.stderr.write(f"Found likely Next button (text='{txt}') before Last button.\n")
                         except: pass
 
                     if next_btn:
