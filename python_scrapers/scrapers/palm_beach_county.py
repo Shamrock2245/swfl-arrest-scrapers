@@ -370,6 +370,7 @@ def scrape_palm_beach(days_back=1):
                                     # 2. Or is empty/short and NOT a digit (to avoid clicking page "5" when we want ">")
                                     is_next_candidate = False
                                     
+                                    
                                     if any(x in txt for x in [">", "»", "Next"]):
                                         is_next_candidate = True
                                     elif not txt.isdigit(): 
@@ -380,6 +381,23 @@ def scrape_palm_beach(days_back=1):
                                          next_btn = potential_next
                                          sys.stderr.write(f"Found likely Next button (text='{txt}') before Last button.\n")
                         except: pass
+                    
+                    # Debug: Print all links in pagination for user visibility
+                    try:
+                        sys.stderr.write("DEBUG: Scanning pagination links to help identify 'Next' button...\n")
+                        # Find any container?
+                        # Let's search for "Last" and get parent again, or "1"
+                        debug_parent = None
+                        try:
+                            ltest = page.ele('xpath://a[contains(text(), "Last")]')
+                            if ltest: debug_parent = ltest.parent()
+                        except: pass
+                        
+                        if debug_parent:
+                            dlinks = debug_parent.eles('tag:a')
+                            link_texts = [f"'{l.text.strip()}'" for l in dlinks]
+                            sys.stderr.write(f"DEBUG LINKS FOUND: {', '.join(link_texts)}\n")
+                    except: pass
 
                     if next_btn:
                         sys.stderr.write(f"Clicking Next Page (Target: {page_num + 1})...\n")
