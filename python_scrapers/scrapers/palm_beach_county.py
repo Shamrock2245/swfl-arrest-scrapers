@@ -385,19 +385,31 @@ def scrape_palm_beach(days_back=1):
                     # Debug: Print all links in pagination for user visibility
                     try:
                         sys.stderr.write("DEBUG: Scanning pagination links to help identify 'Next' button...\n")
-                        # Find any container?
-                        # Let's search for "Last" and get parent again, or "1"
-                        debug_parent = None
-                        try:
-                            ltest = page.ele('xpath://a[contains(text(), "Last")]')
-                            if ltest: debug_parent = ltest.parent()
-                        except: pass
                         
-                        if debug_parent:
-                            dlinks = debug_parent.eles('tag:a')
+                        # Try standard bootstrap pagination
+                        pagination_container = page.ele('css:ul.pagination')
+                        if not pagination_container:
+                             pagination_container = page.ele('css:div.pagination')
+                        if not pagination_container:
+                             pagination_container = page.ele('css:.pagination')
+                             
+                        # Fallback to finding "Page 1 of..." text parent
+                        if not pagination_container:
+                            try:
+                                page_info = page.ele('xpath://*[contains(text(), "Page 1 of")]') # or similar
+                                if page_info:
+                                    pagination_container = page_info.parent()
+                            except: pass
+
+                        if pagination_container:
+                            dlinks = pagination_container.eles('tag:a')
                             link_texts = [f"'{l.text.strip()}'" for l in dlinks]
                             sys.stderr.write(f"DEBUG LINKS FOUND: {', '.join(link_texts)}\n")
-                    except: pass
+                        else:
+                            sys.stderr.write("DEBUG: Could not locate pagination container.\n")
+                            
+                    except Exception as e:
+                        sys.stderr.write(f"DEBUG Error: {e}\n")
 
                     if next_btn:
                         sys.stderr.write(f"Clicking Next Page (Target: {page_num + 1})...\n")

@@ -1,0 +1,31 @@
+name: Scrape DeSoto County
+
+on:
+  schedule:
+    - cron: '30 * * * *'  # Run at minute 30 of every hour
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  scrape-desoto:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DeSoto Scraper
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_PATH }}
+        run: |
+            echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" | base64 -d > service-account-key.json
+            export GOOGLE_SERVICE_ACCOUNT_KEY_PATH=$(pwd)/service-account-key.json
+            npm run run:desoto

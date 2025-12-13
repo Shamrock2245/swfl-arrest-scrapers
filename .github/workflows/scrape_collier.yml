@@ -1,0 +1,41 @@
+name: Scrape Collier County
+
+on:
+  schedule:
+    - cron: '15 * * * *'  # Run at minute 15 of every hour
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  scrape-collier:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Collier Scraper
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY_PATH: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_PATH }}
+          # Determine if we need to pass the key contents directly or if the script expects a file
+          # The codebase uses dotenv/config, and sheets.js often checks env vars or file paths.
+          # Ideally, secrets should be managed carefully. 
+          # Assuming the existing pattern: writing the secret to a file or using an env var the script reads.
+          # Based on previous context, we might need to write the key to a file if the script relies on file path.
+          # Let's rely on the standard pattern if exists, or write to file.
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_PATH }} 
+        run: |
+            # If the script expects a file path in GOOGLE_SERVICE_ACCOUNT_KEY_PATH, we can write it.
+            # But earlier you fixed credential issues by supporting base64 env vars.
+            # I will assume the scrapers are updated to handle env vars or I will write the file.
+            echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" | base64 -d > service-account-key.json
+            export GOOGLE_SERVICE_ACCOUNT_KEY_PATH=$(pwd)/service-account-key.json
+            npm run run:collier
