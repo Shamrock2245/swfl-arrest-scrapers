@@ -314,6 +314,41 @@ def scrape_palm_beach(days_back=1):
                                 sys.stderr.write(f"Found specific page link: {next_page_num}\n")
                         except: pass
                         
+                    # Strategy 3: Relative to "Last" button
+                    if not next_btn:
+                        try:
+                            # Find "Last" link
+                            # usually text "Last" or "Last >>"
+                            last_btn = page.ele('xpath://a[contains(text(), "Last")]')
+                            if last_btn:
+                                # Get the preceding sibling 'a' tag
+                                # xpath: preceding-sibling::a[1]
+                                # But we need to be careful if there are spacers.
+                                # Let's try getting the parent and finding the index of Last
+                                parent = last_btn.parent()
+                                links = parent.eles('tag:a')
+                                # Find index of last_btn
+                                last_idx = -1
+                                for idx, l in enumerate(links):
+                                    if l.html == last_btn.html: # basic comparison
+                                        last_idx = idx
+                                        break
+                                
+                                if last_idx > 0:
+                                    potential_next = links[last_idx - 1]
+                                    # Ensure it's not a page number?
+                                    # If it's "Next", it shouldn't be a number.
+                                    # If it IS a number (e.g. ... 13 14 Last), then there is no Next button? 
+                                    # Wait, usually it's [1] [2] ... [Next] [Last]
+                                    # User says: "button before the 'last' button, that appears to be a 'next' sign"
+                                    
+                                    # Verify if it looks like a Next button (short text, or symbol)
+                                    txt = potential_next.text.strip()
+                                    if len(txt) < 5 or "next" in txt.lower() or ">" in txt:
+                                         next_btn = potential_next
+                                         sys.stderr.write("Found likely Next button before Last button.\n")
+                        except: pass
+
                     if next_btn:
                         sys.stderr.write(f"Clicking Next Page (Target: {page_num + 1})...\n")
                         next_btn.click()
