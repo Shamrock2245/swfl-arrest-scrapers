@@ -11,7 +11,14 @@ def scrape_palm_beach(days_back=1):
     # 1. Initialize Browser
     co = ChromiumOptions()
     co.auto_port()
-    co.headless(False) # Must be headed for Cloudflare/Captcha
+    co.headless(True)  # Run headless for GitHub Actions
+    
+    # Add Linux-specific options for GitHub Actions
+    co.set_argument('--no-sandbox')
+    co.set_argument('--disable-dev-shm-usage')
+    co.set_argument('--disable-gpu')
+    co.set_argument('--disable-software-rasterizer')
+    co.set_argument('--disable-extensions')
     
     # Optional: set user agent or other headers if needed
     
