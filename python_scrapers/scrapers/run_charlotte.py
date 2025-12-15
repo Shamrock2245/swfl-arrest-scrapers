@@ -148,8 +148,7 @@ def main():
     try:
         # Get credentials from environment or use defaults
         sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
-        creds_path = os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH', 
-                               os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json'))
+        creds_path = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
         
         writer = SheetsWriter(
             spreadsheet_id=sheets_id,

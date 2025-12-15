@@ -23,7 +23,7 @@ Date: November 24, 2025
 
 import re
 from typing import Tuple, List
-from ..models.arrest_record import ArrestRecord
+from models.arrest_record import ArrestRecord
 
 
 class LeadScorer:

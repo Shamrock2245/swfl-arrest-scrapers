@@ -20,8 +20,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-from ..models.arrest_record import ArrestRecord
-from ..scoring.lead_scorer import score_and_update
+from models.arrest_record import ArrestRecord
+from scoring.lead_scorer import score_and_update
 
 
 class SheetsWriter:
