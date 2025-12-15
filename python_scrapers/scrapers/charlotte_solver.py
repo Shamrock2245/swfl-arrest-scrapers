@@ -190,35 +190,93 @@ def scrape_charlotte(days_back=21, max_pages=10):
                     if len(parts) > 1:
                         data['Booking_Number'] = parts[1].split('?')[0].strip()
                 
-                name_ele = page.ele('css:h3.name') or page.ele('css:.inmate-name') or page.ele('css:div.name') or page.ele('css:h1')
-                if name_ele:
-                    data['Full_Name'] = name_ele.text.strip()
-                    if ',' in data['Full_Name']:
-                        parts = data['Full_Name'].split(',', 1)
-                        data['Last_Name'] = parts[0].strip()
-                        data['First_Name'] = parts[1].strip()
-                else:
-                    sys.stderr.write(f"   ⚠️  Name element not found! Saving charlotte_debug.html\n")
-                    with open('charlotte_debug.html', 'w', encoding='utf-8') as f:
-                        f.write(page.html)
+                # Helper to get value from input next to label
+                def get_input_val(label_text):
+                    try:
+                        # Try exact match first
+                        label = page.ele(f'text:^{label_text}$')
+                        if not label:
+                            # Try contains match
+                            label = page.ele(f'text:{label_text}')
+                        
+                        if label:
+                            # Get the next element which should be the input
+                            inp = label.next()
+                            if inp and inp.tag == 'input':
+                                return inp.value
+                            elif inp:
+                                return inp.text.strip()
+                    except:
+                        pass
+                    return None
+
+                # Strategy 1: Label/Input pairs (New Site Structure)
+                # Personal Info
+                fn = get_input_val('First Name')
+                ln = get_input_val('Last Name')
+                if fn: data['First_Name'] = fn
+                if ln: data['Last_Name'] = ln
                 
-                dts = page.eles('tag:dt')
-                for dt in dts:
-                    key = dt.text.strip().replace(':', '')
-                    dd = dt.next('tag:dd')
-                    if dd:
-                        val = dd.text.strip()
-                        if key == 'First Name': data['First_Name'] = val
-                        elif key == 'Last Name': data['Last_Name'] = val
-                        elif key == 'DOB' or key == 'Date of Birth': data['DOB'] = val
-                        elif key == 'Race': data['Race'] = val
-                        elif key == 'Sex' or key == 'Gender': data['Sex'] = val
-                        elif key == 'Height': data['Height'] = val
-                        elif key == 'Weight': data['Weight'] = val
-                        elif key == 'Address': data['Address'] = val
-                        elif key == 'City': data['City'] = val
-                        elif key == 'State': data['State'] = val
-                        elif key == 'Zip Code': data['ZIP'] = val
+                if fn and ln:
+                    data['Full_Name'] = f"{ln}, {fn}"
+                
+                dob = get_input_val('Date of Birth')
+                if dob: data['DOB'] = dob
+                
+                race = get_input_val('Race')
+                if race: data['Race'] = race
+                
+                sex = get_input_val('Gender')
+                if sex: data['Sex'] = sex
+                
+                height = get_input_val('Height')
+                if height: data['Height'] = height
+                
+                weight = get_input_val('Weight')
+                if weight: data['Weight'] = weight
+                
+                # Address Info
+                addr = get_input_val('Address')
+                if addr: data['Address'] = addr
+                
+                city = get_input_val('City')
+                if city: data['City'] = city
+                
+                state = get_input_val('State')
+                if state: data['State'] = state
+                
+                zip_code = get_input_val('Zip Code')
+                if zip_code: data['ZIP'] = zip_code
+
+                # Strategy 2: Header Name (Fallback if Strategy 1 fails)
+                if 'Full_Name' not in data:
+                    name_ele = page.ele('css:h3.name') or page.ele('css:.inmate-name') or page.ele('css:div.name') or page.ele('css:h1')
+                    if name_ele:
+                        data['Full_Name'] = name_ele.text.strip()
+                        if ',' in data['Full_Name']:
+                            parts = data['Full_Name'].split(',', 1)
+                            data['Last_Name'] = parts[0].strip()
+                            data['First_Name'] = parts[1].strip()
+
+                # Strategy 3: Generic DL/DT/DD (Old Site Structure Fallback)
+                if 'First_Name' not in data: 
+                    dts = page.eles('tag:dt')
+                    for dt in dts:
+                        key = dt.text.strip().replace(':', '')
+                        dd = dt.next('tag:dd')
+                        if dd:
+                            val = dd.text.strip()
+                            if key == 'First Name': data['First_Name'] = val
+                            elif key == 'Last Name': data['Last_Name'] = val
+                            elif key == 'DOB' or key == 'Date of Birth': data['DOB'] = val
+                            elif key == 'Race': data['Race'] = val
+                            elif key == 'Sex' or key == 'Gender': data['Sex'] = val
+                            elif key == 'Height': data['Height'] = val
+                            elif key == 'Weight': data['Weight'] = val
+                            elif key == 'Address': data['Address'] = val
+                            elif key == 'City': data['City'] = val
+                            elif key == 'State': data['State'] = val
+                            elif key == 'Zip Code': data['ZIP'] = val
                 
                 booking_table = page.ele('#bookings-table') or page.ele('css:table.bookings')
                 charges = []

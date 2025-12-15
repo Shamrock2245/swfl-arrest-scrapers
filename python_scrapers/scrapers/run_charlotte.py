@@ -71,31 +71,43 @@ def main():
     # Run the solver
     print("📡 Running Charlotte solver...")
     try:
-        result = subprocess.run(
-            ['python3', solver_path],
-            capture_output=True,
+        # Stream logs directly to console (stderr) while capturing JSON output (stdout)
+        process = subprocess.Popen(
+            ['python3', solver_path] + sys.argv[1:],
+            stdout=subprocess.PIPE,  # Capture JSON output
+            stderr=sys.stderr,       # Stream logs directly to console
             text=True,
-            timeout=300  # 5 minute timeout
+            bufsize=1
         )
         
-        # Print stderr (debug info) to stderr
-        if result.stderr:
-            sys.stderr.write(result.stderr)
+        stdout, _ = process.communicate(timeout=600)  # 10 min timeout
         
-        if result.returncode != 0:
-            print(f"❌ Solver failed with return code {result.returncode}")
+        if process.returncode != 0:
+            print(f"❌ Solver failed with return code {process.returncode}")
             return
         
         # Parse JSON output
-        raw_records = json.loads(result.stdout)
-        print(f"✅ Solver extracted {len(raw_records)} raw records")
+        try:
+            # Stdout might contain some Log info if not strictly separated, 
+            # but our solver writes logs to stderr.
+            # Look for the last line which should be the JSON
+            lines = stdout.strip().split('\n')
+            json_line = lines[-1] if lines else "[]"
+            raw_records = json.loads(json_line)
+            print(f"✅ Solver extracted {len(raw_records)} raw records")
+        except json.JSONDecodeError:
+            # Try to find JSON in the output
+            import re
+            match = re.search(r'\[.*\]', stdout, re.DOTALL)
+            if match:
+                raw_records = json.loads(match.group(0))
+                print(f"✅ Solver extracted {len(raw_records)} raw records (regex)")
+            else:
+                raise
         
     except subprocess.TimeoutExpired:
-        print("❌ Solver timed out after 5 minutes")
-        return
-    except json.JSONDecodeError as e:
-        print(f"❌ Failed to parse solver output: {e}")
-        print(f"Output was: {result.stdout[:500]}")
+        process.kill()
+        print("❌ Solver timed out after 10 minutes")
         return
     except Exception as e:
         print(f"❌ Error running solver: {e}")

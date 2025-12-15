@@ -12,7 +12,7 @@
     "run:charlotte:v2": "node -r dotenv/config scrapers/charlotte_v2.js",
     "run:sarasota": "node scrapers/sarasota.js",
     "run:sarasota:v2": "node -r dotenv/config scrapers/sarasota_v2.js",
-    "run:hendry": "node -r dotenv/config scrapers/hendry_stealth.js",
+    "run:hendry": "node -r dotenv/config scrapers/hendry.js",
     "run:hendry:v2": "node -r dotenv/config scrapers/hendry_v2.js",
     "run:desoto": "node scrapers/desoto.js",
     "run:manatee": "node scrapers/manatee.js",
