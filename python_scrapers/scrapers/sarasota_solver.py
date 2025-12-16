@@ -316,7 +316,12 @@ def scrape_sarasota(days_back=1):
                             if len(cells) > 6 and 'Booking_Date' not in data:
                                 intake_dt = cells[6].text.strip()
                                 if intake_dt:
-                                    data['Booking_Date'] = intake_dt
+                                    # Fix for Time-Only Booking Dates
+                                    # If it looks like a time (e.g. "14:30") and short, prepend the search date
+                                    if ':' in intake_dt and len(intake_dt) < 12 and 'arrest_date' in locals():
+                                        data['Booking_Date'] = f"{arrest_date} {intake_dt}"
+                                    else:
+                                        data['Booking_Date'] = intake_dt
                                 
                     if charges:
                         data['Charges'] = " | ".join(charges)
@@ -338,8 +343,9 @@ def scrape_sarasota(days_back=1):
                     if 'ZIP' in data:
                         data['Zipcode'] = data.pop('ZIP')
                     
+                    
                     # Fallback for Arrest_Date
-                    if 'Arrest_Date' not in data and 'Booking_Date' in data:
+                    if not data.get('Arrest_Date') and data.get('Booking_Date'):
                         # Use Booking Date as Arrest Date if missing
                         # Assuming format YYYY-MM-DD HH:MM:SS from table
                         bd = data['Booking_Date']
@@ -349,7 +355,7 @@ def scrape_sarasota(days_back=1):
                             data['Arrest_Date'] = bd
                     
                     # FINAL FALLBACK: If still no Arrest_Date, use Today (Scrape Date)
-                    if 'Arrest_Date' not in data:
+                    if not data.get('Arrest_Date'):
                         data['Arrest_Date'] = datetime.now().strftime('%Y-%m-%d')
                         sys.stderr.write("   ⚠️  Missing Arrest_Date, defaulting to Scrape Date (Today)\n")
                             

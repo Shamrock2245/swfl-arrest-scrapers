@@ -19,6 +19,7 @@ const schema = JSON.parse(readFileSync(join(__dirname, '../config/schema.json'),
  */
 export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
   const record = {
+    Scrape_Timestamp: new Date().toISOString(),
     Booking_Number: '',
     Full_Name: '',
     First_Name: '',
@@ -59,8 +60,13 @@ export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
   const mapped = mapFieldsWithAliases(rawPairs);
 
   // Apply mapped values
+  // Use raw Scrape_Timestamp if provided, otherwise keep default (current time)
+  if (mapped.Scrape_Timestamp) {
+    record.Scrape_Timestamp = mapped.Scrape_Timestamp;
+  }
+
   record.Booking_Number = cleanString(mapped.Booking_Number || '');
-  
+
   // Name parsing
   const fullName = cleanString(mapped.Full_Name || '');
   if (fullName) {
@@ -73,12 +79,12 @@ export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
   record.DOB = normalizeDate(mapped.DOB || '');
   record.Sex = normalizeSex(mapped.Sex || '');
   record.Race = normalizeRace(mapped.Race || '');
-  
+
   // Dates and times
   const arrestDatetime = parseDatetime(mapped.Arrest_Date || '');
   record.Arrest_Date = arrestDatetime.date;
   record.Arrest_Time = arrestDatetime.time;
-  
+
   const bookingDatetime = parseDatetime(mapped.Booking_Date || '');
   record.Booking_Date = bookingDatetime.date;
   record.Booking_Time = bookingDatetime.time;
@@ -102,7 +108,7 @@ export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
   // Charges parsing
   const chargesRaw = cleanString(mapped.Charges || '');
   record.Charges = chargesRaw;
-  
+
   if (chargesRaw) {
     const charges = parseCharges(chargesRaw);
     if (charges.length > 0) {
@@ -140,10 +146,10 @@ export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
  */
 function mapFieldsWithAliases(rawPairs) {
   const mapped = {};
-  
+
   for (const [rawKey, value] of Object.entries(rawPairs)) {
     const normalizedKey = rawKey.toLowerCase().trim();
-    
+
     // Find matching canonical field
     for (const [canonicalField, aliases] of Object.entries(schema.fieldAliases)) {
       if (aliases.some(alias => normalizedKey === alias.toLowerCase())) {
@@ -152,7 +158,7 @@ function mapFieldsWithAliases(rawPairs) {
       }
     }
   }
-  
+
   return mapped;
 }
 
@@ -161,9 +167,9 @@ function mapFieldsWithAliases(rawPairs) {
  */
 function parseFullName(fullName) {
   if (!fullName) return { first: '', last: '', fullName: '' };
-  
+
   const cleaned = fullName.trim();
-  
+
   // Format: "LAST, FIRST MIDDLE"
   if (cleaned.includes(',')) {
     const parts = cleaned.split(',').map(p => p.trim());
@@ -176,7 +182,7 @@ function parseFullName(fullName) {
       fullName: `${toTitleCase(last)}, ${toTitleCase(firstMiddle)}`
     };
   }
-  
+
   // Format: "FIRST MIDDLE LAST"
   const parts = cleaned.split(/\s+/);
   if (parts.length >= 2) {
@@ -188,7 +194,7 @@ function parseFullName(fullName) {
       fullName: `${toTitleCase(last)}, ${toTitleCase(first)}`
     };
   }
-  
+
   // Single name
   return {
     first: '',
@@ -202,27 +208,27 @@ function parseFullName(fullName) {
  */
 function parseAddress(address) {
   const result = { street: '', city: '', state: '', zip: '' };
-  
+
   if (!address) return result;
-  
+
   // Try to extract ZIP code
   const zipMatch = address.match(/\b(\d{5}(?:-\d{4})?)\b/);
   if (zipMatch) {
     result.zip = zipMatch[1];
   }
-  
+
   // Try to extract state
   const stateMatch = address.match(/\b([A-Z]{2})\b/);
   if (stateMatch) {
     result.state = stateMatch[1];
   }
-  
+
   // Extract city (word before state)
   const cityMatch = address.match(/,\s*([A-Za-z\s]+),?\s+[A-Z]{2}/);
   if (cityMatch) {
     result.city = cityMatch[1].trim();
   }
-  
+
   // Street is everything before city
   const streetMatch = address.match(/^(.+?),/);
   if (streetMatch) {
@@ -230,7 +236,7 @@ function parseAddress(address) {
   } else {
     result.street = address;
   }
-  
+
   return result;
 }
 
@@ -239,30 +245,30 @@ function parseAddress(address) {
  */
 function parseCharges(chargesStr) {
   if (!chargesStr) return [];
-  
+
   const charges = [];
-  
+
   // Split by common delimiters
   const parts = chargesStr.split(/[;|\n]/);
-  
+
   for (const part of parts) {
     const cleaned = part.trim();
     if (!cleaned) continue;
-    
+
     // Try to extract statute number
     const statuteMatch = cleaned.match(/\b(\d{3,4}(?:\.\d+)?(?:\([a-z0-9]+\))?)\b/i);
     const statute = statuteMatch ? statuteMatch[1] : '';
-    
+
     // Try to extract bond amount
     const bondMatch = cleaned.match(/\$[\d,]+(?:\.\d{2})?/);
     const bond = bondMatch ? bondMatch[0] : '';
-    
+
     // Description is the full text
     const description = cleaned;
-    
+
     charges.push({ description, statute, bond });
   }
-  
+
   return charges.slice(0, 2); // Only return first 2 charges
 }
 
@@ -271,17 +277,17 @@ function parseCharges(chargesStr) {
  */
 function parseDatetime(str) {
   if (!str) return { date: '', time: '' };
-  
+
   const cleaned = str.trim();
-  
+
   // Try to extract time (HH:MM format)
   const timeMatch = cleaned.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\b/i);
   const time = timeMatch ? timeMatch[1] : '';
-  
+
   // Try to extract date
   const dateMatch = cleaned.match(/\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b/);
   const date = dateMatch ? normalizeDate(dateMatch[1]) : '';
-  
+
   return { date, time };
 }
 
@@ -290,16 +296,16 @@ function parseDatetime(str) {
  */
 function normalizeDate(dateStr) {
   if (!dateStr) return '';
-  
+
   const cleaned = dateStr.trim();
-  
+
   // Try parsing various formats
   const formats = [
     /(\d{1,2})[-/](\d{1,2})[-/](\d{4})/, // MM/DD/YYYY or MM-DD-YYYY
     /(\d{4})[-/](\d{1,2})[-/](\d{1,2})/, // YYYY-MM-DD
     /(\d{1,2})[-/](\d{1,2})[-/](\d{2})/  // MM/DD/YY
   ];
-  
+
   for (const format of formats) {
     const match = cleaned.match(format);
     if (match) {
@@ -314,16 +320,16 @@ function normalizeDate(dateStr) {
         day = match[2];
         year = match[3];
       }
-      
+
       // Convert 2-digit year to 4-digit
       if (year.length === 2) {
         year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
       }
-      
+
       return `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
     }
   }
-  
+
   return cleaned;
 }
 
@@ -332,12 +338,12 @@ function normalizeDate(dateStr) {
  */
 function normalizeMoney(amount) {
   if (!amount) return '';
-  
+
   const cleaned = amount.toString().replace(/[^0-9.]/g, '');
   const num = parseFloat(cleaned);
-  
+
   if (isNaN(num)) return amount;
-  
+
   return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -358,7 +364,7 @@ function normalizeSex(sex) {
 function normalizeRace(race) {
   if (!race) return '';
   const cleaned = race.trim().toUpperCase();
-  
+
   const raceMap = {
     'W': 'White',
     'B': 'Black',
@@ -371,7 +377,7 @@ function normalizeRace(race) {
     'ASIAN': 'Asian',
     'NATIVE': 'Native American'
   };
-  
+
   return raceMap[cleaned] || race;
 }
 

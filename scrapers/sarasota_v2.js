@@ -38,11 +38,18 @@ export async function runSarasotaV2(dateStr = null) {
             if (!raw.Detail_URL && !raw.source_url) continue;
 
             // FALLBACK FOR MISSING DATES
-            if (!raw.Arrest_Date && !raw.Booking_Date) {
-                const now = new Date();
-                const estDate = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-                raw.Arrest_Date = `${(estDate.getMonth() + 1).toString().padStart(2, '0')}/${estDate.getDate().toString().padStart(2, '0')}/${estDate.getFullYear()}`;
-                console.log(`   ⚠️  Missing date for ${raw.Booking_Number}, defaulting to ${raw.Arrest_Date}`);
+            if (!raw.Arrest_Date) {
+                if (raw.Booking_Date) {
+                    // 1. Fallback to Booking Date if available
+                    console.log(`   ⚠️  Missing Arrest_Date for ${raw.Booking_Number}, using Booking_Date: ${raw.Booking_Date}`);
+                    raw.Arrest_Date = raw.Booking_Date;
+                } else {
+                    // 2. Final Fallback to Today (EST)
+                    const now = new Date();
+                    const estDate = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+                    raw.Arrest_Date = `${(estDate.getMonth() + 1).toString().padStart(2, '0')}/${estDate.getDate().toString().padStart(2, '0')}/${estDate.getFullYear()}`;
+                    console.log(`   ⚠️  Missing dates for ${raw.Booking_Number}, defaulting Arrest_Date to ${raw.Arrest_Date}`);
+                }
             }
 
             const url = raw.Detail_URL || raw.source_url;
