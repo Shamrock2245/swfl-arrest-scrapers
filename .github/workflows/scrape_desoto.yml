@@ -24,8 +24,6 @@ jobs:
 
       - name: Run DeSoto Scraper
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_PATH }}
-        run: |
-            echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" | base64 -d > service-account-key.json
-            export GOOGLE_SERVICE_ACCOUNT_KEY_PATH=$(pwd)/service-account-key.json
-            npm run run:desoto
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: npm run run:desoto

@@ -2,9 +2,10 @@ name: Scrape Sarasota
 
 on:
   schedule:
-    # Run at 5:00 AM, 11:00 AM, and 5:00 PM EST (UTC-5)
-    # UTC: 10:00, 16:00, 22:00
-    - cron: '0 10,16,22 * * *'
+    # Run at 5:00 AM, 10:15 AM, and 9:00 PM EST (UTC-5)
+    # UTC: 10:00, 15:15, 02:00
+    - cron: '0 10,2 * * *'
+    - cron: '15 15 * * *'
   workflow_dispatch:
 
 jobs:

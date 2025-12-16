@@ -48,6 +48,10 @@ export async function runCharlotteV2() {
         if (normalizedRecords.length > 0) {
             const result = await upsertRecords34(config.sheetName, normalizedRecords);
             console.log(`✅ Inserted: ${result.inserted}, Updated: ${result.updated}`);
+        } else {
+            console.log('❌ No valid records found to insert.');
+            // Throw error to fail the workflow loudly
+            throw new Error('Scraper found 0 valid records. Failing workflow to ensure visibility.');
         }
 
         await logIngestion('CHARLOTTE', true, normalizedRecords.length, startTime);
@@ -103,7 +107,10 @@ function runPythonScript(scriptPath, args = []) {
 
 // Allow direct execution
 if (import.meta.url === `file://${process.argv[1]}`) {
-    runCharlotteV2().catch(console.error);
+    runCharlotteV2().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
 }
 
 export default runCharlotteV2;

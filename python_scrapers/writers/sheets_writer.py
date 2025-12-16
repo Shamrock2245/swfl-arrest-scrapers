@@ -60,16 +60,42 @@ class SheetsWriter:
         self.qualified_min_score = qualified_min_score
         
         # Initialize Google Sheets client
+        # 1. Try direct JSON content from environment (supports raw JSON or Base64)
         if credentials_path is None:
-            credentials_path = os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH')
-        
-        if not credentials_path:
-            raise ValueError("Credentials path must be provided or set in GOOGLE_SERVICE_ACCOUNT_KEY_PATH")
-        
-        self.credentials = Credentials.from_service_account_file(
-            credentials_path,
-            scopes=self.SCOPES
-        )
+            # Check for direct JSON content
+            env_var = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON') or os.getenv('GOOGLE_SA_KEY_JSON')
+            
+            if env_var:
+                try:
+                    content = env_var.strip()
+                    # If it doesn't start with '{', assume Base64
+                    if not content.startswith('{'):
+                        import base64
+                        decoded = base64.b64decode(content).decode('utf-8')
+                        service_account_info = json.loads(decoded)
+                    else:
+                        service_account_info = json.loads(content)
+                        
+                    self.credentials = Credentials.from_service_account_info(
+                        service_account_info,
+                        scopes=self.SCOPES
+                    )
+                except Exception as e:
+                    print(f"⚠️ Warning: Failed to parse Google Service Account env var: {e}")
+                    # Fallthrough to file path check
+            
+        # 2. Fallback to file path
+        if not hasattr(self, 'credentials'):
+            if credentials_path is None:
+                credentials_path = os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH')
+            
+            if not credentials_path:
+                raise ValueError("Credentials must be provided via GOOGLE_SERVICE_ACCOUNT_JSON (env) or GOOGLE_SERVICE_ACCOUNT_KEY_PATH (file)")
+            
+            self.credentials = Credentials.from_service_account_file(
+                credentials_path,
+                scopes=self.SCOPES
+            )
         
         self.client = gspread.authorize(self.credentials)
         self.spreadsheet = self.client.open_by_key(spreadsheet_id)

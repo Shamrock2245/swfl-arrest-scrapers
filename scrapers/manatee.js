@@ -76,5 +76,8 @@ export async function runManatee() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runManatee();
+  runManatee().catch(err => {
+    console.error('Unhandled execution error:', err);
+    process.exit(1);
+  });
 }

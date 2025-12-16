@@ -35,12 +35,8 @@ jobs:
 
       - name: Run PBSO Scraper
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY_PATH }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: |
-            # Decode secret
-            echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" | base64 -d > service-account-key.json
-            export GOOGLE_SERVICE_ACCOUNT_KEY_PATH=$(pwd)/service-account-key.json
-            
             # Run with Xvfb (Virtual Framebuffer) to support "headed" mode in CI
-            # -a: auto number, --server-args: screen config
             xvfb-run -a --server-args="-screen 0 1280x1024x24" python3 python_scrapers/scrapers/run_palm_beach.py ${{ inputs.days_back || '1' }}

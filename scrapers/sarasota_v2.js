@@ -37,6 +37,14 @@ export async function runSarasotaV2(dateStr = null) {
         for (const raw of records) {
             if (!raw.Detail_URL && !raw.source_url) continue;
 
+            // FALLBACK FOR MISSING DATES
+            if (!raw.Arrest_Date && !raw.Booking_Date) {
+                const now = new Date();
+                const estDate = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+                raw.Arrest_Date = `${(estDate.getMonth() + 1).toString().padStart(2, '0')}/${estDate.getDate().toString().padStart(2, '0')}/${estDate.getFullYear()}`;
+                console.log(`   ⚠️  Missing date for ${raw.Booking_Number}, defaulting to ${raw.Arrest_Date}`);
+            }
+
             const url = raw.Detail_URL || raw.source_url;
             const norm = normalizeRecord34(raw, 'SARASOTA', url);
 
