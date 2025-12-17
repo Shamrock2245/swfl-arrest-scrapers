@@ -38,58 +38,173 @@ function SN_getConfig() {
  * Signature field positions for each document type
  * These define WHERE signatures/initials go on each PDF
  * Coordinates are in pixels from top-left of page
+ * Page numbers are 1-indexed (page 1 = 1) as provided, converted to 0-indexed for API
+ * 
+ * Roles: 'Defendant', 'Indemnitor', 'Co-Indemnitor', 'Bail Agent'
  */
 const SN_SIGNATURE_FIELDS = {
-  'defendant-application': {
+  // paperwork-header (15sTaIIwhzHk96I8X3rxz7GtLMU-F5zo1) - No signature fields
+  'paperwork-header': {
+    driveId: '15sTaIIwhzHk96I8X3rxz7GtLMU-F5zo1',
+    pageCount: 1,
+    fields: []
+  },
+
+  // faq-cosigners (1bjmH2w-XS5Hhe828y_Jmv9DqaS_gSZM7)
+  'faq-cosigners': {
+    driveId: '1bjmH2w-XS5Hhe828y_Jmv9DqaS_gSZM7',
     pageCount: 2,
     fields: [
-      { type: 'signature', role: 'Defendant', page: 1, x: 100, y: 680, width: 200, height: 50, required: true },
-      { type: 'text', role: 'Defendant', page: 1, x: 350, y: 700, width: 100, height: 20, lock_to_sign_date: true }
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p1', page: 0, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p1', page: 0, x: 502, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p2', page: 1, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p2', page: 1, x: 502, y: 30, width: 50, height: 22, required: true }
     ]
   },
+
+  // faq-defendants (16j9Z8eTii-J_p4o6A2LrzgzptGB8aOhR)
+  'faq-defendants': {
+    driveId: '16j9Z8eTii-J_p4o6A2LrzgzptGB8aOhR',
+    pageCount: 2,
+    fields: [
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p1', page: 0, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p1', page: 0, x: 502, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p2', page: 1, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p2', page: 1, x: 502, y: 30, width: 50, height: 22, required: true }
+    ]
+  },
+
+  // indemnity-agreement (1p4bYIiZ__JnJHhlmVwLyPJZpsmSdGq12)
   'indemnity-agreement': {
+    driveId: '1p4bYIiZ__JnJHhlmVwLyPJZpsmSdGq12',
     pageCount: 1,
     fields: [
-      { type: 'signature', role: 'Indemnitor', page: 0, x: 100, y: 650, width: 200, height: 50, required: true },
-      { type: 'text', role: 'Indemnitor', page: 0, x: 350, y: 670, width: 100, height: 20, lock_to_sign_date: true }
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 0, x: 330, y: 95, width: 230, height: 34, required: true }
     ]
   },
+
+  // defendant-application (1cokWm8qCDpiGxYD6suZEjm9i8MoABeVe)
+  'defendant-application': {
+    driveId: '1cokWm8qCDpiGxYD6suZEjm9i8MoABeVe',
+    pageCount: 2,
+    fields: [
+      { type: 'signature', role: 'Bail Agent', name: 'signature-agent', page: 0, x: 85, y: 95, width: 210, height: 34, required: true },
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 0, x: 335, y: 95, width: 210, height: 34, required: true },
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant-page-2', page: 1, x: 155, y: 110, width: 300, height: 34, required: true }
+    ]
+  },
+
+  // promissory-note (104-ArZiCm3cgfQcT5rIO0x_OWiaw6Ddt)
   'promissory-note': {
+    driveId: '104-ArZiCm3cgfQcT5rIO0x_OWiaw6Ddt',
     pageCount: 1,
     fields: [
-      { type: 'signature', role: 'Defendant', page: 0, x: 100, y: 600, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Indemnitor', page: 0, x: 350, y: 600, width: 180, height: 45, required: true }
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 0, x: 85, y: 95, width: 210, height: 34, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 0, x: 325, y: 95, width: 210, height: 34, required: true }
     ]
   },
+
+  // disclosure-form (1qIIDudp7r3J7-6MHlL2US34RcrU9KZKY)
   'disclosure-form': {
-    pageCount: 2,
+    driveId: '1qIIDudp7r3J7-6MHlL2US34RcrU9KZKY',
+    pageCount: 1,
     fields: [
-      { type: 'signature', role: 'Indemnitor', page: 0, x: 100, y: 400, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Indemnitor', page: 0, x: 100, y: 500, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Defendant', page: 1, x: 100, y: 300, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Indemnitor', page: 1, x: 100, y: 400, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Agent', page: 1, x: 100, y: 500, width: 180, height: 45, required: true }
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 0, x: 85, y: 515, width: 180, height: 35, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 0, x: 315, y: 515, width: 180, height: 35, required: true },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-co-indemnitor', page: 0, x: 85, y: 470, width: 180, height: 35, required: false },
+      { type: 'signature', role: 'Bail Agent', name: 'signature-agent', page: 0, x: 315, y: 470, width: 180, height: 35, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor-2', page: 0, x: 85, y: 395, width: 180, height: 35, required: false },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-co-indemnitor-2', page: 0, x: 315, y: 395, width: 180, height: 35, required: false }
     ]
   },
+
+  // surety-terms (1VfmyUTpchfwJTlENlR72JxmoE_NCF-uf)
   'surety-terms': {
-    pageCount: 2,
+    driveId: '1VfmyUTpchfwJTlENlR72JxmoE_NCF-uf',
+    pageCount: 1,
     fields: [
-      { type: 'signature', role: 'Defendant', page: 1, x: 100, y: 550, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Indemnitor', page: 1, x: 100, y: 620, width: 180, height: 45, required: true }
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 0, x: 85, y: 140, width: 200, height: 34, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor-1', page: 0, x: 325, y: 140, width: 200, height: 34, required: true },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-indemnitor-2', page: 0, x: 85, y: 95, width: 200, height: 34, required: false },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-indemnitor-3', page: 0, x: 325, y: 95, width: 200, height: 34, required: false }
     ]
   },
+
+  // master-waiver (181mgKQN-VxvQOyzDquFs8cFHUN0tjrMs)
   'master-waiver': {
-    pageCount: 1,
+    driveId: '181mgKQN-VxvQOyzDquFs8cFHUN0tjrMs',
+    pageCount: 4,
     fields: [
-      { type: 'initials', role: 'Defendant', page: 0, x: 500, y: 200, width: 60, height: 25, required: true },
-      { type: 'initials', role: 'Indemnitor', page: 0, x: 500, y: 200, width: 60, height: 25, required: true }
+      // Page 1 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p1', page: 0, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p1', page: 0, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 2 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p2', page: 1, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p2', page: 1, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 3 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p3', page: 2, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p3', page: 2, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 4 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p4', page: 3, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p4', page: 3, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 4 signatures
+      { type: 'signature', role: 'Bail Agent', name: 'signature-surety-representative', page: 3, x: 195, y: 303, width: 145, height: 26, required: true },
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 3, x: 155, y: 275, width: 185, height: 26, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 3, x: 165, y: 247, width: 175, height: 26, required: true },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-co-indemnitor', page: 3, x: 175, y: 219, width: 165, height: 26, required: false }
     ]
   },
-  'collateral-receipt': {
+
+  // ssa-release (1govKv_N1wl0FIePV8Xfa8mFmZ9JT8mNu)
+  'ssa-release': {
+    driveId: '1govKv_N1wl0FIePV8Xfa8mFmZ9JT8mNu',
     pageCount: 1,
     fields: [
-      { type: 'signature', role: 'Indemnitor', page: 0, x: 100, y: 650, width: 180, height: 45, required: true },
-      { type: 'signature', role: 'Agent', page: 0, x: 350, y: 650, width: 180, height: 45, required: true }
+      { type: 'signature', role: 'Defendant', name: 'signature-authorizing-party', page: 0, x: 140, y: 145, width: 330, height: 40, required: true }
+    ]
+  },
+
+  // collateral-receipt (1IAYq4H2b0N0vPnJN7b2vZPaHg_RNKCmP)
+  'collateral-receipt': {
+    driveId: '1IAYq4H2b0N0vPnJN7b2vZPaHg_RNKCmP',
+    pageCount: 1,
+    fields: [
+      { type: 'signature', role: 'Bail Agent', name: 'signature-bail-agent-received-by-top', page: 0, x: 95, y: 355, width: 200, height: 32, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-depositor', page: 0, x: 350, y: 305, width: 210, height: 32, required: true },
+      { type: 'signature', role: 'Bail Agent', name: 'signature-bail-agent-bottom', page: 0, x: 90, y: 165, width: 210, height: 32, required: true }
+    ]
+  },
+
+  // payment-plan (1v-qkaegm6MDymiaPK45JqfXXX2_KOj8A)
+  'payment-plan': {
+    driveId: '1v-qkaegm6MDymiaPK45JqfXXX2_KOj8A',
+    pageCount: 4,
+    fields: [
+      // Page 1 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p1', page: 0, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p1', page: 0, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 2 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p2', page: 1, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p2', page: 1, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 3 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p3', page: 2, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p3', page: 2, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 4 initials
+      { type: 'initials', role: 'Defendant', name: 'initials-defendant-p4', page: 3, x: 60, y: 30, width: 50, height: 22, required: true },
+      { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p4', page: 3, x: 502, y: 30, width: 50, height: 22, required: true },
+      // Page 4 signatures
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 3, x: 180, y: 658, width: 185, height: 28, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 3, x: 186, y: 630, width: 185, height: 28, required: true }
+    ]
+  },
+
+  // appearance-bond (15SDM1oBysTw76bIL7Xt0Uhti8uRZKABs) - PRINT ONLY but included for completeness
+  'appearance-bond': {
+    driveId: '15SDM1oBysTw76bIL7Xt0Uhti8uRZKABs',
+    pageCount: 1,
+    fields: [
+      { type: 'signature', role: 'Bail Agent', name: 'signature-agent-attorney-in-fact', page: 0, x: 95, y: 250, width: 230, height: 30, required: false },
+      { type: 'signature', role: 'Bail Agent', name: 'signature-agent-bondsman', page: 0, x: 70, y: 55, width: 220, height: 28, required: false }
     ]
   }
 };
@@ -219,6 +334,7 @@ function SN_addFields(documentId, fields) {
       type: field.type,
       required: field.required !== false,
       role: field.role,
+      name: field.name || '',
       page_number: field.page || 0,
       x: field.x,
       y: field.y,
@@ -262,16 +378,48 @@ function SN_addFields(documentId, fields) {
  * Add predefined signature fields for a specific document type
  * @param {string} documentId - SignNow document ID
  * @param {string} documentType - Document type key (e.g., 'defendant-application')
+ * @param {Object} options - { includeCoIndemnitor: boolean } - whether to include co-indemnitor fields
  * @returns {Object} - { success: boolean, error?: string }
  */
-function SN_addFieldsForDocType(documentId, documentType) {
+function SN_addFieldsForDocType(documentId, documentType, options) {
   const fieldConfig = SN_SIGNATURE_FIELDS[documentType];
+  options = options || {};
   
   if (!fieldConfig) {
     return { success: true, message: 'No predefined fields for document type: ' + documentType };
   }
   
-  return SN_addFields(documentId, fieldConfig.fields);
+  // Filter fields based on options
+  let fieldsToAdd = fieldConfig.fields;
+  
+  // If no co-indemnitor, filter out co-indemnitor fields
+  if (!options.includeCoIndemnitor) {
+    fieldsToAdd = fieldsToAdd.filter(f => f.role !== 'Co-Indemnitor');
+  }
+  
+  // Filter out optional fields if not needed
+  if (!options.includeOptional) {
+    fieldsToAdd = fieldsToAdd.filter(f => f.required !== false);
+  }
+  
+  return SN_addFields(documentId, fieldsToAdd);
+}
+
+/**
+ * Get the signature field configuration for a document type
+ * @param {string} documentType - Document type key
+ * @returns {Object} - Field configuration or null
+ */
+function SN_getFieldConfig(documentType) {
+  return SN_SIGNATURE_FIELDS[documentType] || null;
+}
+
+/**
+ * Get all available document types with their field configurations
+ * @returns {Object} - All document types and their configs
+ */
+function SN_getAllFieldConfigs() {
+  return SN_SIGNATURE_FIELDS;
 }
 
 // ============================================================================
@@ -492,7 +640,7 @@ function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpirati
  *   documentType: string (e.g., 'defendant-application'),
  *   deliveryMethod: 'email' | 'sms' | 'embedded',
  *   signers: Array of { email?, phone?, role, name, order },
- *   options: { subject?, message?, fromEmail? }
+ *   options: { subject?, message?, fromEmail?, includeCoIndemnitor? }
  * }
  * @returns {Object} - { success, documentId, inviteId?, link?, error? }
  */
@@ -509,7 +657,7 @@ function SN_sendForSignature(params) {
   
   // Step 2: Add signature fields for this document type
   if (documentType && SN_SIGNATURE_FIELDS[documentType]) {
-    const fieldsResult = SN_addFieldsForDocType(documentId, documentType);
+    const fieldsResult = SN_addFieldsForDocType(documentId, documentType, options);
     if (!fieldsResult.success) {
       return { success: false, error: 'Add fields failed: ' + fieldsResult.error, step: 'addFields', documentId: documentId };
     }
@@ -564,7 +712,7 @@ function SN_sendForSignature(params) {
  *   documents: Array of { pdfBase64, fileName, documentType },
  *   deliveryMethod: 'email' | 'sms' | 'embedded',
  *   signers: Array of { email?, phone?, role, name },
- *   options: { subject?, message?, fromEmail? }
+ *   options: { subject?, message?, fromEmail?, includeCoIndemnitor? }
  * }
  * @returns {Object} - { success, documentIds: [], errors: [] }
  */
@@ -860,4 +1008,23 @@ function SN_testWorkflow() {
   // This would be called with actual PDF data from Form.html
   Logger.log('SignNow Workflow Test - Use Form.html to test with actual documents');
   return { message: 'Use Form.html to test the complete workflow' };
+}
+
+/**
+ * List all document types and their field counts
+ */
+function SN_listDocumentTypes() {
+  const types = [];
+  for (const [key, config] of Object.entries(SN_SIGNATURE_FIELDS)) {
+    types.push({
+      documentType: key,
+      driveId: config.driveId,
+      pageCount: config.pageCount,
+      signatureFields: config.fields.filter(f => f.type === 'signature').length,
+      initialsFields: config.fields.filter(f => f.type === 'initials').length,
+      totalFields: config.fields.length
+    });
+  }
+  Logger.log('Document Types: ' + JSON.stringify(types, null, 2));
+  return types;
 }
