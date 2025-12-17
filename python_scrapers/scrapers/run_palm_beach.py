@@ -139,11 +139,13 @@ def main():
     try:
         # Get credentials from environment or use defaults
         sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
-        # Check standard credential locations
-        creds_path = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
         
-        if not creds_path:
-             print("⚠️  Warning: credentials not found. Set GOOGLE_SERVICE_ACCOUNT_KEY_PATH.")
+        # Check standard credential locations
+        creds_path = None
+        local_path = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
+        
+        if os.path.exists(local_path):
+             creds_path = local_path
         
         writer = SheetsWriter(
             spreadsheet_id=sheets_id,

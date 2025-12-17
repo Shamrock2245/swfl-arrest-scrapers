@@ -61,7 +61,7 @@ export function normalizeRecord34(rawPairs, countyCode, sourceUrl = '') {
 
   // Apply mapped values
   // Use raw Scrape_Timestamp if provided, otherwise keep default (current time)
-  if (mapped.Scrape_Timestamp) {
+  if (mapped && mapped.Scrape_Timestamp) {
     record.Scrape_Timestamp = mapped.Scrape_Timestamp;
   }
 
