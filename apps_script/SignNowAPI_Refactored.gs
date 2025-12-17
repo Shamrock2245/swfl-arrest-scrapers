@@ -147,11 +147,11 @@ const SN_SIGNATURE_FIELDS = {
       // Page 4 initials
       { type: 'initials', role: 'Defendant', name: 'initials-defendant-p4', page: 3, x: 60, y: 30, width: 50, height: 22, required: true },
       { type: 'initials', role: 'Indemnitor', name: 'initials-indemnitor-p4', page: 3, x: 502, y: 30, width: 50, height: 22, required: true },
-      // Page 4 signatures
-      { type: 'signature', role: 'Bail Agent', name: 'signature-surety-representative', page: 3, x: 195, y: 303, width: 145, height: 26, required: true },
-      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 3, x: 155, y: 275, width: 185, height: 26, required: true },
-      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 3, x: 165, y: 247, width: 175, height: 26, required: true },
-      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-co-indemnitor', page: 3, x: 175, y: 219, width: 165, height: 26, required: false }
+      // Page 4 signatures - CALIBRATED: y values adjusted +162px from original
+      { type: 'signature', role: 'Bail Agent', name: 'signature-surety-representative', page: 3, x: 195, y: 465, width: 145, height: 26, required: true },
+      { type: 'signature', role: 'Defendant', name: 'signature-defendant', page: 3, x: 155, y: 487, width: 185, height: 26, required: true },
+      { type: 'signature', role: 'Indemnitor', name: 'signature-indemnitor', page: 3, x: 165, y: 509, width: 175, height: 26, required: true },
+      { type: 'signature', role: 'Co-Indemnitor', name: 'signature-co-indemnitor', page: 3, x: 175, y: 531, width: 165, height: 26, required: false }
     ]
   },
 

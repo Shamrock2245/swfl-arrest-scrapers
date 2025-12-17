@@ -1995,6 +1995,79 @@
       // Documents that require print only (not sent to SignNow)
       printOnlyDocs: ['appearance-bond'],
       
+      // Signature/Initials field positions for each document type
+      // These are added to SignNow after upload, before sending invites
+      // Coordinates calibrated for exact placement on PDF forms
+      signatureFields: {
+        'paperwork-header': [],
+        'faq-cosigners': [
+          { type: 'initials', role: 'Defendant', page_number: 0, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 0, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 1, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 1, x: 502, y: 30, width: 50, height: 22 }
+        ],
+        'faq-defendants': [
+          { type: 'initials', role: 'Defendant', page_number: 0, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 0, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 1, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 1, x: 502, y: 30, width: 50, height: 22 }
+        ],
+        'indemnity-agreement': [
+          { type: 'signature', role: 'Indemnitor', page_number: 0, x: 330, y: 95, width: 230, height: 34 }
+        ],
+        'defendant-application': [
+          { type: 'signature', role: 'Bail Agent', page_number: 0, x: 85, y: 95, width: 210, height: 34 },
+          { type: 'signature', role: 'Defendant', page_number: 0, x: 335, y: 95, width: 210, height: 34 },
+          { type: 'signature', role: 'Defendant', page_number: 1, x: 155, y: 110, width: 300, height: 34 }
+        ],
+        'promissory-note': [
+          { type: 'signature', role: 'Defendant', page_number: 0, x: 85, y: 95, width: 210, height: 34 },
+          { type: 'signature', role: 'Indemnitor', page_number: 0, x: 325, y: 95, width: 210, height: 34 }
+        ],
+        'disclosure-form': [
+          { type: 'signature', role: 'Defendant', page_number: 0, x: 85, y: 515, width: 180, height: 35 },
+          { type: 'signature', role: 'Indemnitor', page_number: 0, x: 315, y: 515, width: 180, height: 35 },
+          { type: 'signature', role: 'Bail Agent', page_number: 0, x: 315, y: 470, width: 180, height: 35 }
+        ],
+        'surety-terms': [
+          { type: 'signature', role: 'Defendant', page_number: 0, x: 85, y: 140, width: 200, height: 34 },
+          { type: 'signature', role: 'Indemnitor', page_number: 0, x: 325, y: 140, width: 200, height: 34 }
+        ],
+        'master-waiver': [
+          { type: 'initials', role: 'Defendant', page_number: 0, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 0, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 1, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 1, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 2, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 2, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 3, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 3, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'signature', role: 'Bail Agent', page_number: 3, x: 195, y: 465, width: 145, height: 26 },
+          { type: 'signature', role: 'Defendant', page_number: 3, x: 155, y: 487, width: 185, height: 26 },
+          { type: 'signature', role: 'Indemnitor', page_number: 3, x: 165, y: 509, width: 175, height: 26 }
+        ],
+        'ssa-release': [
+          { type: 'signature', role: 'Defendant', page_number: 0, x: 140, y: 145, width: 330, height: 40 }
+        ],
+        'collateral-receipt': [
+          { type: 'signature', role: 'Bail Agent', page_number: 0, x: 95, y: 355, width: 200, height: 32 },
+          { type: 'signature', role: 'Indemnitor', page_number: 0, x: 350, y: 305, width: 210, height: 32 },
+          { type: 'signature', role: 'Bail Agent', page_number: 0, x: 90, y: 165, width: 210, height: 32 }
+        ],
+        'payment-plan': [
+          { type: 'initials', role: 'Defendant', page_number: 0, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 0, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 1, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 1, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 2, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 2, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Defendant', page_number: 3, x: 60, y: 30, width: 50, height: 22 },
+          { type: 'initials', role: 'Indemnitor', page_number: 3, x: 502, y: 30, width: 50, height: 22 },
+          { type: 'signature', role: 'Defendant', page_number: 3, x: 180, y: 658, width: 185, height: 28 },
+          { type: 'signature', role: 'Indemnitor', page_number: 3, x: 186, y: 630, width: 185, height: 28 }
+        ]
+      },
+      
       // County scraper URLs
       countyUrls: {
         'lee': 'https://www.sheriffleefl.org/booking-search/',
@@ -3177,6 +3250,94 @@
     }
 
     /**
+     * Add signature/initials fields to a SignNow document
+     * This is called after upload to place the signing fields
+     * @param {string} documentId - SignNow document ID
+     * @param {Array} selectedDocs - Array of selected document objects with keys
+     * @returns {Object} - Result with roles created
+     */
+    async function addSignatureFields(documentId, selectedDocs) {
+      // Build combined fields array with adjusted page numbers for merged PDF
+      const allFields = [];
+      let pageOffset = 0;
+      
+      for (const doc of selectedDocs) {
+        const docFields = CONFIG.signatureFields[doc.key] || [];
+        
+        // Add each field with adjusted page number for the merged PDF
+        docFields.forEach((field, idx) => {
+          allFields.push({
+            type: field.type,
+            required: true,
+            role: field.role,
+            name: `${doc.key}-${field.type}-${idx}`,
+            page_number: pageOffset + field.page_number,
+            x: field.x,
+            y: field.y,
+            width: field.width,
+            height: field.height
+          });
+        });
+        
+        // Get page count for this document (we'll need to track this)
+        // For now, use the page counts from our known documents
+        const pageCounts = {
+          'paperwork-header': 1,
+          'faq-cosigners': 2,
+          'faq-defendants': 2,
+          'indemnity-agreement': 1,
+          'defendant-application': 2,
+          'promissory-note': 1,
+          'disclosure-form': 1,
+          'surety-terms': 1,
+          'master-waiver': 4,
+          'ssa-release': 1,
+          'collateral-receipt': 1,
+          'payment-plan': 4
+        };
+        pageOffset += pageCounts[doc.key] || 1;
+      }
+      
+      if (allFields.length === 0) {
+        console.log('No signature fields to add');
+        return { success: true, fieldsAdded: 0 };
+      }
+      
+      console.log(`Adding ${allFields.length} signature/initials fields to document ${documentId}`);
+      console.log('Fields:', allFields);
+      
+      try {
+        const response = await fetch(`${CONFIG.signNowApiBase}/document/${documentId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${CONFIG.signNowToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ fields: allFields })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('SignNow add fields error:', errorText);
+          throw new Error(`Failed to add signature fields: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('SignNow add fields result:', result);
+        
+        return {
+          success: true,
+          fieldsAdded: allFields.length,
+          roles: result.roles || []
+        };
+      } catch (err) {
+        console.error('Error adding signature fields:', err);
+        throw err;
+      }
+    }
+
+    /**
      * Send signing invite via SignNow
      */
     async function sendSignNowInvite(documentId, formData) {
@@ -3382,6 +3543,7 @@
         'Filling documents',
         'Merging packet',
         'Uploading to SignNow',
+        'Adding signature fields',
         'Sending for signatures'
       ]);
       
@@ -3406,7 +3568,11 @@
         
         if (!documentId) throw new Error('Failed to upload document to SignNow');
         
-        updateProgress(6, 'Sending for signatures...');
+        // Add signature/initials fields to the uploaded document
+        updateProgress(6, 'Adding signature fields...');
+        await addSignatureFields(documentId, selectedDocs);
+        
+        updateProgress(7, 'Sending for signatures...');
         
         let result;
         if (signingMethod === 'email') {
