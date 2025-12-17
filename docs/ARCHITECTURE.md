@@ -1,57 +1,54 @@
 # Architecture
 
 ## Purpose
-End-to-end ingestion and qualification of arrest data for six SWFL counties, with clean interfaces to Google Sheets/Drive, Slack, and (soon) SignNow + Apps Script “Form.html” for staging/editing.
+Provide a clear, up‑to‑date view of the end‑to‑end data pipeline that scrapes arrest records from Southwest Florida counties, normalizes them to a unified 34‑field schema, scores leads, and writes the results to Google Sheets. The architecture also supports staging via Apps Script and future SignNow integration.
 
-## High-Level Flow
-1. **Scrape (per county)**  
-   - Headless browser (Puppeteer/Playwright) fetches list/detail pages or downloads CSV/XLS/PDF.
-   - Rate-limited requests, retry/backoff, Cloudflare/CAPTCHA hints.
-
-2. **Extract & Normalize**  
-   - Parse tables/CSV/PDF into row objects.  
-   - Normalize into the **Unified 34-field Schema** (see `SCHEMA.md`), compute `qualified_score`.
-
-3. **Write & Mirror**  
-   - Upsert to Google Sheets by `(booking_id, arrest_date)` keys.  
-   - Mirror qualified (score ≥ 70) rows to `dashboard`.
-
-4. **Post-process**  
-   - `updateBondPaid` job re-checks `bond_paid` for last 14 days.  
-   - Slack summary + error alerts.
-
-5. **Staging + SignNow** *(New)*  
-   - Apps Script web UI (`Form.html`) stages a single record for operator review.  
-   - Operator can correct/complete fields and trigger **SignNow** packet generation.  
-   - Final PDFs saved to Drive, Sheet updated with `packet_status`, `packet_url`.
+## High‑Level Flow
+1. **Scrape (per county)** – Headless browsers (Puppeteer/Playwright) fetch list/detail pages, CSV, XLS, or PDF files. Rate‑limited requests, exponential back‑off, and Cloudflare/CAPTCHA handling are built in.
+2. **Extract & Normalize** – Raw data is parsed into JavaScript/Python objects and passed through `normalizers/normalize34.js` (or the Python equivalent) to produce a record that matches the unified schema defined in `SCHEMA.md`. The `LeadScorer` computes a `Lead_Score` and `Lead_Status`.
+3. **Write & Mirror** – `writers/sheets34.js` (Node) and `python_scrapers/writers/sheets_writer.py` (Python) upsert records into the master Google Sheet using the composite key `(County, Booking_Number)`. Qualified leads (`Lead_Score ≥ 70`) are mirrored to the `Qualified_Arrests` tab.
+4. **Post‑process** – The `updateBondPaid` job refreshes bond‑paid status for the last 14 days. Slack notifications summarize each run and surface errors.
+5. **Staging & SignNow (future)** – The Apps Script UI (`Form.html`) allows operators to edit a record, then trigger a SignNow document generation. Generated PDFs are stored in Google Drive and the sheet is updated with `packet_status`, `packet_url`, and `signed_at`.
 
 ## Repository Layout
-
+```
 swfl-arrest-scrapers/
-├─ scrapers/ # county scrapers
-├─ normalizers/ # unify shape & compute score
-├─ writers/ # sheets/drive
-├─ jobs/ # orchestration
-├─ config/ # schema + county configs
-├─ shared/ # browser helpers, retry, cf detection
-├─ fixtures/ # saved HTML/CSV for tests
-└─ docs/ # THIS folder
-
+├─ scrapers/                # Node.js county scrapers
+├─ python_scrapers/        # Python solvers & runners
+│   ├─ scrapers/
+│   ├─ writers/
+│   └─ scoring/
+├─ normalizers/            # Unified schema mapping
+├─ writers/                # Node.js Google Sheets writer (34‑column)
+├─ jobs/                   # Orchestration scripts (runAll, updateBondPaid)
+├─ config/                 # schema.json, counties.json
+├─ shared/                 # Browser helpers, retry logic, CAPTCHA detection
+├─ fixtures/               # Saved HTML/CSV for regression tests
+└─ docs/                   # Project documentation
+```
 
 ## Data Contracts
-- **Input:** public county sites (list/detail pages, CSV/XLS/PDF).
-- **Unified Schema (34 fields):** see `SCHEMA.md`.
-- **Upsert Key:** `(booking_id, arrest_date)` → prevents dupes.
-- **Qualified Rule:** `qualified_score >= 70`.
+- **Input** – Public county websites (HTML tables, CSV, XLS, PDF). Each county scraper normalizes its own fields.
+- **Unified Schema** – 34 columns defined in `SCHEMA.md` (including `Scrape_Timestamp`).
+- **Upsert Key** – `(County, Booking_Number)` ensures idempotent writes.
+- **Qualified Rule** – `Lead_Score ≥ 70` marks a record as qualified.
 
 ## Idempotency & Reliability
-- Idempotent upserts.  
-- Exponential backoff + jitter.  
-- Per-origin concurrency limits.  
-- Fixture-based tests to catch site drift.
+- Idempotent upserts prevent duplicate rows.
+- Exponential back‑off with jitter for network failures.
+- Per‑origin concurrency limits to avoid throttling.
+- Fixture‑based unit tests catch selector drift.
 
 ## Interfaces
-- **Google Sheets**: source of truth + dashboard.  
-- **Apps Script `Form.html`**: staging tool to correct/complete a row and send to **SignNow**.  
-- **SignNow**: document generation and e-signature.  
-- **Drive**: long-term artifact storage (raw + final PDF).
+- **Google Sheets** – Source of truth and dashboard for qualified leads.
+- **Apps Script `Form.html`** – Staging UI for manual corrections and SignNow trigger.
+- **SignNow** – Planned integration for e‑signature document generation.
+- **Google Drive** – Stores raw extracts and final PDFs.
+- **Slack** – Real‑time alerts for successes, failures, and CAPTCHAs.
+
+## Master Google Sheet
+All data is written to the sheet identified by the following URL (the single source of truth for the project):
+https://docs.google.com/spreadsheets/d/10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY/edit
+
+---
+*Generated by Antigravity AI assistant.*

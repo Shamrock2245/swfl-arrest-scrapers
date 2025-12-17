@@ -1,35 +1,52 @@
-# Dependencies
+# Dependency directories
 node_modules/
+
+# Python virtual environment
+.venv/
+
+# Package lock files (optional if you prefer to commit them)
 package-lock.json
 
-# Environment & Secrets
+# Environment files & secrets
 .env
+.creds/
 creds/
 *.key
+*.pem
 *.json.key
 
-# Logs
+# Logs and temporary files
 logs/
 *.log
 npm-debug.log*
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE / editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Fixtures (optional - commit if useful for tests)
-# fixtures/
-
-# Puppeteer
+# Puppeteer / Playwright caches
 .cache/
+
+# Python caches
 __pycache__/
 *.pyc
-# *_debug.html
+
+# Test and coverage artifacts (optional)
+.coverage
+coverage/
+.pytest_cache/
+
+# Build artifacts
+build/
+.dist/
+.tmp/
+
+# Miscellaneous
 data/
 *.jsonl

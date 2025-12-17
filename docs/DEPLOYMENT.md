@@ -1,5 +1,253 @@
 # Deployment Guide
 
+This guide provides up‑to‑date instructions for deploying the **SWFL Arrest Scrapers** suite in production, including local cron, GitHub Actions, and Cloud Run options. All scrapers write to a single master Google Sheet, which also serves as the source of truth for downstream integrations.
+
+## Master Google Sheet
+All data is stored in the sheet identified by:
+https://docs.google.com/spreadsheets/d/10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY/edit
+
+The sheet contains tabs for each county, a `Qualified_Arrests` tab (records with `Lead_Score ≥ 70`), a `Logs` tab, and a `Manual_Bookings` tab used by the Google Apps Script form.
+
+---
+
+## Prerequisites
+- **Node.js** 18+ and **Python 3.10+** (for the Palm Beach runner)
+- **Google Cloud project** with the Sheets API enabled
+- **Service account** with Editor access to the master sheet
+- **Git** and optional **Docker** for container deployments
+- **Slack webhook** (optional) for notifications
+
+---
+
+## Local Development & Cron
+1. Clone and install dependencies:
+```bash
+git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
+cd swfl-arrest-scrapers
+npm ci   # Node deps
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r python_scrapers/requirements.txt
+```
+2. Create a `.env` file (copy from `.env.example`) and set:
+```
+GOOGLE_SHEETS_ID=10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY
+GOOGLE_SERVICE_ACCOUNT_JSON=...   # Base64 or raw JSON
+SLACK_WEBHOOK_URL=…
+TZ=America/New_York
+```
+3. Test a single county:
+```bash
+npm run run:sarasota:v2   # Node scraper
+python3 python_scrapers/scrapers/run_palm_beach.py   # Python scraper
+```
+4. Add a cron entry (run every 15 min) to execute all counties:
+```cron
+*/15 * * * * cd /path/to/swfl-arrest-scrapers && /usr/local/bin/node jobs/runAll.js >> logs/cron.log 2>&1
+7,22,37,52 * * * * cd /path/to/swfl-arrest-scrapers && /usr/local/bin/node jobs/updateBondPaid.js >> logs/bonds.log 2>&1
+```
+
+---
+
+## GitHub Actions Deployment
+The repository includes a workflow per county (`.github/workflows/scrape_*.yml`). To enable them:
+1. Fork the repo and enable Actions.
+2. Add the following **secrets** in the repository settings:
+| Secret | Value |
+|--------|-------|
+| `GOOGLE_SHEETS_ID` | `10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY` |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com` |
+| `GOOGLE_SA_KEY_JSON` | Full JSON of the service‑account key (or Base64‑encoded) |
+| `SLACK_WEBHOOK_URL` | (optional) Slack webhook URL |
+3. Push any change to `main`; the workflows will run on the schedule defined in each file and can be triggered manually via the **Actions** tab.
+
+---
+
+## Cloud Run (Container) Deployment
+A Dockerfile is provided for a lightweight Node.js image. The container runs the `runAll.js` job on a schedule using Cloud Scheduler.
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --production
+COPY . .
+CMD ["node", "jobs/runAll.js"]
+```
+Deploy with:
+```bash
+# Build and push image
+gcloud builds submit --tag gcr.io/PROJECT_ID/swfl-scrapers
+# Create scheduled job
+gcloud run jobs create swfl-scrapers \
+  --image gcr.io/PROJECT_ID/swfl-scrapers \
+  --schedule "*/15 * * * *" \
+  --set-env-vars "GOOGLE_SHEETS_ID=10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY" \
+  --service-account=bail-suite-sa@PROJECT_ID.iam.gserviceaccount.com
+```
+
+---
+
+## Google Apps Script (GAS) Integration
+The `apps_script/Form.html` UI allows operators to manually add bookings. The accompanying Apps Script (`Code.gs`) writes rows to the **Manual_Bookings** tab and triggers the same scoring logic used by the scrapers. Deploy the script by opening the project URL (see README) and publishing it as a **Web App** with **Anyone** access.
+
+---
+
+## SignNow Integration (Future Roadmap)
+Qualified leads (score ≥ 70) will be automatically sent to SignNow for contract generation:
+1. A background job will query the `Qualified_Arrests` tab.
+2. For each new qualified row, the job will call the SignNow API (via the `integrations/signnow.py` wrapper) to create a document from a template.
+3. The generated PDF URL is stored in a new `packet_url` column, and the sheet is updated with `packet_status` = `sent`.
+4. A SOCKS5 proxy can be configured in `integrations/signnow.py` to reach external risk databases (TLOx, TransUnion, iDiCore) before sending the packet.
+
+---
+
+## Monitoring & Alerts
+- **Logs tab** in the master sheet records each run (timestamp, county, rows added/updated, errors).
+- **Slack** notifications are sent for run completion, errors, and when a qualified lead is added.
+- Health‑check script (`scripts/check-health.sh`) can be scheduled to alert if cron or Cloud Run jobs have not run within the expected window.
+
+---
+
+## Security Best Practices
+- Never commit the service‑account JSON; use environment variables or GitHub Secrets.
+- Rotate service‑account keys quarterly.
+- Restrict the service‑account to **Editor** on the master sheet only.
+- Enable 2FA on the Google Cloud account.
+
+---
+
+## Support
+- **GitHub Issues**: https://github.com/shamrock2245/swfl-arrest-scrapers/issues
+- **Email**: support@shamrockbailbonds.com
+- **Slack**: #bail‑suite‑dev (invite via admin)
+
+---
+
+*Generated by Antigravity AI assistant.*
+
+This guide provides up‑to‑date instructions for deploying the **SWFL Arrest Scrapers** suite in production, including local cron, GitHub Actions, and Cloud Run options. All scrapers write to a single master Google Sheet, which also serves as the source of truth for downstream integrations.
+
+## Master Google Sheet
+All data is stored in the sheet identified by:
+https://docs.google.com/spreadsheets/d/10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY/edit
+
+The sheet contains tabs for each county, a `Qualified_Arrests` tab (records with `Lead_Score ≥ 70`), a `Logs` tab, and a `Manual_Bookings` tab used by the Google Apps Script form.
+
+---
+
+## Prerequisites
+- **Node.js** 18+ and **Python 3.10+** (for the Palm Beach runner)
+- **Google Cloud project** with the Sheets API enabled
+- **Service account** with Editor access to the master sheet
+- **Git** and optional **Docker** for container deployments
+- **Slack webhook** (optional) for notifications
+
+---
+
+## Local Development & Cron
+1. Clone and install dependencies:
+```bash
+git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
+cd swfl-arrest-scrapers
+npm ci   # Node deps
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r python_scrapers/requirements.txt
+```
+2. Create a `.env` file (copy from `.env.example`) and set:
+```
+GOOGLE_SHEETS_ID=10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY
+GOOGLE_SERVICE_ACCOUNT_JSON=...   # Base64 or raw JSON
+SLACK_WEBHOOK_URL=…
+TZ=America/New_York
+```
+3. Test a single county:
+```bash
+npm run run:sarasota:v2   # Node scraper
+python3 python_scrapers/scrapers/run_palm_beach.py   # Python scraper
+```
+4. Add a cron entry (run every 15 min) to execute all counties:
+```cron
+*/15 * * * * cd /path/to/swfl-arrest-scrapers && /usr/local/bin/node jobs/runAll.js >> logs/cron.log 2>&1
+7,22,37,52 * * * * cd /path/to/swfl-arrest-scrapers && /usr/local/bin/node jobs/updateBondPaid.js >> logs/bonds.log 2>&1
+```
+
+---
+
+## GitHub Actions Deployment
+The repository includes a workflow per county (`.github/workflows/scrape_*.yml`). To enable them:
+1. Fork the repo and enable Actions.
+2. Add the following **secrets** in the repository settings:
+| Secret | Value |
+|--------|-------|
+| `GOOGLE_SHEETS_ID` | `10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY` |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com` |
+| `GOOGLE_SA_KEY_JSON` | Full JSON of the service‑account key (or Base64‑encoded) |
+| `SLACK_WEBHOOK_URL` | (optional) Slack webhook URL |
+3. Push any change to `main`; the workflows will run on the schedule defined in each file and can be triggered manually via the **Actions** tab.
+
+---
+
+## Cloud Run (Container) Deployment
+A Dockerfile is provided for a lightweight Node.js image. The container runs the `runAll.js` job on a schedule using Cloud Scheduler.
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --production
+COPY . .
+CMD ["node", "jobs/runAll.js"]
+```
+Deploy with:
+```bash
+# Build and push image
+gcloud builds submit --tag gcr.io/PROJECT_ID/swfl-scrapers
+# Create scheduled job
+gcloud run jobs create swfl-scrapers \
+  --image gcr.io/PROJECT_ID/swfl-scrapers \
+  --schedule "*/15 * * * *" \
+  --set-env-vars "GOOGLE_SHEETS_ID=10mphJQkWlDoscDoY8CGFPt96yzoB7rAbDTRrR02orUY" \
+  --service-account=bail-suite-sa@PROJECT_ID.iam.gserviceaccount.com
+```
+
+---
+
+## Google Apps Script (GAS) Integration
+The `apps_script/Form.html` UI allows operators to manually add bookings. The accompanying Apps Script (`Code.gs`) writes rows to the **Manual_Bookings** tab and triggers the same scoring logic used by the scrapers. Deploy the script by opening the project URL (see README) and publishing it as a **Web App** with **Anyone** access.
+
+---
+
+## SignNow Integration (Future Roadmap)
+Qualified leads (score ≥ 70) will be automatically sent to SignNow for contract generation:
+1. A background job will query the `Qualified_Arrests` tab.
+2. For each new qualified row, the job will call the SignNow API (via the `integrations/signnow.py` wrapper) to create a document from a template.
+3. The generated PDF URL is stored in a new `packet_url` column, and the sheet is updated with `packet_status` = `sent`.
+4. A SOCKS5 proxy can be configured in `integrations/signnow.py` to reach external risk databases (TLOx, TransUnion, iDiCore) before sending the packet.
+
+---
+
+## Monitoring & Alerts
+- **Logs tab** in the master sheet records each run (timestamp, county, rows added/updated, errors).
+- **Slack** notifications are sent for run completion, errors, and when a qualified lead is added.
+- Health‑check script (`scripts/check-health.sh`) can be scheduled to alert if cron or Cloud Run jobs have not run within the expected window.
+
+---
+
+## Security Best Practices
+- Never commit the service‑account JSON; use environment variables or GitHub Secrets.
+- Rotate service‑account keys quarterly.
+- Restrict the service‑account to **Editor** on the master sheet only.
+- Enable 2FA on the Google Cloud account.
+
+---
+
+## Support
+- **GitHub Issues**: https://github.com/shamrock2245/swfl-arrest-scrapers/issues
+- **Email**: support@shamrockbailbonds.com
+- **Slack**: #bail‑suite‑dev (invite via admin)
+
+---
+
+*Generated by Antigravity AI assistant.*
+
 Complete deployment instructions for production use.
 
 ## Prerequisites
