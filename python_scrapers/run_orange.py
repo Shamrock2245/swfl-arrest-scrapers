@@ -62,21 +62,22 @@ def main():
                 Booking_Number=raw.get('Booking_Number'),
                 Booking_Date=raw.get('Booking_Date'),
                 Full_Name=raw.get('Full_Name'),
+                First_Name=raw.get('First_Name', ''),
+                Last_Name=raw.get('Last_Name', ''),
                 County='Orange',
+                Booking_Time=raw.get('Booking_Time', ''),
                 Status=raw.get('Status', 'Active'),
                 Charges=raw.get('Charges', ''),
                 Bond_Amount=raw.get('Bond_Amount', '0'),
-                Mugshot_URL=raw.get('Mugshot_URL', ''), # PDF often has no mugs
-                Arrest_Date=raw.get('Arrest_Date'),
-                # Pass extra data to dictionary if needed, but dataclass strict init prevents it
-                # So we only pass known fields
+                Mugshot_URL=raw.get('Mugshot_URL', ''),
                 Address=raw.get('Address', ''),
-                # Facility=raw.get('Facility', ''), # Not in model
+                City=raw.get('City', ''),
+                State=raw.get('State', 'FL'),
+                ZIP=raw.get('ZIP', ''),
                 Race=raw.get('Race', ''),
                 Sex=raw.get('Sex', ''),
-                # Age=raw.get('Age', ''), # Not in model
                 Case_Number=raw.get('Case_Number', ''),
-                Agency=raw.get('Arrest_Agency', '') # Mapped from Arrest_Agency
+                Detail_URL=raw.get('Detail_URL', '')
             )
             
             # Fallback for fields not in constructor explicit args but in model

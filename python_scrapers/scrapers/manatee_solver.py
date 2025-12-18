@@ -381,7 +381,7 @@ def extract_detail_data(page, booking_number, source_url):
             'Address': 'Address',
             'City': 'City',
             'State': 'State',
-            'Zip Code': 'Zipcode',
+            'Zip Code': 'ZIP',
             'Height': 'Height',
             'Weight': 'Weight',
             'Hair': 'Hair_Color',
@@ -421,9 +421,9 @@ def extract_detail_data(page, booking_number, source_url):
             bond_str = clean_text(entry.get('bond', '0'))
             arr_date = clean_text(entry.get('date', ''))
             
-            # Use first charge date as Arrest Date if missing
-            if 'Arrest_Date' not in data and arr_date:
-                data['Arrest_Date'] = arr_date
+            # Use first charge date as Booking Date if missing
+            if 'Booking_Date' not in data and arr_date:
+                data['Booking_Date'] = arr_date
                 
             # Build charge string
             # Format: Statute - Desc (Sec Desc)

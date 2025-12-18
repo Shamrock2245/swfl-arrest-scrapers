@@ -257,7 +257,7 @@ class SheetsWriter:
         # Format header row (bold, frozen)
         sheet.format('A1:AH1', {
             'textFormat': {'bold': True},
-            'backgroundColor': {'red': 0.4, 'green': 0.5, 'blue': 0.9}
+            'backgroundColor': {'red': 0.0, 'green': 0.66, 'blue': 0.42}
         })
         sheet.freeze(rows=1)
     
@@ -280,12 +280,14 @@ class SheetsWriter:
             if len(all_values) <= 1:
                 return set()  # Only header or empty
             
-            # Extract County (col 30, index 29) and Booking_Number (col 1, index 0)
+            # Master Schema Indices:
+            # County = Index 1
+            # Booking_Number = Index 2
             dedup_keys = set()
             for row in all_values[1:]:  # Skip header
-                if len(row) > 29:
-                    booking_number = row[0] if len(row) > 0 else ""
-                    county = row[29] if len(row) > 29 else ""
+                if len(row) > 2:
+                    county = row[1] if len(row) > 1 else ""
+                    booking_number = row[2] if len(row) > 2 else ""
                     if booking_number and county:
                         dedup_keys.add(f"{county}:{booking_number}")
             

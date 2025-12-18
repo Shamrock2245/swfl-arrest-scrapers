@@ -34,23 +34,26 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     record = ArrestRecord(
         County="Manatee",
         Booking_Number=raw_data.get('Booking_Number', ''),
+        Person_ID=raw_data.get('Person_ID', ''),
         Full_Name=raw_data.get('Full_Name', ''),
         First_Name=raw_data.get('First_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
         DOB=raw_data.get('DOB', ''),
         Sex=raw_data.get('Sex', ''),
         Race=raw_data.get('Race', ''),
-        Arrest_Date=raw_data.get('Arrest_Date', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
+        Booking_Time=raw_data.get('Booking_Time', ''),
+        Status=raw_data.get('Status', 'IN CUSTODY'),
+        Facility=raw_data.get('Facility', ''),
         Address=raw_data.get('Address', ''),
         City=raw_data.get('City', ''),
         State=raw_data.get('State', 'FL'),
-        Zipcode=raw_data.get('Zipcode', ''),
+        ZIP=raw_data.get('Zipcode', raw_data.get('ZIP', '')),
+        Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         Charges=raw_data.get('Charges', ''),
         Bond_Amount=raw_data.get('Bond_Amount', '0'),
-        Status=raw_data.get('Status', 'IN CUSTODY'),
-        Mugshot_URL=raw_data.get('Mugshot_URL', ''),
-        source_url=raw_data.get('Detail_URL', '')
+        Bond_Type=raw_data.get('Bond_Type', ''),
+        Detail_URL=raw_data.get('Detail_URL', '')
     )
     
     return record

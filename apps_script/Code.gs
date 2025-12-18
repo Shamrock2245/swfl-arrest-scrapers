@@ -131,26 +131,40 @@ function openBookingFormFromRow() {
   
   const data = sheet.getRange(row, 1, 1, 34).getValues()[0];
   const rowData = {
-    bookingNumber: data[0] || '',
-    fullName: data[1] || '',
-    firstName: data[2] || '',
-    lastName: data[3] || '',
-    dob: data[4] || '',
-    sex: data[5] || '',
-    race: data[6] || '',
-    arrestDate: data[7] || '',
-    arrestTime: data[8] || '',
+    scrapeTimestamp: data[0] || '',
+    county: data[1] || '',
+    bookingNumber: data[2] || '',
+    personId: data[3] || '',
+    fullName: data[4] || '',
+    firstName: data[5] || '',
+    middleName: data[6] || '',
+    lastName: data[7] || '',
+    dob: data[8] || '',
     bookingDate: data[9] || '',
     bookingTime: data[10] || '',
-    agency: data[11] || '',
-    address: data[12] || '',
-    city: data[13] || '',
-    state: data[14] || '',
-    zipcode: data[15] || '',
-    charges: data[16] || '',
-    bondAmount: data[17] || '',
-    status: data[18] || '',
-    facility: data[19] || ''
+    status: data[11] || '',
+    facility: data[12] || '',
+    race: data[13] || '',
+    sex: data[14] || '',
+    height: data[15] || '',
+    weight: data[16] || '',
+    address: data[17] || '',
+    city: data[18] || '',
+    state: data[19] || '',
+    zip: data[20] || '',
+    mugshotUrl: data[21] || '',
+    charges: data[22] || '',
+    bondAmount: data[23] || '',
+    bondPaid: data[24] || '',
+    bondType: data[25] || '',
+    courtType: data[26] || '',
+    caseNumber: data[27] || '',
+    courtDate: data[28] || '',
+    courtTime: data[29] || '',
+    courtLocation: data[30] || '',
+    detailUrl: data[31] || '',
+    leadScore: data[32] || '',
+    leadStatus: data[33] || ''
   };
 
   const html = HtmlService.createTemplateFromFile('Dashboard');
@@ -337,6 +351,10 @@ function doPost(e) {
       
       case 'sendReminder':
         result = SN_sendReminder(data.documentId);
+        break;
+
+      case 'sendPaymentEmail':
+        result = sendPaymentEmail(data);
         break;
 
       // --- Booking Data Operations ---
@@ -606,6 +624,30 @@ function getDocumentStatus(documentId) {
 // UTILITIES & DATA
 // ============================================================================
 
+function sendPaymentEmail(data) {
+  try {
+    const to = data.email;
+    const amount = data.amount;
+    const name = data.name;
+    
+    if (!to) return { success: false, error: 'No email address provided' };
+    
+    const subject = 'Payment Due - Shamrock Bail Bonds';
+    const body = `Dear ${name},\n\n This is a reminder that a payment of $${amount} is due for your bail bond premium.\n\n Please contact us to make a payment or use the payment link provided.\n\n Thank you,\n Shamrock Bail Bonds`;
+    
+    MailApp.sendEmail({
+      to: to,
+      subject: subject,
+      body: body
+    });
+    
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+
 function getNextReceiptNumber() {
   try {
     const props = PropertiesService.getScriptProperties();
@@ -663,54 +705,130 @@ function saveBookingData(formData) {
     Logger.log('Received form data: ' + JSON.stringify(formData));
     
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheetName = 'Manual_Bookings';
+    // Determine sheet to use
+    var isBondWritten = formData['status'] === 'Bond Written' || formData['status'] === 'Active';
+    var sheetName = isBondWritten ? "Shamrock's Bonds" : "Qualified";
     var sheet = ss.getSheetByName(sheetName);
     
     if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      var headers = [
-        'Timestamp', 'Booking Number', 'First Name', 'Last Name', 'Middle Name', 'Date of Birth',
-        'Sex', 'Race', 'Booking Date', 'Arrest Date', 'County', 'Agency', 'Address', 'City',
-        'State', 'Zipcode', 'Charges', 'Bond Amount', 'Bond Type', 'Status', 'Court Date',
-        'Case Number', 'Court Location', 'Phone', 'Email', 'Notes', 'Lead Score', 'Lead Status'
-      ];
-      sheet.appendRow(headers);
-      var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setBackground('#667eea').setFontColor('#ffffff').setFontWeight('bold');
-      sheet.setFrozenRows(1);
+      if (isBondWritten) {
+          sheet = ss.insertSheet(sheetName);
+          // Gid: 1351721696 requested - we can't set GID via script for new sheet but we name it correctly
+          var headers = [
+            'Scrape_Timestamp', 'Agent_Name', 'Defendant_Full_Name', 'Booking_Number', 'DOB', 
+            'Defendant_Phone', 'Defendant_Email', 'Defendant_Address', 'Defendant_City', 'Defendant_Zip',
+            'Indemnitor_1_Name', 'Indemnitor_1_Phone', 'Indemnitor_1_Email', 'Indemnitor_1_Address', 'Indemnitor_1_City',
+            'Indemnitor_2_Name', 'Indemnitor_2_Phone', 'Indemnitor_2_Email', 'Indemnitor_2_Address', 'Indemnitor_2_City',
+            'Total_Bond_Amount', 'Premium_Owed', 'Premium_Paid', 'Balance_Due', 'Payment_Method',
+            'Court_Date', 'Court_Time', 'Court_Location', 'Court_Type', 'County',
+            'Case_Number', 'Facility', 'Charges', 'Mugshot_URL', 'Detail_URL',
+            'SignNow_Document_IDs', 'SignNow_Invite_IDs', 'SignNow_Status', 'Lead_Score', 'Lead_Status',
+            'Notes'
+          ];
+          sheet.appendRow(headers);
+          var headerRange = sheet.getRange(1, 1, 1, headers.length);
+          headerRange.setBackground('#2e7d32').setFontColor('#ffffff').setFontWeight('bold');
+          sheet.setFrozenRows(1);
+      } else {
+          sheet = ss.insertSheet(sheetName);
+          // Gid: 1799498945
+          var headers = [
+            'Scrape_Timestamp', 'County', 'Booking_Number', 'Person_ID', 'Full_Name',
+            'First_Name', 'Middle_Name', 'Last_Name', 'DOB', 'Booking_Date',
+            'Booking_Time', 'Status', 'Facility', 'Race', 'Sex', 'Height', 'Weight',
+            'Address', 'City', 'State', 'ZIP', 'Mugshot_URL', 'Charges',
+            'Bond_Amount', 'Bond_Paid', 'Bond_Type', 'Court_Type', 'Case_Number',
+            'Court_Date', 'Court_Time', 'Court_Location', 'Detail_URL',
+            'Lead_Score', 'Lead_Status'
+          ];
+          sheet.appendRow(headers);
+          var headerRange = sheet.getRange(1, 1, 1, headers.length);
+          headerRange.setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+          sheet.setFrozenRows(1);
+      }
     }
     
     var timestamp = new Date();
-    var rowData = [
-      timestamp,
-      formData['defendant-booking-number'] || '',
-      formData['defendant-first-name'] || '',
-      formData['defendant-last-name'] || '',
-      formData['defendant-middle-name'] || '',
-      formData['defendant-dob'] || '',
-      formData['defendant-sex'] || '',
-      formData['defendant-race'] || '',
-      formData['defendant-booking-date'] || '',
-      formData['defendant-arrest-date'] || '',
-      formData['defendant-county'] || '',
-      formData['defendant-agency'] || '',
-      formData['defendant-street-address'] || '',
-      formData['defendant-city'] || '',
-      formData['defendant-state'] || 'FL',
-      formData['defendant-zipcode'] || '',
-      (formData.charges || []).map(c => c.charge).join(' | '),
-      formData['payment-total-bond'] || '',
-      formData['payment-method'] || '',
-      formData['status'] || 'Pending',
-      formData['court-date'] || '',
-      formData['case-number'] || '',
-      formData['court-location'] || '',
-      formData['defendant-phone'] || '',
-      formData['defendant-email'] || '',
-      formData['notes'] || '',
-      formData['lead-score'] || '',
-      formData['lead-status'] || ''
-    ];
+    var rowData = [];
+    
+    if (isBondWritten) {
+      // Indemnitors processing
+      var ind1 = formData.indemnitors && formData.indemnitors[0] ? formData.indemnitors[0] : {};
+      var ind2 = formData.indemnitors && formData.indemnitors[1] ? formData.indemnitors[1] : {};
+      
+      rowData = [
+        timestamp.toISOString(),
+        formData['agent-name'] || 'Shamrock Bail Bonds',
+        (formData['defendant-first-name'] + ' ' + formData['defendant-last-name']).trim(),
+        formData['defendant-booking-number'] || '',
+        formData['defendant-dob'] || '',
+        formData['defendant-phone'] || '',
+        formData['defendant-email'] || '',
+        formData['defendant-street-address'] || '',
+        formData['defendant-city'] || '',
+        formData['defendant-zipcode'] || '',
+        ind1.name || '', ind1.phone || '', ind1.email || '', ind1.address || '', ind1.city || '',
+        ind2.name || '', ind2.phone || '', ind2.email || '', ind2.address || '', ind2.city || '',
+        formData['payment-total-bond'] || '0',
+        formData['payment-premium-due'] || '0',
+        formData['payment-down'] || '0',
+        formData['payment-balance'] || '0',
+        formData['payment-method'] || '',
+        formData['court-date'] || '',
+        formData['court-time'] || '',
+        formData['court-location'] || '',
+        formData['defendant-court-type'] || '',
+        formData['defendant-county'] || '',
+        formData['case-number'] || '',
+        formData['defendant-jail-facility'] || '',
+        (formData.charges || []).map(c => c.charge).join(' | '),
+        formData['mugshot-url'] || '',
+        formData['detail-url'] || '',
+        formData['signnow_doc_ids'] || '',
+        formData['signnow_invite_ids'] || '',
+        formData['signnow_status'] || 'Pending Signing',
+        formData['lead_score'] || 0,
+        formData['lead_status'] || 'Closed',
+        formData['defendant-notes'] || ''
+      ];
+    } else {
+      rowData = [
+        timestamp.toISOString(),
+        formData['defendant-county'] || 'Manual',
+        formData['defendant-booking-number'] || '',
+        formData['defendant-person-id'] || '',
+        (formData['defendant-first-name'] + ' ' + formData['defendant-last-name']).trim(),
+        formData['defendant-first-name'] || '',
+        formData['defendant-middle-name'] || '',
+        formData['defendant-last-name'] || '',
+        formData['defendant-dob'] || '',
+        formData['defendant-booking-date'] || '',
+        formData['defendant-booking-time'] || '',
+        formData['status'] || 'Pending',
+        formData['defendant-facility'] || '',
+        formData['defendant-race'] || '',
+        formData['defendant-sex'] || '',
+        formData['defendant-height'] || '',
+        formData['defendant-weight'] || '',
+        formData['defendant-street-address'] || '',
+        formData['defendant-city'] || '',
+        formData['defendant-state'] || 'FL',
+        formData['defendant-zipcode'] || '',
+        formData['mugshot-url'] || '',
+        (formData.charges || []).map(c => c.charge).join(' | '),
+        formData['payment-total-bond'] || '0',
+        formData['bond-paid'] || 'NO',
+        formData['payment-method'] || '',
+        formData['defendant-court-type'] || '',
+        formData['case-number'] || '',
+        formData['court-date'] || '',
+        formData['court-time'] || '',
+        formData['court-location'] || '',
+        formData['detail-url'] || '',
+        formData['lead_score'] || 0,
+        formData['lead_status'] || 'Qualified'
+      ];
+    }
     
     sheet.appendRow(rowData);
     for (var i = 1; i <= rowData.length; i++) {

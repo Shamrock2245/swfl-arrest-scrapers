@@ -58,36 +58,35 @@ def run_hillsborough():
             try:
                 # Map fields to 34-col schema
                 record = ArrestRecord()
-                record.scraped_timestamp = item.get('Scrape_Timestamp')
-                record.county = 'Hillsborough'
-                record.booking_number = item.get('Booking_Number')
-                record.full_name = item.get('Full_Name')
-                record.last_name = item.get('Last_Name')
-                record.first_name = item.get('First_Name')
-                record.middle_name = item.get('Middle_Name')
-                record.dob = item.get('DOB')
-                record.booking_date = item.get('Booking_Date')
-                record.booking_time = item.get('Booking_Time')
-                record.arrest_date = item.get('Arrest_Date')
-                record.status = item.get('Status')
-                record.race = item.get('Race')
-                record.sex = item.get('Sex')
-                record.height = item.get('Height')
-                record.weight = item.get('Weight')
-                record.address = item.get('Address')
-                record.city = item.get('City')
-                record.state = item.get('State')
-                record.zip_code = item.get('ZIP')
-                record.mugshot_url = item.get('Mugshot_URL')
-                record.charges = item.get('Charges')
-                record.bond_amount = item.get('Bond_Amount')
-                record.case_number = item.get('Case_Number')
-                record.detail_url = item.get('Detail_URL')
+                record.Scrape_Timestamp = item.get('Scrape_Timestamp')
+                record.County = 'Hillsborough'
+                record.Booking_Number = item.get('Booking_Number')
+                record.Full_Name = item.get('Full_Name')
+                record.Last_Name = item.get('Last_Name')
+                record.First_Name = item.get('First_Name')
+                record.Middle_Name = item.get('Middle_Name')
+                record.DOB = item.get('DOB')
+                record.Booking_Date = item.get('Booking_Date')
+                record.Booking_Time = item.get('Booking_Time')
+                record.Status = item.get('Status')
+                record.Race = item.get('Race')
+                record.Sex = item.get('Sex')
+                record.Height = item.get('Height')
+                record.Weight = item.get('Weight')
+                record.Address = item.get('Address')
+                record.City = item.get('City')
+                record.State = item.get('State')
+                record.ZIP = item.get('ZIP')
+                record.Mugshot_URL = item.get('Mugshot_URL')
+                record.Charges = item.get('Charges')
+                record.Bond_Amount = item.get('Bond_Amount')
+                record.Case_Number = item.get('Case_Number')
+                record.Detail_URL = item.get('Detail_URL')
 
                 # Calculate Score
                 score, status = scorer.score_arrest(record)
-                record.lead_score = score
-                record.lead_status = status
+                record.Lead_Score = score
+                record.Lead_Status = status
                 
                 processed_records.append(record)
                 

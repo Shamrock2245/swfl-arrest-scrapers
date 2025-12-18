@@ -1846,6 +1846,68 @@
                             Zero and 00/100 Dollars</div>
                     </div>
                 </div>
+                <!-- SwipeSimple Integration -->
+                <div
+                    style="margin-top: 32px; padding: 24px; background: #f0f7ff; border: 2px dashed #0056b3; border-radius: var(--radius);">
+                    <div style="display: flex; align-items: start; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <h4
+                                style="color: #0056b3; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span style="font-size: 20px;">💳</span> SwipeSimple Virtual Terminal
+                            </h4>
+                            <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+                                Use SwipeSimple to process credit cards, send invoices, or create payment links.
+                            </p>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <a href="https://swipesimple.com/payment_forms/new" target="_blank"
+                                    class="btn btn-primary"
+                                    style="background-color: #0056b3; border-color: #0056b3; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                                    🚀 Open Virtual Terminal
+                                </a>
+                                <button onclick="generateAutoFillScript()" class="btn btn-warning"
+                                    style="display: inline-flex; align-items: center; gap: 6px;">
+                                    🪄 Copy Auto-Fill Script
+                                </button>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="copyToClipboard('defendant-first-name', 'defendant-last-name')"
+                                    class="btn btn-sm btn-secondary">Copy Name</button>
+                                <button onclick="copyToClipboard('defendant-email')"
+                                    class="btn btn-sm btn-secondary">Copy Email</button>
+                                <button onclick="copyToClipboard('payment-premium-due')"
+                                    class="btn btn-sm btn-secondary">Copy Amount</button>
+                                <button onclick="copyToClipboard('defendant-phone')"
+                                    class="btn btn-sm btn-secondary">Copy Phone</button>
+                            </div>
+                            <p style="font-size: 12px; color: var(--muted); margin-top: 12px;">
+                                <strong>Auto-Fill:</strong> 1. Click "Copy Auto-Fill Script". 2. Go to SwipeSimple tab.
+                                3. Press F12 (Console). 4. Paste & Enter.
+                            </p>
+                        </div>
+                        <div
+                            style="flex: 0 0 280px; background: white; padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); box-shadow: var(--shadow-soft);">
+                            <div
+                                style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">
+                                SwipeSimple Login</div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div
+                                    style="display: flex; align-items: center; justify-content: space-between; font-size: 13px;">
+                                    <span style="color: var(--text-secondary);">Email:</span>
+                                    <code
+                                        style="background: var(--bg); padding: 2px 6px; border-radius: 4px; user-select: all;"
+                                        onclick="navigator.clipboard.writeText(this.innerText); showToast('Email copied', 'info')">shamrockbailbonds1528@gmail.com</code>
+                                </div>
+                                <div
+                                    style="display: flex; align-items: center; justify-content: space-between; font-size: 13px;">
+                                    <span style="color: var(--text-secondary);">Pass:</span>
+                                    <code
+                                        style="background: var(--bg); padding: 2px 6px; border-radius: 4px; user-select: all;"
+                                        onclick="navigator.clipboard.writeText(this.innerText); showToast('Password copied', 'info')">Stormy$K9</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -2144,6 +2206,41 @@
 
 
     <script>
+        /* =========================================================
+           UI NAVIGATION & CORE HELPERS (Defined first for reliability)
+           ========================================================= */
+        function switchTab(btn, tabId) {
+            console.log('Switching to tab:', tabId);
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                const targetBtn = document.querySelector(`[onclick*="'${tabId}'"]`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const targetTab = document.getElementById(`${tabId}-tab`);
+            if (targetTab) {
+                targetTab.classList.add('active');
+                window.scrollTo(0, 0);
+            } else {
+                console.error('Tab not found:', tabId);
+            }
+        }
+
+        function openCountyScraper(county) {
+            if (CONFIG && CONFIG.countyUrls && CONFIG.countyUrls[county]) {
+                const url = CONFIG.countyUrls[county];
+                window.open(url, '_blank');
+                showToast(`Opening ${county.charAt(0).toUpperCase() + county.slice(1)} County booking blotter`, 'info');
+            } else {
+                showToast(`Scraper for ${county} is coming soon!`, 'warning');
+            }
+        }
+
         /* =========================================================
            CONFIGURATION
            ========================================================= */
@@ -2529,35 +2626,8 @@
         }
 
         /* =========================================================
-           TAB NAVIGATION
-           ========================================================= */
-        function switchTab(btn, tabId) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-            else document.querySelector(`[onclick*="${tabId}"]`)?.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`${tabId}-tab`)?.classList.add('active');
-        }
-
-        /* =========================================================
            COUNTY SCRAPERS & STATISTICS
            ========================================================= */
-
-        /**
-         * Open the county booking blotter in a new tab
-         */
-        function openCountyScraper(county) {
-            const url = CONFIG.countyUrls[county];
-            if (url) {
-                window.open(url, '_blank');
-                showToast(`Opening ${county.charAt(0).toUpperCase() + county.slice(1)} County booking blotter`, 'info');
-            } else {
-                showToast(`Scraper for ${county} is coming soon!`, 'warning');
-            }
-        }
 
         /**
          * Fetch and display arrest statistics for all active counties
@@ -3112,6 +3182,71 @@
         }
 
         /* =========================================================
+           SWIPESIMPLE HELPER
+           ========================================================= */
+        /* =========================================================
+           SWIPESIMPLE HELPER
+           ========================================================= */
+        function copyToClipboard(...ids) {
+            let text = ids.map(id => {
+                const el = document.getElementById(id);
+                return el ? (el.value || el.textContent) : '';
+            }).join(' ').trim();
+
+            // Clean amount if it contains $
+            if (ids[0] === 'payment-premium-due') {
+                text = text.replace(/[^0-9.]/g, '');
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard!', 'success');
+            });
+        }
+
+        function generateAutoFillScript() {
+            const firstName = document.getElementById('defendant-first-name')?.value || '';
+            const lastName = document.getElementById('defendant-last-name')?.value || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            const amountStr = document.getElementById('payment-premium-due')?.textContent || '0';
+            const amount = amountStr.replace(/[^0-9.]/g, '');
+            const phone = document.getElementById('defendant-phone')?.value || '';
+            const email = document.getElementById('defendant-email')?.value || '';
+
+            // This script is injected into the SwipeSimple console by the user
+            const script = `
+            (function() {
+                console.log("🚀 Starting SwipeSimple Auto-Fill...");
+                
+                function setVal(selectors, value) {
+                    if (!value) return;
+                    for (let s of selectors) {
+                        let el = document.querySelector(s) || document.getElementById(s) || document.getElementsByName(s)[0];
+                        if (el) { 
+                            el.value = value; 
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log("✅ Set " + s + " to " + value);
+                            return;
+                        }
+                    }
+                    console.warn("❌ Could not find field for " + value);
+                }
+
+                // Try multiple selector strategies based on standard Rails conventions
+                setVal(['#payment_form_title', 'input[name="payment_form[title]"]', '#payment_link_title'], "Bail Premium - ${fullName}");
+                setVal(['#payment_form_amount', 'input[name="payment_form[amount]"]', '#amount'], "${amount}");
+                setVal(['textarea[name="payment_form[description]"]', '#payment_form_description', '#payment_form_note'], "Premium for ${fullName}. Phone: ${phone}");
+                
+                alert("Auto-Fill Complete! Please verify values.");
+            })();
+            `;
+
+            navigator.clipboard.writeText(script).then(() => {
+                showToast('⚠️ Script copied! Paste into SwipeSimple Console (F12).', 'success');
+            }).catch(err => showToast('Failed to copy script', 'error'));
+        }
+
+        /* =========================================================
            PASTE HANDLING
            ========================================================= */
         function handlePaste(e) {
@@ -3453,6 +3588,40 @@
         /* =========================================================
            PDF GENERATION & SIGNNOW
            ========================================================= */
+        /**
+         * Call Google Apps Script backend via doPostFromClient
+         * This acts as a bridge for all GAS actions
+         */
+        function callGAS(action, data) {
+            return new Promise((resolve, reject) => {
+                console.log(`Calling GAS action: ${action}`, data);
+
+                // Ensure data object exists
+                if (!data) data = {};
+
+                // Inject action into data if not already present (for doPost compatibility)
+                if (!data.action) data.action = action;
+
+                google.script.run
+                    .withSuccessHandler(function (response) {
+                        // console.log(`GAS Response (${action}):`, response);
+
+                        // Handle structured error responses
+                        if (response && response.success === false) {
+                            console.error(`GAS Error (${action}):`, response.error);
+                            reject(new Error(response.error || `Server error during ${action}`));
+                        } else {
+                            resolve(response);
+                        }
+                    })
+                    .withFailureHandler(function (error) {
+                        console.error(`GAS Connection Failure (${action}):`, error);
+                        reject(error);
+                    })
+                    .doPostFromClient(data);
+            });
+        }
+
         /**
          * Upload PDF to SignNow
          */

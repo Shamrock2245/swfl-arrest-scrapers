@@ -271,14 +271,14 @@ def scrape_sarasota(days_back=1):
                                 elif key == 'State': data['State'] = val
                                 elif key == 'Zip Code': data['ZIP'] = val
                                 # Map common variations to standard fields
-                                if key.lower() in ['arrest date', 'arrested', 'date arrested']:
-                                    data['Arrest_Date'] = val
+                                if key.lower() in ['arrest date', 'arrested', 'date arrested', 'intake date']:
+                                    data['Booking_Date'] = val
                         except:
                             pass
                     
-                    # Force set Arrest_Date from search context if missing
-                    if 'Arrest_Date' not in data and 'arrest_date' in locals():
-                        data['Arrest_Date'] = arrest_date
+                    # Force set Booking_Date from search context if missing
+                    if 'Booking_Date' not in data and 'arrest_date' in locals():
+                        data['Booking_Date'] = arrest_date
 
                     # 3. Charges (Table #data-table)
                     charges = []
@@ -344,20 +344,10 @@ def scrape_sarasota(days_back=1):
                         data['Zipcode'] = data.pop('ZIP')
                     
                     
-                    # Fallback for Arrest_Date
-                    if not data.get('Arrest_Date') and data.get('Booking_Date'):
-                        # Use Booking Date as Arrest Date if missing
-                        # Assuming format YYYY-MM-DD HH:MM:SS from table
-                        bd = data['Booking_Date']
-                        if ' ' in bd:
-                            data['Arrest_Date'] = bd.split(' ')[0]
-                        else:
-                            data['Arrest_Date'] = bd
-                    
-                    # FINAL FALLBACK: If still no Arrest_Date, use Today (Scrape Date)
-                    if not data.get('Arrest_Date'):
-                        data['Arrest_Date'] = datetime.now().strftime('%Y-%m-%d')
-                        sys.stderr.write("   ⚠️  Missing Arrest_Date, defaulting to Scrape Date (Today)\n")
+                    # Fallback: If still no Booking_Date, use Today (Scrape Date)
+                    if not data.get('Booking_Date'):
+                        data['Booking_Date'] = datetime.now().strftime('%Y-%m-%d')
+                        sys.stderr.write("   ⚠️  Missing Booking_Date, defaulting to Scrape Date (Today)\n")
                             
                     # Clean up Booking Date format if needed
                     # Scraper output: 2025-11-26 00:29:52.000
