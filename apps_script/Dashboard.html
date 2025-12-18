@@ -3864,28 +3864,30 @@
          * Excludes print-only documents (like appearance-bond)
          * @returns {Array} Array of document objects sorted by templateOrder
          */
-        function getSelectedDocuments() {
+        function getSelectedDocuments(includePrintOnly = false) {
             const selected = [];
-            const checkedTemplates = new Set();
 
-            // First, collect all checked templates
-            document.querySelectorAll('.doc-item input[type="checkbox"]:checked').forEach(cb => {
-                const templateKey = cb.dataset.template;
-                if (templateKey && CONFIG.templates[templateKey]) {
-                    checkedTemplates.add(templateKey);
+            // Get checked templates
+            const checkedTemplates = new Set();
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                if (cb.dataset.template) {
+                    checkedTemplates.add(cb.dataset.template);
                 }
             });
 
-            // Then, add documents in the correct order from templateOrder
-            // Exclude print-only documents
+            // Iterate through templates in specific order
             CONFIG.templateOrder.forEach(templateKey => {
-                if (checkedTemplates.has(templateKey) && !CONFIG.printOnlyDocs.includes(templateKey)) {
-                    const cb = document.querySelector(`input[data-template="${templateKey}"]`);
-                    selected.push({
-                        key: templateKey,
-                        id: CONFIG.templates[templateKey],
-                        name: cb?.closest('.doc-item')?.querySelector('.doc-name')?.textContent || templateKey
-                    });
+                if (checkedTemplates.has(templateKey)) {
+                    // SignNow documents OR (Print-only documents IF requested)
+                    const isPrintOnly = CONFIG.printOnlyDocs.includes(templateKey);
+                    if (!isPrintOnly || includePrintOnly) {
+                        const cb = document.querySelector(`input[data-template="${templateKey}"]`);
+                        selected.push({
+                            key: templateKey,
+                            id: CONFIG.templates[templateKey],
+                            name: cb?.closest('.doc-item')?.querySelector('.doc-name')?.textContent || templateKey
+                        });
+                    }
                 }
             });
 
@@ -4214,7 +4216,7 @@
                 await sleep(300);
 
                 updateProgress(2, 'Fetching PDF templates from Google Drive...');
-                const selectedDocs = getSelectedDocuments();
+                const selectedDocs = getSelectedDocuments(true); // Include print-only for preview
                 if (selectedDocs.length === 0) throw new Error('No documents selected');
 
                 const pdfBytes = await fetchPDFsFromDrive(selectedDocs);
