@@ -16,6 +16,8 @@ Date: November 24, 2025
 """
 
 import os
+import json
+import base64
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import gspread
@@ -70,7 +72,6 @@ class SheetsWriter:
                     content = env_var.strip()
                     # If it doesn't start with '{', assume Base64
                     if not content.startswith('{'):
-                        import base64
                         decoded = base64.b64decode(content).decode('utf-8')
                         service_account_info = json.loads(decoded)
                     else:
