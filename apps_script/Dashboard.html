@@ -1183,24 +1183,66 @@
             .header {
                 flex-direction: column;
                 text-align: center;
+                gap: 15px;
             }
 
             .header-controls {
                 justify-content: center;
+                width: 100%;
             }
 
             .nav-container {
                 justify-content: center;
+                flex-wrap: wrap;
             }
 
             .tab {
-                padding: 12px 16px;
+                padding: 10px 12px;
                 font-size: 13px;
+                flex: 1 1 auto;
+                text-align: center;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .card-header .header-actions {
+                width: 100%;
+                justify-content: space-between;
             }
 
             .fab-container {
-                bottom: 20px;
-                right: 20px;
+                bottom: 15px;
+                right: 15px;
+            }
+
+            /* Stack buttons on mobile */
+            .btn-group,
+            .action-buttons,
+            div[style*="display: flex; gap: 16px"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            .btn-lg {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -1996,6 +2038,7 @@
                         <label class="required">Signing Method</label>
                         <select id="signing-method" onchange="toggleSigningOptions()">
                             <option value="email">&#128231; Send via Email</option>
+                            <option value="sms">&#128241; Send via Text (SMS)</option>
                             <option value="kiosk">&#128421; Kiosk Mode (In-Person)</option>
                             <option value="download">&#8595; Download Only</option>
                         </select>
@@ -2006,14 +2049,14 @@
                     </div>
                 </div>
 
-                <!-- Email Recipients (shown for email mode) -->
-                <div id="email-recipients-section">
-                    <h4
+                <!-- Signer Information -->
+                <div id="signer-info-section">
+                    <h4 id="signer-info-title"
                         style="margin: 24px 0 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);">
-                        Email Recipients</h4>
+                        Signer Contact Information</h4>
 
                     <div style="background: var(--surface-2); border-radius: var(--radius); padding: 20px;">
-                        <div class="form-row">
+                        <div class="form-row" id="email-recipients-row">
                             <div class="form-group">
                                 <label>Defendant Email</label>
                                 <input type="email" id="signer-defendant-email" placeholder="defendant@email.com">
@@ -2023,7 +2066,17 @@
                                 <input type="email" id="signer-indemnitor-email" placeholder="indemnitor@email.com">
                             </div>
                         </div>
-                        <div id="additional-signer-emails"></div>
+                        <div class="form-row" id="phone-recipients-row" style="display: none; margin-top: 15px;">
+                            <div class="form-group">
+                                <label>Defendant Phone</label>
+                                <input type="tel" id="signer-defendant-phone" placeholder="941-555-0123">
+                            </div>
+                            <div class="form-group">
+                                <label>Indemnitor Phone</label>
+                                <input type="tel" id="signer-indemnitor-phone" placeholder="941-555-4567">
+                            </div>
+                        </div>
+                        <div id="additional-signer-info"></div>
                         <button class="btn btn-secondary btn-sm" onclick="addSignerEmail()" style="margin-top: 12px;">
                             + Add Another Signer
                         </button>
@@ -2092,7 +2145,7 @@
         const CONFIG = {
             gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbwCJt53JjMBhhx3wJR3GIop8hfLcCF4lDxiIZTkCI84nAi8ZBaeKJqD9eiLaUH-v7QkGg/exec', // UPDATE WITH YOUR DEPLOYED URL
             signNowApiBase: 'https://api.signnow.com',
-            signNowToken: '0c35edbbf6823555a8434624aaec4830fd4477bb5befee3da2fa29e2b258913d',
+            // signNowToken moved to Script Properties for security
 
             // Google Drive Template IDs (from your Templates folder)
             // NOTE: appearance-bond is PRINT ONLY - does NOT go to SignNow
@@ -3402,29 +3455,25 @@
             const defendantName = `${formData['defendant-first-name'] || ''}_${formData['defendant-last-name'] || ''}`.trim();
             const filename = `Bail_Packet_${defendantName}_${Date.now()}.pdf`;
 
-            const uploadFormData = new FormData();
-            const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-            uploadFormData.append('file', pdfBlob, filename);
-
             try {
-                const response = await fetch(`${CONFIG.signNowApiBase}/document`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${CONFIG.signNowToken}`,
-                        'Accept': 'application/json'
-                    },
-                    body: uploadFormData
+                // Convert PDF bytes to base64 for GAS transfer
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(new Blob([pdfBytes]));
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('SignNow upload error:', errorText);
-                    throw new Error(`SignNow upload failed: ${response.status}`);
-                }
+                const result = await callGAS('uploadToSignNow', {
+                    pdfBase64: base64,
+                    fileName: filename
+                });
 
-                const result = await response.json();
-                console.log('SignNow upload result:', result);
-                return result.id;
+                if (result.success) {
+                    console.log('SignNow upload result:', result);
+                    return result.documentId;
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
             } catch (err) {
                 console.error('SignNow upload error:', err);
                 throw err;
@@ -3489,30 +3538,21 @@
             console.log('Fields:', allFields);
 
             try {
-                const response = await fetch(`${CONFIG.signNowApiBase}/document/${documentId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${CONFIG.signNowToken}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ fields: allFields })
+                const result = await callGAS('addSignatureFields', {
+                    documentId: documentId,
+                    fields: allFields
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('SignNow add fields error:', errorText);
-                    throw new Error(`Failed to add signature fields: ${response.status}`);
+                if (result.success) {
+                    console.log('SignNow add fields result:', result);
+                    return {
+                        success: true,
+                        fieldsAdded: allFields.length,
+                        roles: result.roles || []
+                    };
+                } else {
+                    throw new Error(result.error || 'Failed to add signature fields');
                 }
-
-                const result = await response.json();
-                console.log('SignNow add fields result:', result);
-
-                return {
-                    success: true,
-                    fieldsAdded: allFields.length,
-                    roles: result.roles || []
-                };
             } catch (err) {
                 console.error('Error adding signature fields:', err);
                 throw err;
@@ -3522,11 +3562,42 @@
         /**
          * Send signing invite via SignNow
          */
-        async function sendSignNowInvite(documentId, formData) {
+        async function sendSignNowInvite(documentId, formData, method = 'email') {
             const defendantEmail = document.getElementById('signer-defendant-email').value;
             const indemnitorEmail = document.getElementById('signer-indemnitor-email').value;
+            const defendantPhone = document.getElementById('signer-defendant-phone').value;
+            const indemnitorPhone = document.getElementById('signer-indemnitor-phone').value;
             const emailSubject = document.getElementById('email-subject').value || 'Shamrock Bail Bonds - Documents for Signature';
 
+            if (method === 'sms') {
+                const signers = [];
+                if (defendantPhone) {
+                    signers.push({
+                        phone: defendantPhone,
+                        role: 'Defendant',
+                        name: `${formData['defendant-first-name']} ${formData['defendant-last-name']}`,
+                        order: 1,
+                        smsMessage: `Shamrock Bail Bonds: ${formData['defendant-first-name']}, please sign your bail bond documents: `
+                    });
+                }
+                if (indemnitorPhone) {
+                    signers.push({
+                        phone: indemnitorPhone,
+                        role: 'Indemnitor',
+                        name: 'Indemnitor',
+                        order: 2,
+                        smsMessage: 'Shamrock Bail Bonds: Please sign the documents as the indemnitor.'
+                    });
+                }
+
+                return await callGAS('sendSmsInvite', {
+                    documentId: documentId,
+                    signers: signers,
+                    options: { fromEmail: 'admin@shamrockbailbonds.biz' }
+                });
+            }
+
+            // Email Logic (existing)
             const invitePayload = {
                 to: [],
                 from: 'admin@shamrockbailbonds.biz',
@@ -3582,53 +3653,36 @@
                 }
             });
 
-            const response = await fetch(`${CONFIG.signNowApiBase}/document/${documentId}/invite`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${CONFIG.signNowToken}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(invitePayload)
+            const result = await callGAS('sendEmailInvite', {
+                documentId: documentId,
+                signers: invitePayload.to,
+                options: {
+                    subject: invitePayload.subject,
+                    message: invitePayload.message
+                }
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('SignNow invite error:', errorText);
-                throw new Error(`SignNow invite failed: ${response.status}`);
+            if (result.success) {
+                console.log('SignNow invite result:', result);
+                return { success: true, inviteId: result.inviteId, mode: 'email' };
+            } else {
+                throw new Error(result.error || 'Invite failed');
             }
-
-            const result = await response.json();
-            console.log('SignNow invite result:', result);
-            return { success: true, inviteId: result.id, mode: 'email' };
         }
 
         /**
          * Create a signing link for kiosk mode
          */
         async function createSigningLink(documentId) {
-            const response = await fetch(`${CONFIG.signNowApiBase}/link`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${CONFIG.signNowToken}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ document_id: documentId })
+            const result = await callGAS('createEmbeddedLink', {
+                documentId: documentId,
+                signerEmail: document.getElementById('signer-defendant-email').value || 'defendant@example.com'
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('SignNow link error:', errorText);
-                throw new Error(`SignNow link creation failed: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log('SignNow link result:', result);
-            if (result.url) {
-                return { success: true, link: result.url, mode: 'kiosk' };
+            if (result.success && result.links && result.links[0]) {
+                return { success: true, link: result.links[0], mode: 'kiosk' };
             } else {
-                throw new Error('Failed to generate signing link');
+                throw new Error(result.error || 'Failed to generate signing link');
             }
         }
 
@@ -3781,6 +3835,13 @@
                     showToast('Please enter at least one email address for signing', 'error');
                     return;
                 }
+            } else if (signingMethod === 'sms') {
+                const defendantPhone = document.getElementById('signer-defendant-phone').value;
+                const indemnitorPhone = document.getElementById('signer-indemnitor-phone').value;
+                if (!defendantPhone && !indemnitorPhone) {
+                    showToast('Please enter at least one phone number for SMS signing', 'error');
+                    return;
+                }
             }
 
             showProgress('Generating Bail Packet', [
@@ -3821,8 +3882,8 @@
                 updateProgress(7, 'Sending for signatures...');
 
                 let result;
-                if (signingMethod === 'email') {
-                    result = await sendSignNowInvite(documentId, formData);
+                if (signingMethod === 'email' || signingMethod === 'sms') {
+                    result = await sendSignNowInvite(documentId, formData, signingMethod);
                 } else if (signingMethod === 'kiosk') {
                     result = await createSigningLink(documentId);
                 } else {
@@ -4242,29 +4303,46 @@
 
         function toggleSigningOptions() {
             const method = document.getElementById('signing-method').value;
-            const emailSection = document.getElementById('email-recipients-section');
+            const infoSection = document.getElementById('signer-info-section');
+            const emailRow = document.getElementById('email-recipients-row');
+            const phoneRow = document.getElementById('phone-recipients-row');
             const generateBtn = document.getElementById('generate-btn');
+            const title = document.getElementById('signer-info-title');
 
             if (method === 'email') {
-                emailSection.style.display = 'block';
-                generateBtn.textContent = '&#9654; Generate & Send to SignNow';
+                infoSection.style.display = 'block';
+                emailRow.style.display = 'flex';
+                phoneRow.style.display = 'none';
+                title.textContent = 'Email Recipients';
+                generateBtn.innerHTML = '&#9654; Generate & Send via Email';
+            } else if (method === 'sms') {
+                infoSection.style.display = 'block';
+                emailRow.style.display = 'none';
+                phoneRow.style.display = 'flex';
+                title.textContent = 'SMS Recipients';
+                generateBtn.innerHTML = '&#128241; Generate & Send via Text';
             } else if (method === 'kiosk') {
-                emailSection.style.display = 'none';
-                generateBtn.textContent = '&#128421; Generate for Kiosk Signing';
+                infoSection.style.display = 'none';
+                generateBtn.innerHTML = '&#128421; Generate for Kiosk Signing';
             } else {
-                emailSection.style.display = 'none';
-                generateBtn.textContent = '&#8595; Download Packet';
+                infoSection.style.display = 'none';
+                generateBtn.innerHTML = '&#8595; Download Packet';
             }
         }
 
         function addSignerEmail() {
-            const container = document.getElementById('additional-signer-emails');
-            const count = container.children.length + 3;
+            const method = document.getElementById('signing-method').value;
+            const container = document.getElementById('additional-signer-info');
+            const count = container.children.length + 1;
+            const inputType = method === 'sms' ? 'tel' : 'email';
+            const placeholder = method === 'sms' ? '941-555-0000' : 'signer@email.com';
+            const labelPrefix = method === 'sms' ? 'Additional Phone' : 'Additional Email';
+
             container.insertAdjacentHTML('beforeend', `
         <div class="form-row" style="margin-top: 12px;">
           <div class="form-group">
-            <label>Additional Signer ${count - 2}</label>
-            <input type="email" placeholder="signer@email.com">
+            <label>${labelPrefix} ${count}</label>
+            <input type="${inputType}" placeholder="${placeholder}" class="additional-signer-input">
           </div>
           <div class="form-group" style="align-self: flex-end;">
             <button class="btn btn-danger btn-sm" onclick="this.closest('.form-row').remove()">Remove</button>
@@ -4401,31 +4479,29 @@
          */
         async function checkDocumentStatus(documentId) {
             try {
-                const response = await fetch(`${CONFIG.signNowApiBase}/document/${documentId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${CONFIG.signNowToken}`,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) throw new Error(`Failed to get document status: ${response.status}`);
-
-                const doc = await response.json();
-                console.log('Document status:', doc);
-
-                const packet = sentPackets.find(p => p.documentId === documentId);
-                if (packet) {
-                    if (doc.signatures && doc.signatures.length > 0) {
-                        packet.status = 'signed';
-                    } else if (doc.viewed_at) {
-                        packet.status = 'viewed';
-                    }
-                    localStorage.setItem(LS_KEY_PACKETS, JSON.stringify(sentPackets));
-                    refreshStatus();
-                }
-
-                showToast('Status updated', 'success');
+                google.script.run
+                    .withSuccessHandler(function (result) {
+                        if (result.success) {
+                            console.log('Document status:', result);
+                            const packet = sentPackets.find(p => p.documentId === documentId);
+                            if (packet) {
+                                if (result.status === 'signed' || result.status === 'completed') {
+                                    packet.status = 'signed';
+                                } else if (result.signers && result.signers.some(s => s.status === 'viewed')) {
+                                    packet.status = 'viewed';
+                                }
+                                localStorage.setItem(LS_KEY_PACKETS, JSON.stringify(sentPackets));
+                                refreshStatus();
+                            }
+                            showToast('Status updated', 'success');
+                        } else {
+                            showToast('Failed to check status: ' + result.error, 'error');
+                        }
+                    })
+                    .withFailureHandler(function (error) {
+                        showToast('Error: ' + error.message, 'error');
+                    })
+                    .getDocumentStatus(documentId);
             } catch (err) {
                 console.error('Status check error:', err);
                 showToast('Error checking status: ' + err.message, 'error');

@@ -73,11 +73,108 @@ const SIGNNOW_TEMPLATE_IDS = {
 };
 
 // ============================================================================
+// MENU SYSTEM
+// ============================================================================
+
+/**
+ * Creates custom menu when spreadsheet opens
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  
+  ui.createMenu('🟩 Bail Suite')
+    .addSubMenu(ui.createMenu('🔄 Run Scrapers')
+      .addItem('📍 Lee County', 'runLeeScraper')
+      .addItem('📍 Collier County', 'runCollierScraper')
+      .addItem('📍 Hendry County', 'runHendryScraper')
+      .addItem('📍 Charlotte County', 'runCharlotteScraper')
+      .addItem('📍 Manatee County', 'runManateeScraper')
+      .addItem('📍 Sarasota County', 'runSarasotaScraper')
+      .addItem('📍 Hillsborough County', 'runHillsboroughScraper')
+      .addSeparator()
+      .addItem('🚀 Run All Scrapers', 'runAllScrapers'))
+    .addSeparator()
+    .addSubMenu(ui.createMenu('🎯 Lead Scoring')
+      .addItem('📊 Score All Sheets', 'scoreAllSheets')
+      .addItem('📈 Score Current Sheet', 'scoreCurrentSheet')
+      .addItem('🔍 View Scoring Rules', 'viewScoringRules'))
+    .addSeparator()
+    .addItem('📝 Open Booking Form', 'openBookingFormFromRow')
+    .addSeparator()
+    .addSubMenu(ui.createMenu('⚙️ Triggers')
+      .addItem('📅 Install Triggers', 'installTriggers')
+      .addItem('👀 View Triggers', 'viewTriggers')
+      .addItem('🚫 Disable Triggers', 'disableTriggers'))
+    .addSeparator()
+    .addItem('📊 View Status', 'viewStatus')
+    .addToUi();
+}
+
+/**
+ * Opens booking form with data from selected row
+ */
+function openBookingFormFromRow() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const selection = sheet.getActiveRange();
+  
+  if (!selection) {
+    ui.alert('No Selection', 'Please select a row to populate the booking form.', ui.ButtonSet.OK);
+    return;
+  }
+  
+  const row = selection.getRow();
+  if (row === 1) {
+    ui.alert('Invalid Selection', 'Please select a data row (not the header).', ui.ButtonSet.OK);
+    return;
+  }
+  
+  const data = sheet.getRange(row, 1, 1, 34).getValues()[0];
+  const rowData = {
+    bookingNumber: data[0] || '',
+    fullName: data[1] || '',
+    firstName: data[2] || '',
+    lastName: data[3] || '',
+    dob: data[4] || '',
+    sex: data[5] || '',
+    race: data[6] || '',
+    arrestDate: data[7] || '',
+    arrestTime: data[8] || '',
+    bookingDate: data[9] || '',
+    bookingTime: data[10] || '',
+    agency: data[11] || '',
+    address: data[12] || '',
+    city: data[13] || '',
+    state: data[14] || '',
+    zipcode: data[15] || '',
+    charges: data[16] || '',
+    bondAmount: data[17] || '',
+    status: data[18] || '',
+    facility: data[19] || ''
+  };
+
+  const html = HtmlService.createTemplateFromFile('Dashboard');
+  html.data = rowData;
+  
+  const output = html.evaluate()
+    .setTitle('Booking Form - ' + (rowData.fullName || 'New Record'))
+    .setWidth(1200)
+    .setHeight(900);
+    
+  ui.showModalDialog(output, 'Shamrock Bail Bonds - Booking System');
+}
+
+// ============================================================================
 // WEB APP ENTRY POINTS
 // ============================================================================
 
 function doGet(e) {
   if (!e) e = { parameter: {} };
+  
+  // Handle mode=scrape for Lee County trigger
+  if (e.parameter && e.parameter.mode === 'scrape') {
+    return runLeeCountyScraper();
+  }
   
   if (e.parameter && e.parameter.action) {
     return handleGetAction(e);
@@ -261,6 +358,10 @@ function doPost(e) {
       // --- Google Drive Operations ---
       case 'saveToGoogleDrive':
         result = saveFilledPacketToDrive(data);
+        break;
+      
+      case 'runLeeScraper':
+        result = runLeeCountyScraper();
         break;
       
       default:
@@ -679,4 +780,104 @@ function getCountyStatistics() {
   }
 
   return stats;
+}
+// ============================================================================
+// COUNTY SCRAPER INTEGRATION
+// ============================================================================
+
+/**
+ * Run Lee County scraper (Wrapper for google.script.run)
+ */
+function runLeeScraper() {
+  const result = runLeeCountyScraper();
+  // Parse ContentService result for google.script.run
+  try {
+    return JSON.parse(result.getContent());
+  } catch (e) {
+    return { success: false, error: 'Failed to trigger scraper' };
+  }
+}
+
+/**
+ * Run Lee County scraper
+ * This can be an Apps Script scraper or trigger Node.js
+ */
+function runLeeCountyScraper() {
+  try {
+    Logger.log('Lee County Scraper Triggered');
+    logScraperRun('LEE', 'Manual trigger / WebApp call');
+    
+    // Check for webhook to trigger Node.js scraper
+    const props = PropertiesService.getScriptProperties();
+    const webhookUrl = props.getProperty('WEBHOOK_URL');
+    
+    if (webhookUrl) {
+      triggerWebhook('lee', 'scrape', webhookUrl);
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: true, 
+        message: 'Lee County scraper triggered via webhook' 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      message: 'Lee County scraper call logged (webhook not configured)' 
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    Logger.log('Lee County scraper error: ' + error.message);
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: false, 
+      error: error.message 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Log a scraper run to the Logs sheet
+ */
+function logScraperRun(county, message) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var logsSheet = ss.getSheetByName('Logs');
+    
+    if (!logsSheet) {
+      logsSheet = ss.insertSheet('Logs');
+      logsSheet.appendRow(['Timestamp', 'County', 'Event', 'Message']);
+    }
+    
+    var timestamp = new Date();
+    logsSheet.appendRow([timestamp, county, 'MANUAL_TRIGGER', message]);
+    
+  } catch (error) {
+    Logger.log('Failed to log scraper run: ' + error.message);
+  }
+}
+
+/**
+ * Trigger webhook for Node.js scraper
+ */
+function triggerWebhook(county, action, webhookUrl) {
+  if (!webhookUrl) return;
+  
+  try {
+    var payload = {
+      county: county,
+      action: action,
+      timestamp: new Date().toISOString()
+    };
+    
+    var options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+    
+    var response = UrlFetchApp.fetch(webhookUrl, options);
+    Logger.log('Webhook triggered for ' + county + ': ' + response.getResponseCode());
+    
+  } catch (error) {
+    Logger.log('Webhook trigger failed: ' + error.message);
+  }
 }
