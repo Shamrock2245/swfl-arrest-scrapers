@@ -39,41 +39,40 @@ A complete, production-ready system that:
 
 ## 🏗️ Architecture
 
+```
 swfl-arrest-scrapers/
-├── scrapers/ # Puppeteer/Playwright scrapers per county
-│ ├── collier.js
-│ ├── charlotte.js
-│ ├── sarasota.js
-│ ├── hendry.js
-│ ├── desoto.js
-│ └── manatee.js
-├── normalizers/ # Map county data → unified schema
-│ └── normalize.js
-├── writers/ # Sheets and Drive integrations
-│ └── sheets.js
-├── jobs/ # Orchestration scripts
-│ ├── runAll.js
-│ └── updateBondPaid.js
-├── config/ # Schema + county configs
-│ ├── counties.json
-│ └── schema.json
-├── shared/ # Browser helpers, CAPTCHA logic
-│ └── browser.js
-└── fixtures/ # Saved HTML for regression testing
-
+├── python_scrapers/           # 🚀 NEW: Python + DrissionPage Scrapers
+│   ├── scrapers/              # Individual County Solvers
+│   │   ├── hendry_solver.py
+│   │   ├── sarasota_solver.py
+│   │   ├── manatee_solver.py
+│   │   └── ...
+│   ├── run_hendry.py          # Runner for Hendry
+│   ├── run_sarasota.py        # Runner for Sarasota
+│   └── ...
+├── scrapers/                  # Legacy/Node.js Scrapers
+│   ├── desoto_incremental.js  # Node.js (Active)
+│   └── collier_webforms.js    # Node.js (Maintenance)
+├── jobs/                      # Orchestration
+├── config/                    # Shared Config
+└── ...
+```
 
 ---
 
 ## 🌎 Counties Covered
 
-| County | URL | Notes |
-|--------|-----|-------|
-| **Collier** | https://www2.colliersheriff.org/arrestsearch/ | ✅ Stable |
-| **Charlotte** | https://www.ccso.org/forms/arrestdb.cfm | ⚠️ Cloudflare |
-| **Sarasota** | https://www.sarasotasheriff.org/arrest-reports/ | ✅ Simple HTML |
-| **Hendry** | https://www.hendrysheriff.org/inmateSearch | ✅ Moderate |
-| **DeSoto** | https://www.desotosheriff.com/... | ✅ Simple |
-| **Manatee** | https://www.manateesheriff.com/arrest_inquiries/ | ✅ Stable |
+| County | Stack | Status |
+|--------|-------|--------|
+| **Hendry** | Python / DrissionPage | ✅ Stable |
+| **Manatee** | Python / DrissionPage | ✅ Stable |
+| **Sarasota** | Python / DrissionPage | ✅ Stable |
+| **Charlotte** | Python / DrissionPage | ✅ Stable |
+| **Hillsborough** | Python / DrissionPage | ⚠️ Beta |
+| **Orange** | Python / PDF Parsing | ✅ Active |
+| **DeSoto** | Node.js / Puppeteer | ✅ Stable |
+| **Collier** | Node.js / Fetch | ❌ Maintenance |
+| **Lee** | N/A | ❌ Missing |
 
 ---
 
@@ -81,74 +80,67 @@ swfl-arrest-scrapers/
 
 ### Prerequisites
 
-- Node.js 18+
-- Google Cloud Project with Sheets API enabled
-- Service Account with Editor access to spreadsheet
+- **Python 3.10+**
+- **Node.js 18+** (for DeSoto)
+- Google Cloud Service Account Key
 
 ### Installation
 
+1. **Clone & Install Dependencies**
+   ```bash
+   git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
+   cd swfl-arrest-scrapers
+   
+   # Python Dependencies
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r python_scrapers/requirements.txt
+   
+   # Node Dependencies (for DeSoto)
+   npm install
+   ```
+
+2. **Configure Environment**
+   Create a `.env` file or export variables:
+   ```bash
+   export GOOGLE_SHEETS_ID="121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E"
+   export GOOGLE_SERVICE_ACCOUNT_KEY_PATH="./creds/service-account-key.json"
+   ```
+
+3. **Google Sheets Auth**
+   Ensure your service account has **Editor** access to the spreadsheet.
+
+---
+
+## 🚀 Usage
+
+### Run Python Scrapers (Recommended)
+
 ```bash
-git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
-cd swfl-arrest-scrapers
-npm install
+# Activate Virtual Env
+source .venv/bin/activate
 
-Configure Environment
+# Run Individual Counties
+python python_scrapers/scrapers/run_hendry.py
+python python_scrapers/scrapers/run_manatee.py
+python python_scrapers/scrapers/run_sarasota.py
+python python_scrapers/scrapers/run_charlotte.py
+python python_scrapers/run_hillsborough.py
+```
 
-cp .env.example .env
-# Edit .env to match your environment
+### Run Node.js Scrapers
 
-Example:
+```bash
+# DeSoto County
+npm run run:desoto
+```
 
-GOOGLE_SHEETS_ID=121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
-GOOGLE_SERVICE_ACCOUNT_EMAIL=bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com
-GOOGLE_ACCOUNT=admin@shamrockbailbonds.biz
-GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./creds/service-account-key.json
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
-TZ=America/New_York
+### 📊 Google Sheets Output
 
-Share Spreadsheet with:
-
-bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com
-
-Permission: Editor
-
-Google Account: admin@shamrockbailbonds.biz
-Apps Script Project: https://script.google.com/u/0/home/projects/12BRRdYuyVJpQODJq2-OpUhQdZ9YLt4bbAFWmOUyJPWM_EcazKTiu3dYo/edit
-
-🚀 Usage
-Run All Counties
-npm start
-# or
-node jobs/runAll.js
-
-Run a Specific County
-npm run run:collier
-npm run run:charlotte
-
-Update Bond Status
-npm run update:bonds
-node jobs/updateBondPaid.js --days 14
-
-📊 Google Sheets Output
-
-**Master Sheet ID:** 121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E  
-**Google Account:** admin@shamrockbailbonds.biz  
-**Apps Script:** https://script.google.com/u/0/home/projects/12BRRdYuyVJpQODJq2-OpUhQdZ9YLt4bbAFWmOUyJPWM_EcazKTiu3dYo/edit  
-**Sheet URL:** https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit
-
-| Tab | Purpose |
-|-----|----------|
-| Lee | Lee County arrests |
-| Collier | Collier County arrests |
-| Hendry | Hendry County arrests |
-| Charlotte | Charlotte County arrests |
-| Manatee | Manatee County arrests |
-| Sarasota | Sarasota County arrests |
-| DeSoto | DeSoto County arrests |
-| Qualified_Arrests | Qualified leads (score ≥70) |
-| Config | Configuration settings |
-| Logs | Job logs with timestamps, counts, errors |
-| Manual_Bookings | Manually entered bookings from Form.html |
+**Master Sheet ID:** `121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E`  
+**Tab Structure:**
+- `Hendry`, `Manatee`, `Sarasota`, `Charlotte`, `Hillsborough`, `DeSoto`
+- `Qualified_Arrests` (Leads with Score ≥ 70)
 🧮 Qualification Scoring
 
 Automatic scoring determines if an arrest qualifies as a potential lead.

@@ -178,8 +178,8 @@ function openBookingFormFromRow() {
   };
   
   // Create HTML template and pass data
-  const template = HtmlService.createTemplateFromFile('Form');
-  template.rowData = rowData;
+  const template = HtmlService.createTemplateFromFile('Dashboard');
+  template.data = rowData;
   
   // Evaluate template and create modal dialog
   const html = template.evaluate()
@@ -192,13 +192,13 @@ function openBookingFormFromRow() {
 
 /**
  * Web app endpoint for bookmarklet (Method B)
- * Serves Form.html with URL parameters
+ * Serves Dashboard.html with URL parameters
  */
 function doGet(e) {
-  const template = HtmlService.createTemplateFromFile('Form');
+  const template = HtmlService.createTemplateFromFile('Dashboard');
   
   // Pass URL parameters to template
-  template.params = e.parameter;
+  template.data = e.parameter;
   
   return template.evaluate()
     .setTitle('Booking Form - Shamrock Bail Bonds')

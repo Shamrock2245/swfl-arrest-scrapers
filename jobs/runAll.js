@@ -1,17 +1,43 @@
-import runCollier from '../scrapers/collier.js';
-import runCharlotteV2 from '../scrapers/charlotte_v2.js';
-import runSarasotaV2 from '../scrapers/sarasota_v2.js';
-import runHendryV2 from '../scrapers/hendry_v2.js';
+import { exec } from 'child_process';
+import util from 'util';
 import runDesoto from '../scrapers/desoto.js';
-import { runManatee } from '../scrapers/manatee.js'; // Python Bridge
+import runLee from '../scrapers/lee_trigger.js'; // GAS Trigger
+
+const execPromise = util.promisify(exec);
+
+// Helper to run Python scripts
+async function runPythonScript(scriptPath, countyName) {
+  console.log(`🐍 Running ${countyName} (Python)...`);
+  try {
+    const { stdout, stderr } = await execPromise(`source .venv/bin/activate && python ${scriptPath}`, { shell: '/bin/bash' });
+    // console.log(stdout); // Optional: log stdout
+    if (stderr) console.error(`[${countyName} Stderr]:`, stderr);
+
+    // Naive count extraction from stdout logs or assume success if no error
+    // Our python runners print "Processed X valid records" or similar
+    // Let's try to parse it, or just return success
+    const countMatch = stdout.match(/Processed (\d+) valid records/);
+    const count = countMatch ? parseInt(countMatch[1]) : 0;
+
+    return { success: true, count, note: 'Python Execution Complete' };
+  } catch (error) {
+    console.error(`❌ ${countyName} Failed:`, error.message);
+    return { success: false, count: 0, error: error.message };
+  }
+}
 
 const COUNTY_RUNNERS = [
-  // { name: 'Collier', fn: runCollier, offsetMs: 0 }, // Returning 0 records
-  { name: 'Hendry', fn: runHendryV2, offsetMs: 1000 },      // Python V2
-  { name: 'Charlotte', fn: runCharlotteV2, offsetMs: 60000 }, // Python V2
-  { name: 'Sarasota', fn: runSarasotaV2, offsetMs: 120000 },  // Python V2
-  { name: 'Manatee', fn: runManatee, offsetMs: 180000 },     // Python Bridge
-  // { name: 'DeSoto', fn: runDesoto, offsetMs: 360000 },      // Slow/Unknown
+  // Python Scrapers (Direct Execution)
+  { name: 'Hendry', fn: () => runPythonScript('python_scrapers/scrapers/run_hendry.py', 'Hendry'), offsetMs: 1000 },
+  { name: 'Charlotte', fn: () => runPythonScript('python_scrapers/scrapers/run_charlotte.py', 'Charlotte'), offsetMs: 60000 },
+  { name: 'Sarasota', fn: () => runPythonScript('python_scrapers/scrapers/run_sarasota.py', 'Sarasota'), offsetMs: 120000 },
+  { name: 'Manatee', fn: () => runPythonScript('python_scrapers/scrapers/run_manatee.py', 'Manatee'), offsetMs: 180000 },
+  { name: 'Hillsborough', fn: () => runPythonScript('python_scrapers/run_hillsborough.py', 'Hillsborough'), offsetMs: 240000 },
+  { name: 'Orange', fn: () => runPythonScript('python_scrapers/run_orange.py', 'Orange'), offsetMs: 300000 },
+
+  // Node.js Scrapers (Imported)
+  { name: 'Lee', fn: runLee, offsetMs: 360000 },
+  { name: 'DeSoto', fn: runDesoto, offsetMs: 420000 },
 ];
 
 /**
