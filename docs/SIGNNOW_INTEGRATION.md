@@ -1,43 +1,45 @@
-# SignNow Integration
+# SignNow Integration Guide
 
-## Goals
-- Fill and send Intake/Retainer packets directly from staged data.
-- Track `packet_status`, `packet_url`, `signed_at` back in Sheets.
+The Shamrock Bail Suite integrates with SignNow via the `apps_script/SignNowAPI.gs` module to automate bond paperwork.
 
-## Checklist
-- SignNow API key + team ID
-- Template IDs for Intake, Retainer
-- Drive folder for outputs
-- Apps Script web app published (access: only your workspace)
+---
 
-## API Steps (Apps Script)
-1. Exchange API key for bearer token (if required).
-2. Create document from template.
-3. Prefill fields using your field map.
-4. Invite signer(s) (client & agent, if needed).
-5. Poll document status or webhook (preferred).
-6. On completion:
-   - Download final PDF to Drive.
-   - Update row in Google Sheet.
+## 🛂 Authentication
+Authentication is handled via a **Bearer Token** stored in Apps Script Project Properties as `SIGNNOW_API_TOKEN`.
 
-## Field Mapping Tips
-- Keep field names in **config/signnow.json**:
-```json
-{
-  "templates": {
-    "intake": "TEMPLATE_ID_1",
-    "retainer": "TEMPLATE_ID_2"
-  },
-  "map": {
-    "client_first_name": "first_name",
-    "client_last_name": "last_name",
-    "dob": "dob",
-    "phone": "phone",
-    "email": "email",
-    "primary_charge": "charge_1",
-    "total_bond": "total_bond",
-    "booking_id": "booking_id",
-    "county": "county",
-    "case_number": "case_number"
-  }
-}
+---
+
+## 📄 Supported Document Types
+We maintain specific coordinate mapping for the following PDF forms:
+*   **Intake Packet:** Comprehensive defendant information.
+*   **Indemnity Agreement:** For indemnitors/co-signers.
+*   **Promissory Note:** For payment plans.
+*   **Surety Terms:** Legal disclosures.
+
+---
+
+## 🚚 Delivery Methods
+
+### 1. Email (Standard)
+Sends a signing invite link to the defendant or indemnitor's email address.
+*   **Trigger:** Manual from Dashboard or Automated for Qualified leads.
+
+### 2. SMS (Mobile-First)
+Sends the signing link via SMS. This is the preferred method for high-speed field captures.
+*   **Note:** Requires US/Canada formatted phone numbers.
+
+### 3. Embedded (Kiosk Mode)
+Generates a momentary signing link that can be opened immediately on an agent's tablet or computer.
+*   **Use Case:** In-person signings at the jail or office.
+
+---
+
+## ⚙️ How it Works (Technical)
+1.  **Pre-fill:** `pdf-lib` (JS) or Python merges Lead Data into the PDF forms.
+2.  **Upload:** The pre-filled PDF is uploaded to SignNow as a new document.
+3.  **Field Map:** SignNow signature and initial fields are dynamically placed based on coordinates in `SignNowAPI.gs`.
+4.  **Invite:** The invite is sent via the chosen channel.
+5.  **Sync:** Completed documents are automatically saved to the **"Completed Bonds"** folder in Google Drive.
+
+---
+*Maintained by: Shamrock Engineering Team*

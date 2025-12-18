@@ -1,51 +1,53 @@
-# Unified Data Schema (34 Columns)
+# SWFL Bail Suite - Universal Schema (v2.1)
 
-> Authoritative structure for ingestion, staging (Form.html), and SignNow merge.
+All data ingested into the Shamrock Bail Suite must conform to this 34-column structure.
 
-**Required minimum**: `booking_id`, `full_name_last_first`, `arrest_date`, `booking_date`, `source_url`, `county`
+## 📋 Column Map
 
-| Column | Type | Notes |
-|---|---|---|
-| booking_id | string | County booking # (stable) |
-| full_name_last_first | string | "Last, First Middle" |
-| first_name | string | Parsed; optional |
-| last_name | string | Parsed; optional |
-| dob | string (YYYY-MM-DD) | Optional |
-| sex | string | "M" / "F" / "" |
-| race | string | Optional |
-| arrest_date | string (YYYY-MM-DD) | Required |
-| arrest_time | string | Optional HH:mm:ss |
-| booking_date | string (YYYY-MM-DD) | Required |
-| booking_time | string | Optional HH:mm:ss |
-| agency | string | Arresting agency |
-| address | string | Street |
-| city | string | City |
-| state | string | 2-letter (default FL) |
-| zipcode | string | Optional |
-| charges_raw | string | Original text blob |
-| charge_1 | string | Primary charge |
-| charge_1_statute | string | Statute |
-| charge_1_bond | number/string | Currency parse |
-| charge_2 | string | Secondary charge |
-| charge_2_statute | string | Statute |
-| charge_2_bond | number/string | Currency parse |
-| total_bond | number | Sum of bonds |
-| bond_paid | boolean/string | true/false/"" |
-| court_date | string (YYYY-MM-DD) | Optional |
-| case_number | string | Optional |
-| mugshot_url | string | Optional |
-| mugshot_image | string (formula) | `=IMAGE(url)` |
-| source_url | string | County detail/list URL |
-| county | string | `COLLIER`, `CHARLOTTE`, etc. |
-| ingested_at_iso | string | ISO timestamp |
-| qualified_score | number (0-100) | Computed |
-| is_qualified | boolean | score ≥ 70 |
-| extra_fields_json | string | JSON dump of leftovers |
+| # | Column | Type | Notes |
+| :--- | :--- | :--- | :--- |
+| 1 | `Booking_Number` | String | **Primary Key** (Unique per County) |
+| 2 | `Full_Name` | String | "Last, First Middle" |
+| 3-4 | `First_Name` / `Last_Name` | String | Parsed components |
+| 5 | `DOB` | Date | MM/DD/YYYY |
+| 6-7 | `Sex` / `Race` | String | Standardized codes (M/F, W/B/H/etc.) |
+| 8-9 | `Arrest_Date` / `Time` | String | Date/Time of custodial arrest |
+| 10-11 | `Booking_Date` / `Time` | String | Date/Time admitted to facility |
+| 12 | `Agency` | String | Arresting agency |
+| 13-16 | `Address` Suite | String | Street, City, State, Zip |
+| 17 | `Charges` | String | Pipe-separated `|` list of all charges |
+| 18-23 | `Charge_1` & `Charge_2` | Mixed | Specifics for primary/secondary charges |
+| 24 | `Bond_Amount` | Number | Numeric value (no symbols) |
+| 25 | `Bond_Type` | String | Cash, Surety, ROR, No Bond |
+| 26 | `Status` | String | In Custody, Released |
+| 27 | `Court_Date` | Date | Upcoming hearing date |
+| 28 | `Case_Number` | String | Court case identifier |
+| 29 | `Mugshot_URL` | URL | Link to source image |
+| 30 | `County` | String | **Primary Key** (LEE, COLLIER, etc.) |
+| 31 | `Court_Location` | String | Courthouse name |
+| 32 | `Detail_URL` | URL | Direct link to county detail page |
+| 33 | `Lead_Score` | Number | Calculated (0-100) |
+| 34 | `Lead_Status` | String | Hot, Warm, Cold, Disqualified |
 
-## Qualification Scoring (Default)
-- Bond ≥ 500 → +30  
-- Bond ≥ 1500 → +20  
-- Serious charge (battery, DUI, theft, fraud, etc.) → +20  
-- Recency (≤ 2 days) → +20; (≤ 1 day) → +10  
-**Qualified if ≥ 70.**  
-_Tune in `config/schema.json` → `qualificationRules`._
+---
+
+## 🎯 Lead Scoring (Authoritative)
+
+The `LeadScoringSystem.gs` (Apps Script) and `LeadScorer` (Python) use the following rules:
+
+### Positive Modifiers
+*   **Bond $500 - $50,000:** +30 points.
+*   **Bond $50,001 - $100,000:** +20 points.
+*   **Status "In Custody":** +20 points.
+*   **Charge Keywords:** +20 points (e.g., Battery, DUI, Theft).
+*   **Data Completeness:** +15 points.
+
+### Negative Modifiers
+*   **Status "Released":** -30 points.
+*   **Bond $0 / No Bond:** -50 points.
+*   **Capital/Federal Charge:** -100 points (Disqualified).
+
+**THRESHOLD:** Score **≥ 70** is marked as **HOT** and triggers alerts.
+
+---
+*Reference: apps_script/LeadScoringSystem.gs*

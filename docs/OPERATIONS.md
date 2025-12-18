@@ -1,44 +1,54 @@
 # Operations Runbook
 
-## Routine
-- County pipelines run every 15 min (staggered).
-- Slack: `#bail-ops-alerts` receives summaries & warnings.
+This document defines the daily routine and emergency procedures for the Shamrock Bail Suite.
 
-## Manual Execution
+---
+
+## 🔄 Daily Routine
+
+1.  **Automated Runs:** All county scrapers are scheduled via GitHub Actions (every 15-60 minutes).
+2.  **Monitoring:** Review the `Ingestion_Log` tab in Google Sheets once per day.
+3.  **Alerts:** Monitor Slack for `@hot-lead` notifications and critical error alerts.
+
+---
+
+## 🛠️ Manual Interventions
+
+### Running a specific county
 ```bash
-# Single county
-npm run run:collier
+# Primary (Python)
+python3 python_scrapers/run_hillsborough.py
 
-# All counties
-npm start
+# Legacy (Node)
+npm run run:desoto
+```
 
-# Bond refresh (14 days)
+### Forcing a Lead Rescore
+In Google Sheets, use the **🟩 Bail Suite** menu:
+`Bail Suite > Advanced > Rescore All Records`
+
+### Updating Bond Status
+```bash
+# Refreshes the "Bond Paid" status for the last 14 days of arrests
 npm run update:bonds
+```
 
-Monitoring
+---
 
-Google Sheets → ingestion_log tab: timestamp, county, status, counts, duration, errors.
+## 🚨 Incident Response
 
-Dashboard tab: qualified leads across all counties.
+| Symptom | Diagnosis | Fix |
+| :--- | :--- | :--- |
+| **0 Records added** | Site down or selectors changed | Run `solver.py` locally to inspect the page HTML. |
+| **"Turnstile" Error** | IP block or CAPTCHA trigger | Reduce frequency in GitHub Actions or check `shared/browser.js` for stealth flags. |
+| **Sheets Write Error** | API Quota or Permission | Verify service account Editor access. |
 
-Incident Response
+---
 
-RED (no rows; expected arrests): run county locally, capture HTML, create issue.
+## 📈 Service Levels (SLOs)
+*   **Freshness:** Data for all counties should be no more than 2 hours old.
+*   **Success Rate:** > 95% of scheduled GitHub Action runs should complete without a fatal error.
+*   **Sync:** Dashboard leads must update within 60 seconds of a successful ingestion.
 
-YELLOW (header drift or high nulls): adjust mapping; rerun.
-
-CF/CAPTCHA: add delay, cookies, or enable proxy; reduce frequency temporarily.
-
-Rollbacks
-
-Revert last change; rerun pipeline.
-
-Reprocess raw artifacts if needed (fixtures/).
-
-SLOs (suggested)
-
-Freshness: data ≤ 90 minutes old.
-
-Reliability: ≥ 98% successful runs/day.
-
-Data quality: null-rate on required < 10%.
+---
+*Maintained by: Shamrock Engineering Team*

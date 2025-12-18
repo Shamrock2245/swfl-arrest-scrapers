@@ -1,89 +1,70 @@
 # Quick Start Guide
 
-Get up and running in 5 minutes.
+Get the Shamrock Bail Suite running in under 5 minutes.
 
-## 1. Clone & Install
+---
 
+## 1. Environment Setup
+
+### A. Clone & Install
 ```bash
 git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
 cd swfl-arrest-scrapers
 npm install
 ```
 
-## 2. Setup Credentials
-
-### A. Create Service Account Key
-1. Go to Google Cloud Console
-2. Create/select project with Sheets API enabled
-3. Create service account: `bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com`
-4. Generate JSON key
-5. Save as `creds/service-account-key.json`
-
-### B. Share Spreadsheet
-Share spreadsheet `1jq1-N7sCbwSiYPLAdI2ZnxhLzym1QsOSuHPy-Gw07Qc` with service account email (Editor access).
-
-### C. Configure Environment
+### B. Python Virtual Env (Required for 80% of counties)
 ```bash
-cp .env.example .env
-# Edit .env - update paths if needed
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r python_scrapers/requirements.txt
 ```
 
-## 3. Test Single County
+---
 
+## 2. Credentials
+
+1.  **Master Sheet:** ID is `121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E`.
+2.  **Service Account:**
+    *   Ensure your Google Service Account has **Editor** access to the sheet.
+    *   Save your JSON key to `creds/service-account-key.json`.
+3.  **Environment:**
+    ```bash
+    cp .env.example .env
+    # Update GOOGLE_SA_KEY_JSON or GOOGLE_SERVICE_ACCOUNT_KEY_PATH
+    ```
+
+---
+
+## 3. Basic Commands
+
+### Run a Test Scrape
 ```bash
-# Test Collier (simplest)
-npm run run:collier
-
-# Check output in Google Sheets:
-# Tab: collier-county-arrests
-# Should see new rows with today's arrests
+# Orange County (PDF based, very reliable for testing)
+python3 python_scrapers/run_orange.py
 ```
 
-## 4. Run All Counties
-
+### Run the Global Orchestrator
 ```bash
-npm start
-# Runs all 6 counties with staggered timing
-# Takes ~15-20 minutes
+# This will run all counties with staggered start times
+npm run scrape:all
 ```
 
-## 5. Schedule (Optional)
+---
 
-### Using Cron
-```bash
-crontab -e
-# Add:
-*/15 * * * * cd /path/to/swfl-arrest-scrapers && /usr/local/bin/node jobs/runAll.js >> logs/cron.log 2>&1
-```
+## 4. Verification
 
-### Using GitHub Actions
-1. Fork repo
-2. Add secrets:
-   - `GOOGLE_SHEETS_ID`
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `GOOGLE_SA_KEY_JSON` (entire JSON key as secret)
-3. Workflow runs automatically every 15 min
+*   **Google Sheets:** Open the [Master Database](https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit) and check the `Ingestion_Log` tab.
+*   **Slack:** Check for a "Run Summary" message in your configured channel.
+*   **Dashboard:** Verify that high-score arrests are appearing in the Dashboard tab.
 
-## Troubleshooting
+---
 
-### "Permission denied" on sheets
-→ Verify service account has Editor access to spreadsheet
+## 🆘 Common Fixes
 
-### "CAPTCHA detected"
-→ Charlotte County may need manual cookies (see README)
+- **"No such file" (Python):** Make sure you are in the root directory and the `.venv` is activated.
+- **"Permission Denied" (Sheets):** Double check that the Service Account email is an **Editor** on the Master Sheet.
+- **"Selectors failed":** Site layout may have changed. Run the county-specific `solver.py` directly to see raw output.
 
-### "No arrests found"
-→ Normal if county has no recent arrests. Check ingestion_log tab.
-
-### Network errors
-→ Increase REQUEST_DELAY_MS in .env to 1500-2000
-
-## Next Steps
-
-- Review `dashboard` tab for qualified arrests (score >= 70)
-- Check `ingestion_log` for run history
-- Customize qualification rules in `config/schema.json`
-
-## Support
-
-GitHub Issues: https://github.com/shamrock2245/swfl-arrest-scrapers/issues
+---
+*Maintained by: Shamrock Engineering Team*

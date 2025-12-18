@@ -1,8 +1,8 @@
 # SWFL Arrest Scrapers
 
-**A full production-grade arrest data ingestion suite built for Shamrock Bail Bonds.**
+**A production-grade arrest data ingestion and lead management suite built for Shamrock Bail Bonds.**
 
-Scrapes arrest data from **six Southwest Florida counties**, normalizes it into a unified schema, pushes results to Google Sheets (with deduplication and qualification scoring), and supports automated scheduling via **cron, GitHub Actions, or cloud runtimes**.
+This system leverages a **Dual-Stack** architecture (Python/DrissionPage + Node.js/Puppeteer) to scrape arrest data from across Florida, normalize it into a unified 34-column schema, and manage the lead lifecycle via Google Sheets and SignNow.
 
 ---
 
@@ -11,260 +11,112 @@ Scrapes arrest data from **six Southwest Florida counties**, normalizes it into 
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Counties Covered](#counties-covered)
-- [Setup](#setup)
+- [Quick Start](#quick-start)
 - [Usage](#usage)
-- [Google Sheets Output](#google-sheets-output)
-- [Qualification Scoring](#qualification-scoring)
+- [Lead Scoring](#lead-scoring)
 - [Deployment](#deployment)
-- [Troubleshooting](#troubleshooting)
-- [Performance & Costs](#performance--costs)
-- [Customization](#customization)
-- [Security Best Practices](#security-best-practices)
-- [Support](#support)
+- [Security](#security)
 
 ---
 
 ## 🎯 Overview
 
-A complete, production-ready system that:
-
-- Scrapes **6 SWFL counties** every 15 minutes
-- Normalizes to a **unified 34-column schema**
-- Writes to **Google Sheets** with deduplication
-- Mirrors **qualified leads (score ≥70)** to a dashboard tab
-- Refreshes `bond_paid` for the last 14 days
-- Runs via **cron**, **GitHub Actions**, or **Cloud Run**
+The SWFL Bail Suite provides real-time visibility into new arrests:
+- **High-Stealth Scraping:** Bypasses Cloudflare/CAPTCHA via DrissionPage.
+- **Unified Data:** All 8+ counties map to the same **34-column schema**.
+- **Algorithmic Qualification:** Leads are automatically scored and prioritized.
+- **Dashboard Integration:** Qualified leads (Score ≥ 70) mirror to a centralized dashboard.
+- **SignNow Automation:** Field-prefilled bond paperwork via Email, SMS, or Embedded links.
 
 ---
 
 ## 🏗️ Architecture
 
-```
-swfl-arrest-scrapers/
-├── python_scrapers/           # 🚀 NEW: Python + DrissionPage Scrapers
-│   ├── scrapers/              # Individual County Solvers
-│   │   ├── hendry_solver.py
-│   │   ├── sarasota_solver.py
-│   │   ├── manatee_solver.py
-│   │   └── ...
-│   ├── run_hendry.py          # Runner for Hendry
-│   ├── run_sarasota.py        # Runner for Sarasota
-│   └── ...
-├── scrapers/                  # Legacy/Node.js Scrapers
-│   ├── desoto_incremental.js  # Node.js (Active)
-│   └── collier_webforms.js    # Node.js (Maintenance)
-├── jobs/                      # Orchestration
-├── config/                    # Shared Config
-└── ...
-```
+The system follows a modular "Sync-Normalize-Notify" pattern:
+
+1.  **Ingestion:** Python/DrissionPage (Primary) and Node.js (Legacy) scrapers collect raw data.
+2.  **Normalization:** Data is mapped to the `ArrestRecord` model and the 34-column master schema.
+3.  **Storage:** The [Master Google Sheet](https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit) acts as the primary database.
+4.  **Automation:** Apps Script triggers lead scoring, Slack alerts, and SignNow workflows.
 
 ---
 
 ## 🌎 Counties Covered
 
 | County | Stack | Status |
-|--------|-------|--------|
-| **Hendry** | Python / DrissionPage | ✅ Stable |
+| :--- | :--- | :--- |
+| **Orange** | Python / PDF | ✅ Stable |
+| **Hillsborough** | Python / DrissionPage | ✅ Stable |
 | **Manatee** | Python / DrissionPage | ✅ Stable |
 | **Sarasota** | Python / DrissionPage | ✅ Stable |
 | **Charlotte** | Python / DrissionPage | ✅ Stable |
-| **Hillsborough** | Python / DrissionPage | ⚠️ Beta |
-| **Orange** | Python / PDF Parsing | ✅ Active |
-| **DeSoto** | Node.js / Puppeteer | ✅ Stable |
-| **Collier** | Node.js / Fetch | ❌ Maintenance |
-| **Lee** | N/A | ❌ Missing |
+| **Hendry** | Python / DrissionPage | ✅ Stable |
+| **Palm Beach** | Python / DrissionPage | ⚠️ Beta |
+| **Lee / Collier** | Apps Script | ✅ Stable |
+| **DeSoto** | Node.js | ⚠️ Legacy |
 
 ---
 
-## ⚙️ Setup
+## ⚙️ Quick Start
 
-### Prerequisites
+### 1. Prerequisites
+- Python 3.10+ & Node.js 20+
+- Google Cloud Service Account with Editor access to the Master Sheet.
 
-- **Python 3.10+**
-- **Node.js 18+** (for DeSoto)
-- Google Cloud Service Account Key
+### 2. Installation
+```bash
+git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
+cd swfl-arrest-scrapers
 
-### Installation
+# Python Environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r python_scrapers/requirements.txt
 
-1. **Clone & Install Dependencies**
-   ```bash
-   git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
-   cd swfl-arrest-scrapers
-   
-   # Python Dependencies
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r python_scrapers/requirements.txt
-   
-   # Node Dependencies (for DeSoto)
-   npm install
-   ```
+# Node Environment
+npm install
+```
 
-2. **Configure Environment**
-   Create a `.env` file or export variables:
-   ```bash
-   export GOOGLE_SHEETS_ID="121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E"
-   export GOOGLE_SERVICE_ACCOUNT_KEY_PATH="./creds/service-account-key.json"
-   ```
-
-3. **Google Sheets Auth**
-   Ensure your service account has **Editor** access to the spreadsheet.
+### 3. Configuration
+Create a `.env` file in the root:
+```env
+GOOGLE_SHEETS_ID=121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
+GOOGLE_SA_KEY_JSON={"your_key": "here"}
+SLACK_WEBHOOK_URL=https://hooks.slack.com/...
+```
 
 ---
 
 ## 🚀 Usage
 
-### Run Python Scrapers (Recommended)
-
+### Run a Single County (Python)
 ```bash
-# Activate Virtual Env
-source .venv/bin/activate
-
-# Run Individual Counties
-python python_scrapers/scrapers/run_hendry.py
-python python_scrapers/scrapers/run_manatee.py
-python python_scrapers/scrapers/run_sarasota.py
-python python_scrapers/scrapers/run_charlotte.py
-python python_scrapers/run_hillsborough.py
+python3 python_scrapers/run_orange.py
+python3 python_scrapers/run_hillsborough.py
 ```
 
-### Run Node.js Scrapers
-
+### Run All Counties (Orchestrated)
 ```bash
-# DeSoto County
-npm run run:desoto
+npm run scrape:all
 ```
 
-### 📊 Google Sheets Output
+---
 
-**Master Sheet ID:** `121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E`  
-**Tab Structure:**
-- `Hendry`, `Manatee`, `Sarasota`, `Charlotte`, `Hillsborough`, `DeSoto`
-- `Qualified_Arrests` (Leads with Score ≥ 70)
-🧮 Qualification Scoring
+## 🧮 Lead Scoring
+Leads are evaluated on a 0-100 scale:
+*   **HOT (≥ 70):** Triggers immediate Slack alert.
+*   **WARM (≥ 40):** Priority follow-up.
+*   **COLD (< 40):** Standard archival.
 
-Automatic scoring determines if an arrest qualifies as a potential lead.
+*See `docs/SCHEMA.md` for the full scoring rubric.*
 
-Factor	Rule	Points
-Bond ≥ $500	+30	
-Bond ≥ $1500	+20	
-Serious charge keywords (battery, DUI, theft, etc.)	+20	
-Recent arrest ≤ 2 days	+20	
-Recent arrest ≤ 1 day	+10	
+---
 
-Threshold: ≥70 = Qualified (mirrored to dashboard)
+## 📦 Deployment
+The system is optimized for **GitHub Actions**. Staggered workflows ensure we remain under rate limits and avoid IP blocks.
 
-💾 Data Schema (34 columns)
+*   **Workflow Path:** `.github/workflows/scrape_*.yml`
+*   **Manual Trigger:** Available via the "Actions" tab in GitHub.
 
-See /config/schema.json.
-
-Fully normalized across counties
-
-Deduplication key: booking_id + arrest_date
-
-mugshot_image uses =IMAGE(url) for inline thumbnails
-
-📦 Deployment
-Option 1: Local Cron
-
-*/15 * * * * cd /path/to/swfl-arrest-scrapers && node jobs/runAll.js >> logs/cron.log 2>&1
-7,22,37,52 * * * * cd /path/to/swfl-arrest-scrapers && node jobs/updateBondPaid.js >> logs/bonds.log 2>&1
-
-Option 2: GitHub Actions
-
-name: SWFL Scrapers
-on:
-  schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
-
-jobs:
-  scrape:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install
-      - run: node jobs/runAll.js
-        env:
-          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-          GOOGLE_SA_KEY_JSON: ${{ secrets.GOOGLE_SA_KEY_JSON }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-Option 3: Cloud Run
-
-Serverless with per-minute billing and no server to manage.
-(See /docs/DEPLOYMENT.md for container setup.)
-
-🧰 Troubleshooting
-Issue	Likely Cause	Fix
-Permission denied	Service account not shared with sheet	Give Editor access
-CAPTCHA detected	Cloudflare block	Add cookies in shared/browser.js
-No arrests found	Site changed or slow	Recheck selectors / delays
-Duplicate rows	Missing dedup keys	Ensure booking_id + arrest_date exist
-
-Check ingestion_log tab for per-run diagnostics.
-
-⚡ Performance & Costs
-Metric	Average
-County run	2–5 min
-Full sweep (6)	15–20 min
-Bond refresh	5–10 min
-Sheets API	100–200 calls/run
-GitHub Actions time	~40 min/day
-Hosting cost	$0 (free tier)
-🔧 Customization
-Add a New County
-
-Copy an existing scraper file
-
-Add entry to config/counties.json
-
-Register in jobs/runAll.js
-
-Run test → verify sheet output
-
-Adjust Scoring Rules
-
-Edit config/schema.json → qualificationRules
-
-Add Slack Alerts
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK
-
-
-Triggers:
-
-Run completed
-
-Error or CAPTCHA
-
-Qualified leads added
-
-🔐 Security Best Practices
-
-Never commit credentials
-
-Rotate service account keys quarterly
-
-Use GitHub Secrets for Actions
-
-Limit permissions (Editor access only)
-
-Enable 2FA in Google Cloud
-
-Use .gitignore to exclude creds/
-
-📞 Support
-
-GitHub Issues: shamrock2245/swfl-arrest-scrapers/issues
-
-Email: support@shamrockbailbonds.com
-
-Logs: logs/cron.log, logs/bonds.log
-
-Dashboard: Google Sheet dashboard tab
-
-Built with ❤️ by Shamrock Bail Bonds
-Automating the qualified lead pipeline for Southwest Florida.
+---
+*Maintained by: Shamrock Engineering Team*
