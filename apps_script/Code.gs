@@ -187,62 +187,59 @@ function doPost(e) {
         result = getDocumentStatus(data.documentId);
         break;
       
-      // --- ADVANCED SIGNNOW WORKFLOWS (From Partner) ---
+      // === ADVANCED SIGNNOW WORKFLOWS (Unified) ===
       
       case 'validateSignNowToken':
         result = SN_validateToken();
         break;
       
-      // (uploadToSignNow handled above by standard operation)
-      
       case 'addSignatureFields':
-        // Stub: In real usage, this would require complex coordinate mapping
-        // We return success to prevent crashes if called
-        result = { success: true, message: "Field addition simulated" }; 
+        result = SN_addFields(data.documentId, data.fields);
         break;
       
       case 'addFieldsForDocType':
-        result = { success: true, message: "DocType fields simulated" };
+        result = SN_addFieldsForDocType(data.documentId, data.documentType, data.options);
         break;
       
       case 'sendEmailInvite':
-        // Maps to existing createSigningRequest logic
-        result = createSigningRequest({
-          documentId: data.documentId,
-          signers: data.signers,
-          subject: data.options?.subject,
-          message: data.options?.message,
-          fromEmail: data.options?.fromEmail
-        });
+        result = SN_sendEmailInvite(data.documentId, data.signers, data.options);
         break;
-        
+      
       case 'sendSmsInvite':
-        // Advanced: Requires Enterprise API or specific formatting
-        result = { success: false, error: "SMS Invites require Enterprise Plan configuration." };
+        result = SN_sendSmsInvite(data.documentId, data.signers, data.options);
         break;
-        
+      
       case 'createEmbeddedLink':
-        result = SN_createEmbeddedLink(data.documentId, data.signerEmail);
+        result = SN_createEmbeddedLink(data.documentId, data.signerEmail, data.signerRole, data.linkExpiration);
         break;
-        
+      
       case 'sendPacketForSignature':
-        // Handles multiple docs. Maps to individual sends or group invite
         result = SN_sendPacketForSignature(data);
         break;
-        
+      
       case 'downloadCompletedDocument':
-        // Download not supported via JSON return (limitations of GAS)
-        // Returns a link or success status instead
-        result = { success: false, error: "Direct binary download not supported in doPost" };
+        const blob = SN_downloadDocument(data.documentId, data.type);
+        if (blob) {
+          result = {
+            success: true,
+            pdfBase64: Utilities.base64Encode(blob.getBytes()),
+            fileName: blob.getName()
+          };
+        } else {
+          result = { success: false, error: 'Download failed' };
+        }
         break;
-        
+      
       case 'saveCompletedToDrive':
-        // Logic to move signed doc back to drive
-        result = { success: true, message: "Save to drive logic pending" };
+        result = SN_saveCompletedToDrive(data.documentId, data.defendantName, data.bondDate);
         break;
-        
+      
       case 'cancelInvite':
-        result = SN_cancelInvite(data.documentId);
+        result = { success: SN_cancelInvite(data.documentId) };
+        break;
+      
+      case 'sendReminder':
+        result = SN_sendReminder(data.documentId);
         break;
 
       // --- Booking Data Operations ---
@@ -502,97 +499,7 @@ function getDocumentStatus(documentId) {
   }
 }
 
-// ============================================================================
-// ADVANCED SIGNNOW HELPERS (Impl for Partner's Code)
-// ============================================================================
-
-/** Validates if the current token works */
-function SN_validateToken() {
-  const test = testSignNowConnection();
-  return { success: test.success, message: test.success ? "Token Valid" : test.error };
-}
-
-/** Creates an embedded signing link (Kiosk Mode) */
-function SN_createEmbeddedLink(documentId, signerEmail) {
-  const config = getConfig();
-  try {
-    const payload = { document_id: documentId, type: "mobile" }; // 'mobile' often used for general link generation
-    const options = {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + config.SIGNNOW_ACCESS_TOKEN, 'Content-Type': 'application/json' },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    };
-    
-    // SignNow V2 Link Endpoint
-    const response = UrlFetchApp.fetch(config.SIGNNOW_API_BASE + '/link', options);
-    const result = JSON.parse(response.getContentText());
-    
-    if (result.url) {
-      return { success: true, links: [result.url] }; // Returning array to match partner's structure
-    } else {
-      return { success: false, error: result.errors ? JSON.stringify(result.errors) : "Failed to generate link" };
-    }
-  } catch (e) {
-    return { success: false, error: e.toString() };
-  }
-}
-
-/** Cancel an invite */
-function SN_cancelInvite(documentId) {
-  const config = getConfig();
-  try {
-    const options = {
-      method: 'PUT', // SignNow uses PUT to cancel invites usually
-      headers: { 'Authorization': 'Bearer ' + config.SIGNNOW_ACCESS_TOKEN },
-      muteHttpExceptions: true
-    };
-    UrlFetchApp.fetch(config.SIGNNOW_API_BASE + '/document/' + documentId + '/invite', options);
-    return true; 
-  } catch (e) {
-    return false;
-  }
-}
-
-/** Packet sending orchestration (Simple sequential implementation) */
-function SN_sendPacketForSignature(data) {
-  const docs = data.documents || [];
-  const results = [];
-  const docIds = [];
-  
-  // 1. Upload all docs
-  for (const doc of docs) {
-    const up = uploadFilledPdfToSignNow(doc.pdfBase64, doc.fileName);
-    if (up.success) {
-      docIds.push(up.documentId);
-    } else {
-      return { success: false, error: "Failed to upload " + doc.fileName };
-    }
-  }
-  
-  // 2. Determine Method
-  if (data.deliveryMethod === 'embedded') {
-    // Generate links for all
-    const links = [];
-    for (const id of docIds) {
-      const linkRes = SN_createEmbeddedLink(id, null);
-      if (linkRes.success && linkRes.links[0]) links.push(linkRes.links[0]);
-    }
-    return { success: true, documentIds: docIds, links: links };
-  } else {
-    // Send Invites for all
-    for (const id of docIds) {
-      createSigningRequest({
-        documentId: id,
-        signers: data.signers,
-        subject: data.options.subject,
-        message: data.options.message,
-        fromEmail: data.options.fromEmail
-      });
-    }
-    return { success: true, documentIds: docIds };
-  }
-}
+// Note: SN_ methods are now defined in SignNowAPI.gs
 
 // ============================================================================
 // UTILITIES & DATA
