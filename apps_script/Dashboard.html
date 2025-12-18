@@ -7,9 +7,14 @@
     <title>Shamrock Bail Bonds - Enterprise Control Center</title>
 
     <!-- PDF-LIB for in-browser PDF manipulation -->
+    <!-- Server-side data injection -->
+    <div id="server-data-injection" style="display:none;"
+        data-json='<?!= (typeof data !== "undefined") ? JSON.stringify(data) : "null" ?>'></div>
     <script>
-        // Inject data from server-side (if available)
-        window.INJECTED_DATA = <?!= JSON.stringify(data || null) ?>;
+        (function () {
+            var dataDiv = document.getElementById('server-data-injection');
+            window.INJECTED_DATA = JSON.parse(dataDiv.getAttribute('data-json') || 'null');
+        })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
