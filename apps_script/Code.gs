@@ -374,6 +374,10 @@ function doPost(e) {
         break;
       
       // --- Google Drive Operations ---
+      case 'getPdfTemplates':
+        result = getMultipleTemplates(data.templates);
+        break;
+      
       case 'saveToGoogleDrive':
         result = saveFilledPacketToDrive(data);
         break;

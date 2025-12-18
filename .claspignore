@@ -1,0 +1,19 @@
+# ------------------------------------------------------
+# 1. IGNORE EVERYTHING IN THE PROJECT ROOT
+# ------------------------------------------------------
+# This blocks venv, scrapers, node_modules, python scripts, etc.
+**/**
+
+# ------------------------------------------------------
+# 2. EXCEPTION: ALLOW THE APPS SCRIPT FOLDER
+# ------------------------------------------------------
+# We explicitly un-ignore (!) the folder where your actual GAS code lives
+!apps_script/
+!apps_script/**
+
+# ------------------------------------------------------
+# 3. EXCEPTION: MANIFEST FILE
+# ------------------------------------------------------
+# Depending on where you keep it, ensure the manifest is allowed
+!appsscript.json
+!apps_script/appsscript.json
