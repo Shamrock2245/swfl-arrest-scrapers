@@ -37,18 +37,33 @@ In your Google Apps Script project, add these new files:
 
 ---
 
-## Step 2: Configure Script Properties
+## Step 2: Verify Your Existing Script Properties
 
-### Add These Properties
+### Properties You Already Have (DO NOT CHANGE)
 
-In GAS: **Project Settings** → **Script Properties** → **Add Property**
+Your GAS project already has these properties configured:
+
+| Property | Your Value | Description |
+|----------|------------|-------------|
+| `SIGNNOW_ACCESS_TOKEN` | `0c35edbbf6823555a8434624aaec4830fd44...` | SignNow API token |
+| `SIGNNOW_API_BASE_URL` | `https://api.signnow.com` | SignNow API base URL |
+| `SIGNNOW_SENDER_EMAIL` | `admin@shamrockbailbonds.biz` | Email shown as sender |
+| `SIGNNOW_MASTER_TEMPLATE_ID` | `e01325b536d34f718f707cfb5f63f4e202013` | Master template ID |
+| `GOOGLE_DRIVE_FOLDER_ID` | `1ovsOYPDHuT7Sr9W6S5zQQpzhPsyf6tHR` | Input folder |
+| `GOOGLE_DRIVE_OUTPUT_FOLDER_ID` | `1ZyTCodt67UAxEbFdGqE3VNua-9TlblR3` | Completed bonds folder |
+| `REDIRECT_URL` | `https://www.shamrockbailbonds.biz` | Redirect after signing |
+
+### Property to DELETE
+
+| Property | Action |
+|----------|--------|
+| `SIGNNOW_API_TOKEN` | **DELETE** - Duplicate of SIGNNOW_ACCESS_TOKEN |
+
+### Property to ADD
 
 | Property | Value | Description |
 |----------|-------|-------------|
 | `WIX_API_KEY` | (generate below) | Authenticates GAS → Wix API calls |
-| `SIGNNOW_ACCESS_TOKEN` | `0c35edbbf6823555a8434624aaec4830fd4477bb5befee3da2fa29e2b258913d` | Your SignNow API token |
-| `SIGNNOW_SENDER_EMAIL` | `admin@shamrockbailbonds.biz` | Email shown as sender |
-| `COMPLETED_BONDS_FOLDER_ID` | (your folder ID) | Google Drive folder for completed docs |
 
 ### Generate WIX_API_KEY
 

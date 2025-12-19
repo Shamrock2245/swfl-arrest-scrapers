@@ -3,6 +3,13 @@
  * 
  * Google Apps Script Web App for handling webhooks from SignNow and Wix
  * 
+ * USES EXISTING PROPERTY NAMES:
+ * - SIGNNOW_ACCESS_TOKEN (for SignNow API calls)
+ * - SIGNNOW_API_BASE_URL (SignNow API base URL)
+ * - GOOGLE_DRIVE_OUTPUT_FOLDER_ID (where completed bonds are saved)
+ * - REDIRECT_URL (Wix site URL)
+ * - WIX_API_KEY (for Wix integration)
+ * 
  * DEPLOYMENT INSTRUCTIONS:
  * 1. In GAS, click Deploy → New deployment
  * 2. Select "Web app"
@@ -122,8 +129,15 @@ function handleDocumentComplete(documentId, payload) {
     const dateStr = new Date().toISOString().split('T')[0];
     const folderName = `${defendantName} - ${dateStr}`;
     
-    // Get or create the Completed Bonds folder
-    const completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    // Get or create the Completed Bonds folder (use GOOGLE_DRIVE_OUTPUT_FOLDER_ID if set)
+    const props = PropertiesService.getScriptProperties();
+    const outputFolderId = props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID');
+    let completedBondsFolder;
+    if (outputFolderId) {
+      completedBondsFolder = DriveApp.getFolderById(outputFolderId);
+    } else {
+      completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    }
     const defendantFolder = getOrCreateFolder(folderName, completedBondsFolder);
     
     // Download and save the signed document
@@ -202,8 +216,15 @@ function handleSaveDocumentToDrive(document) {
   try {
     const { memberEmail, memberName, documentType, documentName, fileUrl, metadata } = document;
     
-    // Create folder structure
-    const completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    // Create folder structure (use GOOGLE_DRIVE_OUTPUT_FOLDER_ID if set)
+    const props = PropertiesService.getScriptProperties();
+    const outputFolderId = props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID');
+    let completedBondsFolder;
+    if (outputFolderId) {
+      completedBondsFolder = DriveApp.getFolderById(outputFolderId);
+    } else {
+      completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    }
     const dateStr = new Date().toISOString().split('T')[0];
     const memberFolder = getOrCreateFolder(`${memberName || memberEmail} - ${dateStr}`, completedBondsFolder);
     
@@ -243,8 +264,15 @@ function handleSyncIdUpload(upload) {
   try {
     const { memberEmail, memberName, documentType, fileUrl, side, metadata } = upload;
     
-    // Create folder structure
-    const completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    // Create folder structure (use GOOGLE_DRIVE_OUTPUT_FOLDER_ID if set)
+    const props = PropertiesService.getScriptProperties();
+    const outputFolderId = props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID');
+    let completedBondsFolder;
+    if (outputFolderId) {
+      completedBondsFolder = DriveApp.getFolderById(outputFolderId);
+    } else {
+      completedBondsFolder = getOrCreateFolder('Completed Bonds');
+    }
     const dateStr = new Date().toISOString().split('T')[0];
     const memberFolder = getOrCreateFolder(`${memberName || memberEmail} - ${dateStr}`, completedBondsFolder);
     const idsFolder = getOrCreateFolder('IDs', memberFolder);

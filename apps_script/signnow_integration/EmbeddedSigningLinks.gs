@@ -3,7 +3,29 @@
  * 
  * Functions for creating embedded signing links with redirect support
  * These are called from Dashboard.html to generate signing links for the Wix portal
+ * 
+ * USES EXISTING PROPERTY NAMES:
+ * - SIGNNOW_ACCESS_TOKEN
+ * - SIGNNOW_API_BASE_URL
+ * - SIGNNOW_SENDER_EMAIL
+ * - REDIRECT_URL
+ * - GOOGLE_DRIVE_OUTPUT_FOLDER_ID
  */
+
+/**
+ * Get SignNow configuration from Script Properties
+ * Uses the existing property names from your GAS project
+ */
+function getSignNowConfig_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    accessToken: props.getProperty('SIGNNOW_ACCESS_TOKEN'),
+    baseUrl: props.getProperty('SIGNNOW_API_BASE_URL') || 'https://api.signnow.com',
+    senderEmail: props.getProperty('SIGNNOW_SENDER_EMAIL') || 'admin@shamrockbailbonds.biz',
+    redirectUrl: props.getProperty('REDIRECT_URL') || 'https://www.shamrockbailbonds.biz',
+    outputFolderId: props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID')
+  };
+}
 
 /**
  * Create an embedded signing link for a specific signer
@@ -12,14 +34,19 @@
  * @param {string} signerEmail - Email of the signer
  * @param {string} signerName - Name of the signer
  * @param {string} signerRole - Role: 'defendant', 'indemnitor', or 'agent'
- * @param {string} redirectUrl - URL to redirect to after signing (default: shamrockbailbonds.biz)
+ * @param {string} redirectUrl - URL to redirect to after signing (optional, uses REDIRECT_URL property if not provided)
  * @returns {Object} Result with signing link or error
  */
 function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signerRole, redirectUrl) {
   try {
-    const config = SN_getConfig();
+    const config = getSignNowConfig_();
     const accessToken = config.accessToken;
-    const redirectUri = redirectUrl || 'https://www.shamrockbailbonds.biz';
+    const redirectUri = redirectUrl || config.redirectUrl;
+    const baseUrl = config.baseUrl;
+    
+    if (!accessToken) {
+      throw new Error('SIGNNOW_ACCESS_TOKEN not configured in Script Properties');
+    }
     
     // First, create an invite for this signer
     const invitePayload = {
@@ -35,7 +62,7 @@ function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signe
         subject: 'Shamrock Bail Bonds - Documents Ready for Signature',
         message: `Hello ${signerName},\n\nYour bail bond documents are ready for signature. Please click the link to review and sign.\n\nThank you,\nShamrock Bail Bonds`
       }],
-      from: config.senderEmail || 'admin@shamrockbailbonds.biz',
+      from: config.senderEmail,
       cc: [],
       subject: 'Shamrock Bail Bonds - Signature Required',
       message: 'Please sign the attached documents.',
@@ -44,7 +71,7 @@ function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signe
     
     // Create the field invite
     const inviteResponse = UrlFetchApp.fetch(
-      `https://api.signnow.com/document/${documentId}/invite`,
+      `${baseUrl}/document/${documentId}/invite`,
       {
         method: 'POST',
         headers: {
@@ -73,7 +100,7 @@ function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signe
     };
     
     const linkResponse = UrlFetchApp.fetch(
-      'https://api.signnow.com/v2/documents/' + documentId + '/embedded-invites/' + inviteResult.id + '/link',
+      `${baseUrl}/v2/documents/${documentId}/embedded-invites/${inviteResult.id}/link`,
       {
         method: 'POST',
         headers: {
@@ -89,7 +116,7 @@ function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signe
     if (linkResponse.getResponseCode() !== 200 && linkResponse.getResponseCode() !== 201) {
       // Fallback: Create a simple signing link
       const simpleLinkResponse = UrlFetchApp.fetch(
-        `https://api.signnow.com/link`,
+        `${baseUrl}/link`,
         {
           method: 'POST',
           headers: {
@@ -138,7 +165,7 @@ function SN_createEmbeddedSigningLink(documentId, signerEmail, signerName, signe
  * 
  * @param {string} documentId - The SignNow document ID
  * @param {Array} signers - Array of signer objects with email, name, role
- * @param {string} redirectUrl - URL to redirect to after signing
+ * @param {string} redirectUrl - URL to redirect to after signing (optional)
  * @returns {Object} Result with array of signing links
  */
 function SN_createMultipleEmbeddedLinks(documentId, signers, redirectUrl) {
@@ -175,11 +202,12 @@ function SN_createMultipleEmbeddedLinks(documentId, signers, redirectUrl) {
  */
 function SN_getDocumentStatus(documentId) {
   try {
-    const config = SN_getConfig();
+    const config = getSignNowConfig_();
     const accessToken = config.accessToken;
+    const baseUrl = config.baseUrl;
     
     const response = UrlFetchApp.fetch(
-      `https://api.signnow.com/document/${documentId}`,
+      `${baseUrl}/document/${documentId}`,
       {
         method: 'GET',
         headers: {
@@ -226,17 +254,19 @@ function SN_getDocumentStatus(documentId) {
  * Download a completed signed document
  * 
  * @param {string} documentId - The SignNow document ID
- * @param {string} folderId - Google Drive folder ID to save to (optional)
+ * @param {string} folderId - Google Drive folder ID to save to (optional, uses GOOGLE_DRIVE_OUTPUT_FOLDER_ID if not provided)
  * @returns {Object} Result with file ID or error
  */
 function SN_downloadSignedDocument(documentId, folderId) {
   try {
-    const config = SN_getConfig();
+    const config = getSignNowConfig_();
     const accessToken = config.accessToken;
+    const baseUrl = config.baseUrl;
+    const outputFolderId = folderId || config.outputFolderId;
     
     // Download the document
     const response = UrlFetchApp.fetch(
-      `https://api.signnow.com/document/${documentId}/download?type=collapsed`,
+      `${baseUrl}/document/${documentId}/download?type=collapsed`,
       {
         method: 'GET',
         headers: {
@@ -258,8 +288,8 @@ function SN_downloadSignedDocument(documentId, folderId) {
     
     // Save to Google Drive
     let folder;
-    if (folderId) {
-      folder = DriveApp.getFolderById(folderId);
+    if (outputFolderId) {
+      folder = DriveApp.getFolderById(outputFolderId);
     } else {
       // Create or get the "Completed Bonds" folder
       const folders = DriveApp.getFoldersByName('Completed Bonds');
@@ -282,39 +312,6 @@ function SN_downloadSignedDocument(documentId, folderId) {
 }
 
 /**
- * Web app endpoint for SignNow webhooks
- * Deploy this as a web app to receive completion notifications
- */
-function doPost(e) {
-  try {
-    const payload = JSON.parse(e.postData.contents);
-    
-    // Handle document completion webhook
-    if (payload.event === 'document.complete' || payload.meta?.event === 'document_complete') {
-      const documentId = payload.document_id || payload.content?.document_id;
-      
-      if (documentId) {
-        // Download and save the completed document
-        const result = SN_downloadSignedDocument(documentId);
-        
-        // Update status in Wix (if configured)
-        updateWixDocumentStatus(documentId, 'signed');
-        
-        console.log('Document completed and saved:', result);
-      }
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-      
-  } catch (error) {
-    console.error('Webhook error:', error);
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
  * Update document status in Wix PendingDocuments collection
  * 
  * @param {string} documentId - The SignNow document ID
@@ -322,14 +319,17 @@ function doPost(e) {
  */
 function updateWixDocumentStatus(documentId, status) {
   try {
-    const wixApiKey = PropertiesService.getScriptProperties().getProperty('WIX_API_KEY');
+    const props = PropertiesService.getScriptProperties();
+    const wixApiKey = props.getProperty('WIX_API_KEY');
+    const redirectUrl = props.getProperty('REDIRECT_URL') || 'https://www.shamrockbailbonds.biz';
+    
     if (!wixApiKey) {
       console.log('WIX_API_KEY not configured, skipping Wix update');
       return;
     }
     
     const response = UrlFetchApp.fetch(
-      'https://www.shamrockbailbonds.biz/_functions/documentsStatus',
+      redirectUrl + '/_functions/documentsStatus',
       {
         method: 'POST',
         headers: {
