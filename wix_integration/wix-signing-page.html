@@ -1,0 +1,234 @@
+<!--
+============================================================================
+Wix Signing Page - HTML Structure
+============================================================================
+Shamrock Bail Bonds - shamrockbailbonds.biz/sign
+
+SETUP INSTRUCTIONS:
+1. In Wix Editor, create a new page at /sign
+2. Add the following elements with the specified IDs
+3. Style according to your brand
+4. Add the Velo code from wix-signing-page.js
+============================================================================
+-->
+
+<!-- 
+PAGE ELEMENTS TO ADD IN WIX EDITOR:
+
+1. HEADER SECTION
+   - Text element #pageTitle: "Shamrock Bail Bonds - Document Signing"
+   - Text element #signerInfo: (will be populated with signer name/role)
+   - Logo image
+
+2. LOADING INDICATOR
+   - Container #loadingIndicator
+   - Add a loading animation/spinner inside
+   - Text: "Loading your documents..."
+
+3. SIGNING FRAME
+   - HTML iFrame component #signingFrame
+   - Set width: 100%
+   - Set height: 800px (or use viewport height)
+   - Initially collapsed
+
+4. SUCCESS MESSAGE
+   - Container #successMessage (initially hidden)
+   - Green background
+   - Text: "Thank you! Your signature has been recorded."
+   - Checkmark icon
+
+5. ERROR MESSAGE
+   - Container #errorMessage (initially hidden)
+   - Red/orange background
+   - Text element for dynamic error messages
+
+6. FOOTER
+   - Contact information
+   - Phone: (239) 985-9999
+   - Email: admin@shamrockbailbonds.biz
+-->
+
+<!-- SAMPLE HTML STRUCTURE (for reference - implement in Wix Editor) -->
+
+<div class="signing-page">
+    <!-- Header -->
+    <header class="signing-header">
+        <img src="shamrock-logo.png" alt="Shamrock Bail Bonds" class="logo">
+        <h1 id="pageTitle">Shamrock Bail Bonds</h1>
+        <h2>Document Signing Portal</h2>
+        <p id="signerInfo" class="signer-info"></p>
+    </header>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading your documents...</p>
+        <p class="loading-subtext">Please wait while we prepare your paperwork.</p>
+    </div>
+
+    <!-- Signing Frame -->
+    <div class="frame-container">
+        <iframe 
+            id="signingFrame" 
+            class="signing-frame"
+            allow="camera; microphone"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        ></iframe>
+    </div>
+
+    <!-- Success Message -->
+    <div id="successMessage" class="message-container success" style="display: none;">
+        <div class="message-icon">✓</div>
+        <h2>Thank You!</h2>
+        <p>Your signature has been recorded successfully.</p>
+        <p>You will be redirected to our homepage shortly.</p>
+        <p class="contact-info">
+            Questions? Call us at <a href="tel:+12399859999">(239) 985-9999</a>
+        </p>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="message-container error" style="display: none;">
+        <div class="message-icon">!</div>
+        <h2>Something Went Wrong</h2>
+        <p class="error-text"></p>
+        <p class="contact-info">
+            Need help? Call us at <a href="tel:+12399859999">(239) 985-9999</a>
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <footer class="signing-footer">
+        <p>Shamrock Bail Bonds</p>
+        <p>
+            <a href="tel:+12399859999">(239) 985-9999</a> | 
+            <a href="mailto:admin@shamrockbailbonds.biz">admin@shamrockbailbonds.biz</a>
+        </p>
+        <p class="legal-text">
+            By signing these documents, you acknowledge that you have read and agree to the terms and conditions.
+        </p>
+    </footer>
+</div>
+
+<style>
+/* 
+SAMPLE CSS - Implement in Wix Editor's design panel
+These styles are for reference only
+*/
+
+.signing-page {
+    font-family: 'Arial', sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.signing-header {
+    text-align: center;
+    padding: 20px 0;
+    border-bottom: 2px solid #2E7D32; /* Shamrock green */
+}
+
+.logo {
+    max-height: 80px;
+    margin-bottom: 10px;
+}
+
+.signer-info {
+    font-size: 1.2em;
+    color: #2E7D32;
+    font-weight: bold;
+}
+
+.loading-container {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2E7D32;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-subtext {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.frame-container {
+    width: 100%;
+    min-height: 800px;
+}
+
+.signing-frame {
+    width: 100%;
+    height: 800px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.message-container {
+    text-align: center;
+    padding: 40px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.message-container.success {
+    background-color: #E8F5E9;
+    border: 2px solid #2E7D32;
+}
+
+.message-container.error {
+    background-color: #FFEBEE;
+    border: 2px solid #C62828;
+}
+
+.message-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.success .message-icon {
+    color: #2E7D32;
+}
+
+.error .message-icon {
+    color: #C62828;
+}
+
+.contact-info {
+    margin-top: 20px;
+    font-size: 1.1em;
+}
+
+.contact-info a {
+    color: #2E7D32;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.signing-footer {
+    text-align: center;
+    padding: 20px;
+    margin-top: 40px;
+    border-top: 1px solid #ddd;
+    color: #666;
+}
+
+.legal-text {
+    font-size: 0.8em;
+    color: #999;
+    margin-top: 10px;
+}
+</style>
