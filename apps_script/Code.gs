@@ -882,21 +882,83 @@ const FORM_HTML_SIGNNOW_FUNCTIONS = `
  * Currently returns mock data or calculated real data if sheets are connected
  */
 function getCountyStatistics() {
-  // In a real implementation, this would query the master spreadsheet
-  // For now, we return the structure the frontend expects
-  const stats = {
-    lee: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} },
-    collier: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} },
-    charlotte: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} },
-    hendry: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} },
-    sarasota: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} },
-    manatee: { val: 0, total: 0, male: 0, female: 0, avgBond: 0, crimes: {} }
+  const ss = SpreadsheetApp.openById('121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E');
+  const today = Utilities.formatDate(new Date(), "America/New_York", "MM/DD/YYYY");
+  
+  const countyMap = {
+    'lee': 'Lee',
+    'collier': 'Collier',
+    'charlotte': 'Charlotte',
+    'sarasota': 'Sarasota',
+    'hendry': 'Hendry',
+    'desoto': 'DeSoto',
+    'manatee': 'Manatee',
+    'palm-beach': 'Palm Beach',
+    'seminole': 'Seminole',
+    'orange': 'Orange',
+    'pinellas': 'Pinellas',
+    'broward': 'Broward',
+    'hillsborough': 'Hillsborough'
   };
 
+  const stats = {};
+
   try {
-    // If you have the Sheet ID, we could implement real stats fetching here
-    // const sheet = SpreadsheetApp.openById('121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E');
-    // ... logic to count rows ...
+    for (let key in countyMap) {
+      const sheetName = countyMap[key];
+      const sheet = ss.getSheetByName(sheetName);
+      
+      stats[key] = { total: 0, male: 0, female: 0, avgBond: 0, crimes: {} };
+
+      if (sheet) {
+        const data = sheet.getDataRange().getValues();
+        if (data.length > 1) {
+          let bondTotal = 0;
+          let bondCount = 0;
+          
+          for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            const bookingDateRaw = row[9]; // Col 10
+            let bookingDateStr = "";
+            
+            if (bookingDateRaw instanceof Date) {
+              bookingDateStr = Utilities.formatDate(bookingDateRaw, "America/New_York", "MM/DD/YYYY");
+            } else {
+              bookingDateStr = String(bookingDateRaw);
+            }
+            
+            if (bookingDateStr === today || bookingDateStr.includes(today)) {
+              stats[key].total++;
+              
+              const sex = String(row[14]).toUpperCase(); // Col 15
+              if (sex === 'M' || sex === 'MALE') stats[key].male++;
+              else if (sex === 'F' || sex === 'FEMALE') stats[key].female++;
+              
+              const bondValue = row[23]; // Col 24
+              const bond = typeof bondValue === 'number' ? bondValue : parseFloat(String(bondValue).replace(/[^0-9.]/g, ''));
+              if (!isNaN(bond) && bond > 0) {
+                bondTotal += bond;
+                bondCount++;
+              }
+              
+              const charges = String(row[22]); // Col 23
+              if (charges) {
+                const chargeList = charges.split('|');
+                chargeList.forEach(c => {
+                  const trimmed = c.trim();
+                  if (trimmed) {
+                    stats[key].crimes[trimmed] = (stats[key].crimes[trimmed] || 0) + 1;
+                  }
+                });
+              }
+            }
+          }
+          if (bondCount > 0) {
+            stats[key].avgBond = Math.round(bondTotal / bondCount);
+          }
+        }
+      }
+    }
   } catch (e) {
     console.error('Error fetching stats:', e);
   }

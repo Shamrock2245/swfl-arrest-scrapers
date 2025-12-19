@@ -449,17 +449,25 @@ function SN_sendEmailInvite(documentId, signers, options) {
     }
     
     const invitePayload = {
-      to: signers.map((signer, index) => ({
-        email: signer.email,
-        role: signer.role,
-        role_id: roleMap[signer.role] || '',
-        order: signer.order || (index + 1)
-      })),
+      to: signers.map((signer, index) => {
+        const roleId = roleMap[signer.role];
+        if (!roleId) {
+          SN_log('sendEmailInvite:Warning', `Role ID not found for role ${signer.role}. Current roles: ${JSON.stringify(Object.keys(roleMap))}`);
+        }
+        return {
+          email: signer.email,
+          role: signer.role,
+          role_id: roleId || '',
+          order: signer.order || (index + 1)
+        };
+      }),
       from: options.fromEmail || config.SENDER_EMAIL,
       subject: options.subject || 'Documents Ready for Signature - Shamrock Bail Bonds',
       message: options.message || 'Please review and sign the attached bail bond documents. If you have any questions, please contact us.'
     };
     
+    SN_log('sendEmailInvite:Payload', { documentId: documentId, invitePayload: invitePayload });
+
     const response = UrlFetchApp.fetch(config.API_BASE + '/document/' + documentId + '/invite', {
       method: 'POST',
       headers: {
@@ -470,7 +478,10 @@ function SN_sendEmailInvite(documentId, signers, options) {
       muteHttpExceptions: true
     });
     
-    const result = JSON.parse(response.getContentText());
+    const responseText = response.getContentText();
+    SN_log('sendEmailInvite:Response', { status: response.getResponseCode(), body: responseText });
+    
+    const result = JSON.parse(responseText);
     
     if (response.getResponseCode() === 200 || response.getResponseCode() === 201) {
       SN_log('sendEmailInvite', { success: true, documentId: documentId });
@@ -508,16 +519,24 @@ function SN_sendSmsInvite(documentId, signers, options) {
     }
     
     const invitePayload = {
-      to: signers.map((signer, index) => ({
-        phone_invite: SN_formatPhoneE164(signer.phone),
-        role: signer.role,
-        role_id: roleMap[signer.role] || '',
-        order: signer.order || (index + 1),
-        sms_message: signer.smsMessage || 'Shamrock Bail Bonds: Please sign your bail bond documents.'
-      })),
+      to: signers.map((signer, index) => {
+        const roleId = roleMap[signer.role];
+        if (!roleId) {
+          SN_log('sendSmsInvite:Warning', `Role ID not found for role ${signer.role}. Current roles: ${JSON.stringify(Object.keys(roleMap))}`);
+        }
+        return {
+          phone_invite: SN_formatPhoneE164(signer.phone),
+          role: signer.role,
+          role_id: roleId || '',
+          order: signer.order || (index + 1),
+          sms_message: signer.smsMessage || 'Shamrock Bail Bonds: Please sign your bail bond documents.'
+        };
+      }),
       from: options.fromEmail || config.SENDER_EMAIL
     };
     
+    SN_log('sendSmsInvite:Payload', { documentId: documentId, invitePayload: invitePayload });
+
     const response = UrlFetchApp.fetch(config.API_BASE + '/document/' + documentId + '/invite', {
       method: 'POST',
       headers: {
@@ -528,7 +547,10 @@ function SN_sendSmsInvite(documentId, signers, options) {
       muteHttpExceptions: true
     });
     
-    const result = JSON.parse(response.getContentText());
+    const responseText = response.getContentText();
+    SN_log('sendSmsInvite:Response', { status: response.getResponseCode(), body: responseText });
+
+    const result = JSON.parse(responseText);
     
     if (response.getResponseCode() === 200 || response.getResponseCode() === 201) {
       SN_log('sendSmsInvite', { success: true, documentId: documentId });

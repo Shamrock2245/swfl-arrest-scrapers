@@ -1450,74 +1450,256 @@
                             Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('sarasota')">
+                    <div class="county-card active" id="county-card-sarasota">
                         <div class="status-dot"></div>
                         <div class="county-icon">SAR</div>
                         <div class="county-name">Sarasota County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="sarasota-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="sarasota-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="sarasota-male">--</span> / <span
+                                        class="stat-value female" id="sarasota-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="sarasota-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="sarasota-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('sarasota')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('hendry')">
+                    <div class="county-card active" id="county-card-hendry">
                         <div class="status-dot"></div>
                         <div class="county-icon">HEN</div>
                         <div class="county-name">Hendry County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="hendry-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="hendry-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="hendry-male">--</span> / <span
+                                        class="stat-value female" id="hendry-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="hendry-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="hendry-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('hendry')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('desoto')">
+                    <div class="county-card active" id="county-card-desoto">
                         <div class="status-dot"></div>
                         <div class="county-icon">DES</div>
                         <div class="county-name">DeSoto County</div>
                         <div class="county-status">Low Traffic</div>
+                        <div class="county-stats" id="desoto-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="desoto-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="desoto-male">--</span> / <span
+                                        class="stat-value female" id="desoto-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="desoto-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="desoto-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('desoto')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('manatee')">
+                    <div class="county-card active" id="county-card-manatee">
                         <div class="status-dot"></div>
                         <div class="county-icon">MAN</div>
                         <div class="county-name">Manatee County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="manatee-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="manatee-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="manatee-male">--</span> / <span
+                                        class="stat-value female" id="manatee-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="manatee-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="manatee-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('manatee')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('palm-beach')">
+                    <div class="county-card active" id="county-card-palm-beach">
                         <div class="status-dot"></div>
                         <div class="county-icon">PBC</div>
                         <div class="county-name">Palm Beach County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="palm-beach-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="palm-beach-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="palm-beach-male">--</span> / <span
+                                        class="stat-value female" id="palm-beach-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="palm-beach-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="palm-beach-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('palm-beach')">&#128269; Open
+                            Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('seminole')">
+                    <div class="county-card active" id="county-card-seminole">
                         <div class="status-dot"></div>
                         <div class="county-icon">SEM</div>
                         <div class="county-name">Seminole County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="seminole-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="seminole-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="seminole-male">--</span> / <span
+                                        class="stat-value female" id="seminole-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="seminole-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="seminole-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('seminole')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('orange')">
+                    <div class="county-card active" id="county-card-orange">
                         <div class="status-dot"></div>
                         <div class="county-icon">ORA</div>
                         <div class="county-name">Orange County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="orange-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="orange-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="orange-male">--</span> / <span
+                                        class="stat-value female" id="orange-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="orange-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="orange-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('orange')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('pinellas')">
+                    <div class="county-card active" id="county-card-pinellas">
                         <div class="status-dot"></div>
                         <div class="county-icon">PIN</div>
                         <div class="county-name">Pinellas County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="pinellas-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="pinellas-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="pinellas-male">--</span> / <span
+                                        class="stat-value female" id="pinellas-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="pinellas-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="pinellas-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('pinellas')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('broward')">
+                    <div class="county-card active" id="county-card-broward">
                         <div class="status-dot"></div>
                         <div class="county-icon">BRO</div>
                         <div class="county-name">Broward County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="broward-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="broward-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="broward-male">--</span> / <span
+                                        class="stat-value female" id="broward-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="broward-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="broward-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('broward')">&#128269; Open Booking
+                            Blotter</button>
                     </div>
 
-                    <div class="county-card pending" onclick="openCountyScraper('hillsborough')">
+                    <div class="county-card active" id="county-card-hillsborough">
                         <div class="status-dot"></div>
                         <div class="county-icon">HIL</div>
                         <div class="county-name">Hillsborough County</div>
-                        <div class="county-status">Scraper Pending</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="hillsborough-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="hillsborough-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="hillsborough-male">--</span> / <span
+                                        class="stat-value female" id="hillsborough-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="hillsborough-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="hillsborough-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('hillsborough')">&#128269; Open
+                            Booking
+                            Blotter</button>
                     </div>
                 </div>
 
@@ -2659,7 +2841,7 @@
          * @param {Object} stats - Statistics object keyed by county name
          */
         function updateCountyStats(stats) {
-            const counties = ['lee', 'collier', 'charlotte'];
+            const counties = ['lee', 'collier', 'charlotte', 'sarasota', 'hendry', 'desoto', 'manatee', 'palm-beach', 'seminole', 'orange', 'pinellas', 'broward', 'hillsborough'];
 
             counties.forEach(county => {
                 const countyStats = stats[county] || {};
@@ -2704,27 +2886,11 @@
          */
         function loadSampleCountyStats() {
             const sampleStats = {
-                lee: {
-                    total: 47,
-                    male: 38,
-                    female: 9,
-                    avgBond: 5250,
-                    crimes: { 'DUI': 8, 'Battery': 12, 'Theft': 6, 'Drug': 15 }
-                },
-                collier: {
-                    total: 23,
-                    male: 19,
-                    female: 4,
-                    avgBond: 7500,
-                    crimes: { 'DUI': 5, 'Battery': 7, 'Theft': 3, 'Drug': 6 }
-                },
-                charlotte: {
-                    total: 15,
-                    male: 12,
-                    female: 3,
-                    avgBond: 3500,
-                    crimes: { 'DUI': 3, 'Battery': 5, 'Theft': 2, 'Drug': 4 }
-                }
+                lee: { total: 47, male: 38, female: 9, avgBond: 5250, crimes: { 'DUI': 8, 'Battery': 12, 'Theft': 6, 'Drug': 15 } },
+                collier: { total: 23, male: 19, female: 4, avgBond: 7500, crimes: { 'DUI': 5, 'Battery': 7, 'Theft': 3, 'Drug': 6 } },
+                charlotte: { total: 15, male: 12, female: 3, avgBond: 3500, crimes: { 'DUI': 3, 'Battery': 5, 'Theft': 2, 'Drug': 4 } },
+                sarasota: { total: 10, male: 8, female: 2, avgBond: 4200, crimes: { 'DUI': 2, 'Theft': 4, 'Battery': 4 } },
+                manatee: { total: 18, male: 14, female: 4, avgBond: 5800, crimes: { 'Theft': 6, 'Drug': 6, 'DUI': 6 } }
             };
 
             updateCountyStats(sampleStats);
@@ -2787,7 +2953,7 @@
               </select>
             </div>
           </div>
-          <div class="form-row">
+          <div class="form-row">is there
             <div class="form-group">
               <label>Case Number</label>
               <input type="text" id="charge-${chargeCount}-case" placeholder="24-CF-001234" value="${data.caseNumber || ''}">
@@ -3850,7 +4016,8 @@
         async function createSigningLink(documentId) {
             const result = await callGAS('createEmbeddedLink', {
                 documentId: documentId,
-                signerEmail: document.getElementById('signer-defendant-email').value || 'defendant@example.com'
+                signerEmail: document.getElementById('signer-defendant-email').value || 'defendant@example.com',
+                signerRole: 'Defendant' // Added required role
             });
 
             if (result.success && result.links && result.links[0]) {
@@ -4309,14 +4476,18 @@
          * Fill PDFs with form data using pdf-lib
          */
         async function fillPDFsWithData(pdfDocs, formData) {
-            const { PDFDocument } = PDFLib;
+            const { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown } = PDFLib;
             const filledPdfs = [];
+
+            console.log(`Starting to fill ${pdfDocs.length} documents...`);
 
             for (const doc of pdfDocs) {
                 try {
+                    console.log(`Filling ${doc.key}...`);
                     const pdfDoc = await PDFDocument.load(doc.bytes);
                     const form = pdfDoc.getForm();
                     const fields = form.getFields();
+                    let fieldCount = 0;
 
                     for (const field of fields) {
                         const fieldName = field.getName();
@@ -4326,24 +4497,30 @@
 
                         if (value !== null && value !== undefined && value !== '') {
                             try {
-                                if (field.constructor.name === 'PDFTextField') {
+                                if (field instanceof PDFTextField) {
                                     field.setText(String(value));
-                                } else if (field.constructor.name === 'PDFCheckBox') {
-                                    if (value === true || value === 'true' || value === 'yes' || value === '1') field.check();
-                                } else if (field.constructor.name === 'PDFDropdown') {
+                                    fieldCount++;
+                                } else if (field instanceof PDFCheckBox) {
+                                    if (value === true || value === 'true' || value === 'yes' || value === '1') {
+                                        field.check();
+                                        fieldCount++;
+                                    }
+                                } else if (field instanceof PDFDropdown) {
                                     field.select(String(value));
+                                    fieldCount++;
                                 }
                             } catch (fieldErr) {
-                                console.warn(`Could not set field ${fieldName}:`, fieldErr);
+                                console.warn(`Could not set field ${fieldName} in ${doc.key}:`, fieldErr);
                             }
                         }
                     }
 
                     const filledBytes = await pdfDoc.save();
                     filledPdfs.push({ key: doc.key, name: doc.name, bytes: filledBytes });
+                    console.log(`✓ Successfully filled ${doc.key} (${fieldCount} fields)`);
                 } catch (err) {
                     console.error(`Error filling ${doc.key}:`, err);
-                    filledPdfs.push(doc);
+                    filledPdfs.push(doc); // Fall back to empty doc
                 }
             }
             return filledPdfs;
@@ -4354,18 +4531,25 @@
          */
         async function mergePDFs(pdfDocs) {
             const { PDFDocument } = PDFLib;
+            console.log(`Starting to merge ${pdfDocs.length} documents...`);
             const mergedPdf = await PDFDocument.create();
 
             for (const doc of pdfDocs) {
                 try {
+                    console.log(`Merging ${doc.key}...`);
                     const pdf = await PDFDocument.load(doc.bytes);
                     const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                     pages.forEach(page => mergedPdf.addPage(page));
+                    console.log(`✓ Merged ${doc.key}`);
                 } catch (err) {
                     console.error(`Error merging ${doc.key}:`, err);
                 }
             }
-            return await mergedPdf.save();
+
+            console.log('Finalizing merged PDF...');
+            const bytes = await mergedPdf.save();
+            console.log(`✓ Finalized PDF (${bytes.length} bytes)`);
+            return bytes;
         }
 
         /**
@@ -4391,11 +4575,14 @@
               </div>
             </div>
             <div style="flex:1;overflow:hidden;background:#525659;display:flex;align-items:center;justify-content:center;">
-              <object id="preview-object" data="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;border:none;">
-                  <div style="color:white;text-align:center;padding:20px;">
-                      <p>Preview cannot be displayed directly.</p>
-                      <button class="btn btn-primary" onclick="downloadPreviewPdf()">Download PDF Instead</button>
-                  </div>
+              <object id="preview-frame" data="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;">
+                <div style="color:white;text-align:center;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+                  <div style="font-size:48px;">🚫</div>
+                  <p style="font-size:18px;">Chrome is blocking the embedded PDF preview.</p>
+                  <p style="font-size:14px;opacity:0.8;">This usually happens due to browser security settings or a large document size.</p>
+                  <button class="btn btn-primary" onclick="window.open(window.currentPreviewPdfUrl, '_blank')">🔓 Open PDF in New Window</button>
+                  <p style="font-size:12px;">(You can still download or send the document using the buttons above)</p>
+                </div>
               </object>
             </div>
           </div>
@@ -4408,9 +4595,8 @@
         function closePreviewModal() {
             const modal = document.getElementById('preview-modal');
             if (modal) {
-                if (window.currentPreviewPdfUrl) {
+                if (window.currentPreviewPdfUrl && window.currentPreviewPdfUrl.startsWith('blob:')) {
                     URL.revokeObjectURL(window.currentPreviewPdfUrl);
-                    window.currentPreviewPdfUrl = null;
                 }
                 modal.remove();
             }
@@ -4424,7 +4610,9 @@
                 const link = document.createElement('a');
                 link.href = window.currentPreviewPdfUrl;
                 link.download = filename;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
             }
         }
 
@@ -4456,7 +4644,7 @@
                 await sleep(300);
 
                 updateProgress(2, 'Fetching PDF templates from Google Drive...');
-                const selectedDocs = getSelectedDocuments(true); // Include print-only for preview
+                const selectedDocs = getSelectedDocuments(true);
                 if (selectedDocs.length === 0) throw new Error('No documents selected');
 
                 const pdfBytes = await fetchPDFsFromDrive(selectedDocs);
@@ -4468,10 +4656,17 @@
                 const mergedPdf = await mergePDFs(filledPdfs);
 
                 const pdfBlob = new Blob([mergedPdf], { type: 'application/pdf' });
-                const pdfUrl = URL.createObjectURL(pdfBlob);
 
-                hideProgress();
-                showPreviewModal(pdfUrl, formData);
+                // Convert Blob to Data URL to avoid blob: CSP issues in GAS
+                const reader = new FileReader();
+                reader.onloadend = function () {
+                    hideProgress();
+                    showPreviewModal(reader.result, formData);
+                };
+                reader.onerror = function () {
+                    throw new Error('Failed to create preview URL');
+                };
+                reader.readAsDataURL(pdfBlob);
 
             } catch (err) {
                 hideProgress();
