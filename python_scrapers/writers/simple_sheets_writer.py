@@ -23,6 +23,7 @@ COUNTY_GIDS = {
     'Orange': 9307263,
     'Seminole': 840815333,
     'Polk': 277129360,
+    'Pinellas': 1392727770,
     'Lee': 0,
     'Charlotte': 172130241,
     'Collier': 944555709,
@@ -31,6 +32,9 @@ COUNTY_GIDS = {
     'DeSoto': 1563909734,
     'Manatee': 517748079,
     'Palm Beach': 2073655185,
+    'Broward': 1291101941,
+    'Hillsborough': 1317140542,
+    'Osceola': 82714931,
 }
 
 # 34-column header schema (as specified by user)
@@ -124,7 +128,7 @@ class SimpleSheetsWriter:
         return row
     
     def get_existing_booking_numbers(self, sheet_name: str) -> set:
-        """Get all existing booking numbers from a sheet for deduplication."""
+        """Get all existing booking numbers and full names from a sheet for deduplication."""
         try:
             sheet = self.spreadsheet.worksheet(sheet_name)
             all_values = sheet.get_all_values()
@@ -132,15 +136,19 @@ class SimpleSheetsWriter:
             if len(all_values) <= 1:
                 return set()
             
-            # Booking_Number is column 0
-            booking_numbers = set()
+            # Booking_Number is column 0, Full_Name is column 1
+            identifiers = set()
             for row in all_values[1:]:
+                # Add booking number if present
                 if row and row[0]:
-                    booking_numbers.add(str(row[0]).strip())
+                    identifiers.add(str(row[0]).strip())
+                # Also add full name for records without booking numbers
+                if row and len(row) > 1 and row[1]:
+                    identifiers.add(str(row[1]).strip())
             
-            return booking_numbers
+            return identifiers
         except Exception as e:
-            print(f"Warning: Could not get existing booking numbers: {e}")
+            print(f"Warning: Could not get existing identifiers: {e}")
             return set()
     
     def write_records(
@@ -182,14 +190,18 @@ class SimpleSheetsWriter:
         
         for record in records:
             booking_num = str(record.get('Booking_Number', '') or '').strip()
+            full_name = str(record.get('Full_Name', '') or '').strip()
             
-            # Skip if no booking number
-            if not booking_num:
+            # Use booking number if available, otherwise use full name for dedupe
+            dedupe_key = booking_num if booking_num else full_name
+            
+            # Skip if no identifier at all
+            if not dedupe_key:
                 skipped += 1
                 continue
             
             # Skip duplicates
-            if deduplicate and booking_num in existing_bookings:
+            if deduplicate and dedupe_key in existing_bookings:
                 skipped += 1
                 continue
             

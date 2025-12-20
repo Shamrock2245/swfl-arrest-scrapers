@@ -1701,6 +1701,56 @@
                             Booking
                             Blotter</button>
                     </div>
+
+                    <div class="county-card active" id="county-card-polk">
+                        <div class="status-dot"></div>
+                        <div class="county-icon">POL</div>
+                        <div class="county-name">Polk County</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="polk-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="polk-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="polk-male">--</span> / <span
+                                        class="stat-value female" id="polk-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="polk-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="polk-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('polk')">&#128269; Open Booking
+                            Blotter</button>
+                    </div>
+
+                    <div class="county-card active" id="county-card-osceola">
+                        <div class="status-dot"></div>
+                        <div class="county-icon">OSC</div>
+                        <div class="county-name">Osceola County</div>
+                        <div class="county-status">Active</div>
+                        <div class="county-stats" id="osceola-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Today's Arrests:</span>
+                                <span class="stat-value" id="osceola-total">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Male / Female:</span>
+                                <span><span class="stat-value male" id="osceola-male">--</span> / <span
+                                        class="stat-value female" id="osceola-female">--</span></span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Avg Bond:</span>
+                                <span class="stat-value" id="osceola-avg-bond">--</span>
+                            </div>
+                            <div class="crime-breakdown" id="osceola-crimes"></div>
+                        </div>
+                        <button class="open-blotter-btn" onclick="openCountyScraper('osceola')">&#128269; Open Booking
+                            Blotter</button>
+                    </div>
                 </div>
 
                 <!-- Bookmarklet Installation -->
@@ -1901,6 +1951,8 @@
                             <option value="Pinellas">Pinellas County</option>
                             <option value="Broward">Broward County</option>
                             <option value="Hillsborough">Hillsborough County</option>
+                            <option value="Polk">Polk County</option>
+                            <option value="Osceola">Osceola County</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -2557,7 +2609,9 @@
                 'orange': 'https://www.ocfl.net/JailInmateSearch',
                 'pinellas': 'https://www.pcsoweb.com/InmateBooking',
                 'broward': 'https://www.sheriff.org/InmateSearch',
-                'hillsborough': 'https://webapps.hcso.tampa.fl.us/arrestinquiry'
+                'hillsborough': 'https://webapps.hcso.tampa.fl.us/arrestinquiry',
+                'polk': 'https://www.polksheriff.org/detention/jail-inquiry',
+                'osceola': 'https://apps.osceola.org/Apps/CorrectionsReports/Report/Daily'
             }
         };
 
@@ -2841,7 +2895,7 @@
          * @param {Object} stats - Statistics object keyed by county name
          */
         function updateCountyStats(stats) {
-            const counties = ['lee', 'collier', 'charlotte', 'sarasota', 'hendry', 'desoto', 'manatee', 'palm-beach', 'seminole', 'orange', 'pinellas', 'broward', 'hillsborough'];
+            const counties = ['lee', 'collier', 'charlotte', 'sarasota', 'hendry', 'desoto', 'manatee', 'palm-beach', 'seminole', 'orange', 'pinellas', 'broward', 'hillsborough', 'polk', 'osceola'];
 
             counties.forEach(county => {
                 const countyStats = stats[county] || {};

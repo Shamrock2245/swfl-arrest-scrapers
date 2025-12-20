@@ -898,7 +898,9 @@ function getCountyStatistics() {
     'orange': 'Orange',
     'pinellas': 'Pinellas',
     'broward': 'Broward',
-    'hillsborough': 'Hillsborough'
+    'hillsborough': 'Hillsborough',
+    'polk': 'Polk',
+    'osceola': 'Osceola'
   };
 
   const stats = {};
