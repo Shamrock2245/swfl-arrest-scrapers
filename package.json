@@ -8,6 +8,7 @@
     "start": "echo 'Use python scripts for scraping'",
     "run:desoto": "node scrapers/desoto_incremental.js",
     "run:collier": "node scrapers/collier_webforms.js",
+    "run:polk": "cd python_scrapers && python3 run_polk.py",
     "test": "node --test tests/*.test.js"
   },
   "keywords": [

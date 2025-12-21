@@ -1,6 +1,6 @@
 // ============================================================================
 // Shamrock Bail Bonds - Unified Production Backend (Code.gs)
-// Version: 3.3.1 - Resolving doGet Conflict & Syncing Redundant Files
+// Version: 3.2 - Integrated Advanced SignNow Workflows & Hardened API
 // ============================================================================
 /**
  * SINGLE ENTRY POINT for all GAS Web App requests.
@@ -296,10 +296,6 @@ function doPost(e) {
         break;
       case 'getDocumentStatus':
         result = getDocumentStatus(data.documentId);
-        break;
-      
-      case 'directSignNowRequest':
-        result = SN_makeRequest(data.endpoint, data.method, data.body);
         break;
       
       // === ADVANCED SIGNNOW WORKFLOWS (Unified) ===
@@ -902,9 +898,7 @@ function getCountyStatistics() {
     'orange': 'Orange',
     'pinellas': 'Pinellas',
     'broward': 'Broward',
-    'hillsborough': 'Hillsborough',
-    'polk': 'Polk',
-    'osceola': 'Osceola'
+    'hillsborough': 'Hillsborough'
   };
 
   const stats = {};

@@ -50,3 +50,13 @@ build/
 # Miscellaneous
 data/
 *.jsonl
+
+# Scraper Debug Results
+*results_debug.html
+*results_debug.png
+/tmp/polk_results_debug.html
+/tmp/debug_polk_full.py
+/tmp/debug_polk.py
+/tmp/test_polk.py
+/tmp/hcso_results_debug.html
+/tmp/hcso_results_debug.png

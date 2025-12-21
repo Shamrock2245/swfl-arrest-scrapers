@@ -1,0 +1,54 @@
+name: Sync to Portal Site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'SCHEMA.md'
+      - 'docs/**'
+      - 'apps_script/SCHEMA.gs' # If we add one
+      - 'wix_integration/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Scrapers Repo
+        uses: actions/checkout@v3
+
+      - name: Pushes shared files to Portal repo
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.SYNC_PAT }}
+        with:
+          source_file: 'SCHEMA.md'
+          destination_repo: 'Shamrock2245/shamrock-bail-portal-site'
+          destination_folder: 'docs'
+          user_email: 'brendan@shamrockbailbonds.biz'
+          user_name: 'Shamrock-Sync-Bot'
+          commit_message: 'sync: update universal schema from scrapers repo'
+
+      - name: Sync docs folder
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.SYNC_PAT }}
+        with:
+          source_file: 'docs/'
+          destination_repo: 'Shamrock2245/shamrock-bail-portal-site'
+          destination_folder: 'docs'
+          user_email: 'brendan@shamrockbailbonds.biz'
+          user_name: 'Shamrock-Sync-Bot'
+          commit_message: 'sync: update documentation from scrapers repo'
+
+      - name: Sync wix_integration templates
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.SYNC_PAT }}
+        with:
+          source_file: 'wix_integration/'
+          destination_repo: 'Shamrock2245/shamrock-bail-portal-site'
+          destination_folder: 'docs/templates'
+          user_email: 'brendan@shamrockbailbonds.biz'
+          user_name: 'Shamrock-Sync-Bot'
+          commit_message: 'sync: update wix templates from scrapers repo'

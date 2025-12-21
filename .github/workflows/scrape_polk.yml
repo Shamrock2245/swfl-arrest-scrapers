@@ -1,0 +1,46 @@
+name: Scrape Polk
+
+on:
+  schedule:
+    # Run at 7:00 AM, 1:00 PM, and 7:00 PM EST (UTC-5)
+    # UTC: 12:00, 18:00, 00:00
+    - cron: '0 0,12,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+      TZ: America/New_York
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable xvfb
+
+      - name: Install Python Dependencies
+        working-directory: python_scrapers
+        run: |
+          pip install -r requirements.txt
+
+      - name: Create Credentials File
+        run: |
+          mkdir -p creds
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > creds/service-account-key.json
+
+      - name: Run Polk Scraper
+        working-directory: python_scrapers
+        # Run with xvfb to support headless Chrome
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 run_polk.py

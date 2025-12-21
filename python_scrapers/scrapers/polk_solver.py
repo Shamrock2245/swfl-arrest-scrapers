@@ -1,303 +1,387 @@
 #!/usr/bin/env python3
 """
-Polk County Arrest Scraper
-Source: https://www.polksheriff.org/detention/jail-inquiry
-System: Custom ASP.NET/Kendo UI jail inquiry system
+Polk County Jail Inquiry Scraper
+https://polksheriff.org/detention/jail-inquiry
 
-This scraper uses Selenium to handle the JavaScript-rendered jail inquiry page.
-It searches by common last names with "Current inmates only" checked to get all current inmates.
-
-Known Limitations:
-- No way to get all inmates at once - must search by name
-- Results are paginated (20 per page)
-- Requires JavaScript rendering (Selenium/Chromium)
+Uses Selenium to:
+1. Navigate to the Polk County jail inquiry page
+2. Search with yesterday's date (website has no entries for today)
+3. Click each booking number to get detail page data (charges, bond)
+4. Output JSON to stdout
 """
 
 import sys
 import json
-import re
 import time
-from datetime import datetime
+import re
+import os
+import datetime
 
-try:
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
-    from webdriver_manager.chrome import ChromeDriverManager
-    from webdriver_manager.core.os_manager import ChromeType
-except ImportError:
-    sys.stderr.write("❌ Selenium not installed. Run: pip install selenium webdriver-manager\n")
-    print("[]")
-    sys.exit(1)
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+from dotenv import load_dotenv
+from bs4 import BeautifulSoup
 
-# Common last names to search - covers a large portion of inmates
-COMMON_LAST_NAMES = [
-    'SMITH', 'JOHNSON', 'WILLIAMS', 'BROWN', 'JONES', 'GARCIA', 'MILLER', 'DAVIS',
-    'RODRIGUEZ', 'MARTINEZ', 'HERNANDEZ', 'LOPEZ', 'GONZALEZ', 'WILSON', 'ANDERSON',
-    'THOMAS', 'TAYLOR', 'MOORE', 'JACKSON', 'MARTIN', 'LEE', 'PEREZ', 'THOMPSON',
-    'WHITE', 'HARRIS', 'SANCHEZ', 'CLARK', 'RAMIREZ', 'LEWIS', 'ROBINSON', 'WALKER',
-    'YOUNG', 'ALLEN', 'KING', 'WRIGHT', 'SCOTT', 'TORRES', 'NGUYEN', 'HILL', 'FLORES',
-    'GREEN', 'ADAMS', 'NELSON', 'BAKER', 'HALL', 'RIVERA', 'CAMPBELL', 'MITCHELL',
-    'CARTER', 'ROBERTS'
-]
+# Load environment variables
+load_dotenv()
+
+BASE_URL = "https://polksheriff.org"
+SEARCH_URL = f"{BASE_URL}/detention/jail-inquiry"
 
 
-def setup_browser():
-    """Configure and return a headless Chrome browser instance"""
-    options = Options()
-    options.add_argument('--headless=new')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--window-size=1920,1080')
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+def parse_name(full_name: str) -> dict:
+    """Parse full name into first, middle, last components."""
+    result = {'Full_Name': full_name, 'First_Name': '', 'Middle_Name': '', 'Last_Name': ''}
+    if not full_name:
+        return result
     
-    # Use system chromium
-    options.binary_location = '/usr/bin/chromium-browser'
-    
-    # Use webdriver-manager to get chromedriver
-    service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
-    
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.implicitly_wait(10)
-    driver.set_page_load_timeout(60)
-    return driver
+    # Format: "LAST, FIRST MIDDLE" or "LAST, FIRST"
+    if ',' in full_name:
+        parts = full_name.split(',', 1)
+        result['Last_Name'] = parts[0].strip()
+        if len(parts) > 1:
+            first_parts = parts[1].strip().split()
+            if first_parts:
+                result['First_Name'] = first_parts[0]
+                if len(first_parts) > 1:
+                    result['Middle_Name'] = ' '.join(first_parts[1:])
+    return result
 
 
-def extract_table_records(driver):
+def parse_detail_page(driver, booking_number: str) -> dict:
+    """Extract all data from an inmate detail page."""
+    record = {
+        'County': 'Polk',
+        'Scrape_Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'Booking_Number': booking_number,
+        'State': 'FL',
+    }
+    
+    try:
+        # Wait for page to load
+        time.sleep(2)
+        html = driver.page_source
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Get full page text for pattern matching
+        text_content = soup.get_text(' ', strip=True)
+        
+        # === Extract name ===
+        # Look for name pattern in the profile area
+        name_match = re.search(r'([A-Z]+,\s*[A-Z]+(?:\s+[A-Z]+)?)\s*Booking\s*Number:', text_content, re.I)
+        if name_match:
+            full_name = name_match.group(1).strip()
+            name_parts = parse_name(full_name)
+            record.update(name_parts)
+        else:
+            # Try alternate pattern - look for name after INMATE PROFILE
+            name_match2 = re.search(r'INMATE\s*PROFILE\s+([A-Z]+,\s*[A-Z]+(?:\s+[A-Z]+)?)', text_content, re.I)
+            if name_match2:
+                full_name = name_match2.group(1).strip()
+                name_parts = parse_name(full_name)
+                record.update(name_parts)
+        
+        # Race/Sex
+        race_sex_match = re.search(r'Race/Sex:\s*([A-Z]+/[A-Z])', text_content, re.I)
+        if race_sex_match:
+            rs = race_sex_match.group(1).split('/')
+            record['Race'] = rs[0] if len(rs) > 0 else ''
+            record['Sex'] = rs[1] if len(rs) > 1 else ''
+        
+        # DOB
+        dob_match = re.search(r'DOB:\s*(\d{1,2}/\d{1,2}/\d{4})', text_content, re.I)
+        if dob_match:
+            record['DOB'] = dob_match.group(1)
+        
+        # Height
+        height_match = re.search(r'Height:\s*(\d+)', text_content, re.I)
+        if height_match:
+            record['Height'] = height_match.group(1)
+        
+        # Weight
+        weight_match = re.search(r'Weight:\s*(\d+)', text_content, re.I)
+        if weight_match:
+            record['Weight'] = weight_match.group(1)
+        
+        # Booking Date
+        booking_date_match = re.search(r'Booking\s*Date:\s*(\d{1,2}/\d{1,2}/\d{4})', text_content, re.I)
+        if booking_date_match:
+            record['Booking_Date'] = booking_date_match.group(1)
+        
+        # Location / Facility
+        location_match = re.search(r'Location:\s*([A-Z]+)', text_content, re.I)
+        if location_match:
+            record['Facility'] = location_match.group(1)
+        
+        # Inmate Status
+        status_match = re.search(r'Inmate\s*Status:\s*([A-Za-z\s-]+?)(?=Bond|Ready|Height|Weight|$)', text_content, re.I)
+        if status_match:
+            status_val = status_match.group(1).strip()
+            if len(status_val) > 0 and len(status_val) < 30:
+                record['Status'] = status_val
+        
+        # Mugshot URL
+        img_tags = soup.find_all('img')
+        for img in img_tags:
+            src = img.get('src', '')
+            alt = img.get('alt', '').lower()
+            # Look for mugshot image
+            if 'inmate' in src.lower() or 'photo' in src.lower() or 'mugshot' in alt:
+                if not src.startswith('http'):
+                    src = BASE_URL + src
+                record['Mugshot_URL'] = src
+                break
+        
+        # === CHARGES SECTION ===
+        charges = []
+        bond_amounts = []
+        
+        # Look for CHARGES header and table
+        charges_header = soup.find(string=re.compile(r'^CHARGES$|^Charges$', re.I))
+        if charges_header:
+            # Find the table after the charges header
+            parent = charges_header.find_parent()
+            if parent:
+                table = parent.find_next('table')
+                if table:
+                    rows = table.find_all('tr')
+                    for row in rows[1:]:  # Skip header row
+                        cells = row.find_all('td')
+                        if len(cells) >= 2:
+                            # Usually: Charge Description, Bond Amount, etc.
+                            charge_text = cells[0].get_text(strip=True) if cells else ''
+                            if charge_text and not charge_text.lower().startswith('charge'):
+                                charges.append(charge_text)
+                            # Look for bond amount in this row
+                            for cell in cells:
+                                cell_text = cell.get_text(strip=True)
+                                bond_match = re.search(r'\$\s*([\d,]+(?:\.\d{2})?)', cell_text)
+                                if bond_match:
+                                    try:
+                                        amt = float(bond_match.group(1).replace(',', ''))
+                                        bond_amounts.append(amt)
+                                    except ValueError:
+                                        pass
+        
+        # Fallback: look for charge patterns in full text
+        if not charges:
+            charge_patterns = re.findall(
+                r'(\d{3}\.\d+[^|$]*)',  # Florida statute numbers
+                text_content
+            )
+            for cp in charge_patterns[:10]:
+                clean = cp.strip()
+                if len(clean) > 5 and len(clean) < 200:
+                    charges.append(clean)
+        
+        record['Charges'] = ' | '.join(charges[:10]) if charges else ''
+        
+        # === BOND SECTION ===
+        # Look for total bond
+        total_bond_match = re.search(r'(?:Total\s*)?Bond(?:\s*Amount)?:\s*\$?\s*([\d,]+(?:\.\d{2})?)', text_content, re.I)
+        if total_bond_match:
+            try:
+                record['Bond_Amount'] = str(int(float(total_bond_match.group(1).replace(',', ''))))
+            except ValueError:
+                record['Bond_Amount'] = '0'
+        elif bond_amounts:
+            record['Bond_Amount'] = str(int(sum(bond_amounts)))
+        else:
+            record['Bond_Amount'] = '0'
+        
+        # Detail URL
+        record['Detail_URL'] = driver.current_url
+        
+    except Exception as e:
+        sys.stderr.write(f"⚠️ Error parsing detail page for {booking_number}: {e}\n")
+    
+    return record
+
+
+def scrape_polk(days_back: int = 1):
     """
-    Extract inmate records from the results table.
+    Scrape Polk County jail inquiry.
     
-    Returns:
-        List of inmate record dictionaries
+    Args:
+        days_back: Number of days to go back from today (default 1 = yesterday)
     """
     records = []
     
+    # Calculate search date (yesterday by default)
+    search_date = datetime.datetime.now() - datetime.timedelta(days=days_back)
+    search_date_str = search_date.strftime("%m/%d/%Y")
+    
+    sys.stderr.write(f"ℹ️  Scraping Polk County for date: {search_date_str}\n")
+    
+    driver = None
     try:
-        # Wait for table to be present
-        time.sleep(2)
+        # Setup Selenium Chrome driver
+        options = Options()
+        options.add_argument('--headless=new')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Check if there are results
-        page_source = driver.page_source
-        if 'No items to display' in page_source:
-            return []
+        driver = webdriver.Chrome(options=options)
+        driver.set_page_load_timeout(30)
         
-        # Find all table rows in the grid
-        rows = driver.find_elements(By.CSS_SELECTOR, "table[role='treegrid'] tbody tr")
-        
-        for row in rows:
-            try:
-                cells = row.find_elements(By.TAG_NAME, "td")
-                if len(cells) >= 8:
-                    # Note: First cell is empty (checkbox column), so indices are offset by 1
-                    # Row format: ['', booking#, name, RS, DOB, entry_date, release_date, location]
-                    booking_num = cells[1].text.strip()
-                    name = cells[2].text.strip()
-                    rs = cells[3].text.strip()  # Race/Sex
-                    dob = cells[4].text.strip()
-                    entry_date = cells[5].text.strip()
-                    release_date = cells[6].text.strip()
-                    location = cells[7].text.strip()
-                    
-                    # Skip header row or empty rows
-                    if not booking_num or booking_num == 'Booking #':
-                        continue
-                    
-                    # Parse race and sex
-                    race = ''
-                    sex = ''
-                    if rs and len(rs) >= 2:
-                        race = rs[0]  # First character is race (W, B, H, etc.)
-                        sex = rs[1]   # Second character is sex (M, F)
-                    
-                    # Parse name (format: LAST, FIRST MIDDLE)
-                    name_parts = name.split(',', 1)
-                    last_name = name_parts[0].strip() if name_parts else ''
-                    first_middle = name_parts[1].strip() if len(name_parts) > 1 else ''
-                    
-                    # Split first and middle name
-                    first_parts = first_middle.split(' ', 1)
-                    first_name = first_parts[0].strip() if first_parts else ''
-                    middle_name = first_parts[1].strip() if len(first_parts) > 1 else ''
-                    
-                    # Determine status
-                    status = 'Released' if release_date else 'In Custody'
-                    
-                    record = {
-                        'County': 'Polk',
-                        'State': 'FL',
-                        'Booking_Number': booking_num,
-                        'Full_Name': name,
-                        'Last_Name': last_name,
-                        'First_Name': first_name,
-                        'Middle_Name': middle_name,
-                        'DOB': dob,
-                        'Race': race,
-                        'Sex': sex,
-                        'Booking_Date': entry_date,
-                        'Status': status,
-                        'Facility': location,
-                        'Charges': '',
-                        'Bond_Amount': '',
-                        'Detail_URL': '',
-                        'Mugshot_URL': ''
-                    }
-                    
-                    records.append(record)
-                    
-            except Exception as e:
-                continue
-        
-    except Exception as e:
-        sys.stderr.write(f"   ⚠️ Error extracting table: {e}\n")
-    
-    return records
-
-
-def search_by_name(driver, last_name, current_only=True):
-    """
-    Search for inmates by last name.
-    
-    Args:
-        driver: Selenium WebDriver instance
-        last_name: Last name to search for
-        current_only: If True, only search current inmates
-    
-    Returns:
-        List of inmate records (all pages)
-    """
-    all_records = []
-    
-    try:
-        # Enter last name
-        last_name_input = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "LastName"))
-        )
-        last_name_input.clear()
-        last_name_input.send_keys(last_name)
-        
-        # Check "Current inmates only" checkbox if needed
-        if current_only:
-            try:
-                # Find the checkbox by its label
-                checkbox_label = driver.find_element(By.XPATH, "//label[contains(text(), 'Current inmates only')]")
-                checkbox = checkbox_label.find_element(By.XPATH, "./preceding-sibling::input[@type='checkbox'] | ./input[@type='checkbox']")
-                if not checkbox.is_selected():
-                    checkbox_label.click()
-                    time.sleep(0.5)
-            except Exception:
-                # Try clicking the label directly
-                try:
-                    label = driver.find_element(By.XPATH, "//label[contains(text(), 'Current inmates only')]")
-                    label.click()
-                    time.sleep(0.5)
-                except Exception:
-                    pass
-        
-        # Click search button
-        search_btn = driver.find_element(By.ID, "btnSearchName")
-        driver.execute_script("arguments[0].click();", search_btn)
-        
-        # Wait for results
+        # Navigate to search page
+        sys.stderr.write(f"📍 Navigating to {SEARCH_URL}\n")
+        driver.get(SEARCH_URL)
         time.sleep(3)
         
-        # Extract records from first page
-        records = extract_table_records(driver)
-        all_records.extend(records)
+        # Wait for page to load and look for Booking Date tab
+        try:
+            booking_date_tab = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Booking Date')]"))
+            )
+            booking_date_tab.click()
+            time.sleep(1)
+            sys.stderr.write("📅 Clicked 'Booking Date' tab\n")
+        except TimeoutException:
+            sys.stderr.write("⚠️ Could not find 'Booking Date' tab\n")
         
-        # Check for pagination and get all pages
-        while True:
+        # Find date input and set value
+        try:
+            # Look for the date input field
+            date_input = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "input.k-input"))
+            )
+            # Set date via JavaScript to avoid interaction issues
+            driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('change'));", date_input, search_date_str)
+            sys.stderr.write(f"📅 Set date via JS: {search_date_str}\n")
+        except TimeoutException:
+            sys.stderr.write("⚠️ Could not find date input\n")
+        
+        time.sleep(1)
+        
+        # Click SEARCH button using specific ID to trigger the Kendo search
+        try:
+            # Attempt to click the button with id 'btnSearchDate'
+            search_btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.ID, "btnSearchDate"))
+            )
+            search_btn.click()
+            sys.stderr.write("🔍 Clicked SEARCH button (by ID)\n")
+        except Exception as e:
+            sys.stderr.write(f"⚠️ Click by ID failed: {e}. Trying generic JS click.\n")
+            # Fallback: use JavaScript to click any submit/button element
             try:
-                # Look for "next page" button
-                next_btn = driver.find_element(By.CSS_SELECTOR, "a[title='Go to the next page'], a[aria-label='Go to the next page']")
-                if 'k-state-disabled' in next_btn.get_attribute('class') or not next_btn.is_enabled():
-                    break
+                driver.execute_script("document.querySelector('button, input[type=submit]').click();")
+                sys.stderr.write("🔍 Clicked SEARCH button via JS fallback\n")
+            except Exception as js_e:
+                sys.stderr.write(f"❌ JS click also failed: {js_e}\n")
+                return []
+
+        # Wait for results: either a table with rows or a 'no records' message
+        try:
+            WebDriverWait(driver, 15).until(
+                EC.any_of(
+                    EC.presence_of_element_located((By.TAG_NAME, "table")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "k-grid-norecords"))
+                )
+            )
+            sys.stderr.write("📊 Results container loaded\n")
+        except Exception as e:
+            sys.stderr.write(f"⚠️ Results not loaded: {e}\n")
+            return []
+
+        time.sleep(5)  # Wait for any additional loading
+
+        # Parse results table
+        sys.stderr.write("\n📄 Processing results...\n")
+        
+        html = driver.page_source
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Find all booking number links
+        booking_links = []
+        
+        # Look for table with booking info
+        tables = soup.find_all('table')
+        for table in tables:
+            for row in table.find_all('tr')[1:]:  # Skip header
+                cells = row.find_all('td')
+                if cells:
+                    # First cell typically has booking number
+                    link = cells[0].find('a')
+                    if link:
+                        href = link.get('href', '')
+                        booking_num = link.get_text(strip=True)
+                        if href and booking_num.isdigit():
+                            if not href.startswith('http'):
+                                href = BASE_URL + href
+                            booking_links.append((booking_num, href))
+        
+        # Fallback: look for any links with booking number pattern
+        if not booking_links:
+            for link in soup.find_all('a', href=re.compile(r'inmate|profile', re.I)):
+                href = link.get('href', '')
+                text = link.get_text(strip=True)
+                if re.match(r'^\d+$', text):
+                    if not href.startswith('http'):
+                        href = BASE_URL + href
+                    booking_links.append((text, href))
+        
+        sys.stderr.write(f"   Found {len(booking_links)} booking links\n")
+        
+        # Visit each detail page
+        for idx, (booking_num, detail_url) in enumerate(booking_links):
+            try:
+                sys.stderr.write(f"   [{idx+1}/{len(booking_links)}] Scraping {booking_num}...")
                 
-                next_btn.click()
+                driver.get(detail_url)
                 time.sleep(2)
                 
-                # Extract records from this page
-                records = extract_table_records(driver)
-                if not records:
-                    break
-                    
-                all_records.extend(records)
+                record = parse_detail_page(driver, booking_num)
                 
-            except NoSuchElementException:
-                break
-            except Exception:
-                break
+                if record.get('Full_Name') or record.get('Charges'):
+                    records.append(record)
+                    sys.stderr.write(f" ✅\n")
+                else:
+                    # Still add the record with basic info
+                    records.append(record)
+                    sys.stderr.write(f" ⚠️ (partial data)\n")
+                
+            except Exception as e:
+                sys.stderr.write(f" ❌ Error: {e}\n")
+        
+        sys.stderr.write(f"\n✅ Total records extracted: {len(records)}\n")
+        
+        # Output JSON to stdout
+        if records:
+            print(json.dumps(records, indent=2))
         
     except Exception as e:
-        sys.stderr.write(f"   ⚠️ Error searching by name {last_name}: {e}\n")
-    
-    return all_records
-
-
-def scrape_polk(max_names=50):
-    """
-    Main scraper function for Polk County.
-    
-    Args:
-        max_names: Maximum number of common names to search
-    """
-    sys.stderr.write("🔵 Starting Polk County Scraper (Selenium)\n")
-    
-    url = "https://www.polksheriff.org/detention/jail-inquiry"
-    all_records = []
-    seen_bookings = set()
-    driver = None
-    
-    try:
-        sys.stderr.write(f"📡 Launching browser and navigating to {url}...\n")
-        driver = setup_browser()
-        driver.get(url)
-        time.sleep(5)
-        
-        # Search by common last names
-        names_to_search = COMMON_LAST_NAMES[:max_names]
-        sys.stderr.write(f"🔍 Searching {len(names_to_search)} common last names for current inmates...\n")
-        
-        for i, name in enumerate(names_to_search):
-            sys.stderr.write(f"   [{i+1}/{len(names_to_search)}] Searching '{name}'...\n")
-            
-            # Refresh page to reset state
-            driver.get(url)
-            time.sleep(3)
-            
-            records = search_by_name(driver, name, current_only=True)
-            
-            # Deduplicate by booking number
-            new_count = 0
-            for record in records:
-                booking_num = record.get('Booking_Number', '')
-                if booking_num and booking_num not in seen_bookings:
-                    seen_bookings.add(booking_num)
-                    all_records.append(record)
-                    new_count += 1
-            
-            sys.stderr.write(f"      Found {len(records)} records ({new_count} new, {len(all_records)} total)\n")
-        
-    except Exception as e:
-        sys.stderr.write(f"❌ Error: {e}\n")
+        sys.stderr.write(f"❌ Critical error: {e}\n")
+        import traceback
+        traceback.print_exc()
     
     finally:
         if driver:
             try:
                 driver.quit()
-            except Exception:
+            except:
                 pass
     
-    sys.stderr.write(f"📊 Extracted {len(all_records)} total unique records\n")
-    print(json.dumps(all_records))
+    return records
 
 
 if __name__ == "__main__":
-    # Search top 50 common names for current inmates
-    scrape_polk(max_names=50)
+    # Default to scraping yesterday
+    days_back = 1
+    if len(sys.argv) > 1:
+        try:
+            days_back = int(sys.argv[1])
+        except ValueError:
+            pass
+    
+    scrape_polk(days_back=days_back)
