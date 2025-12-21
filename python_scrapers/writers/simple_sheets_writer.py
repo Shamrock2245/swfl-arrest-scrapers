@@ -16,7 +16,20 @@ import os
 
 # Google Sheets configuration
 SPREADSHEET_ID = '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
-CREDENTIALS_PATH = '/home/ubuntu/swfl-arrest-scrapers/creds/service-account-key.json'
+# Check standard credential locations
+possible_creds = [
+    os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
+    os.path.join(os.path.dirname(__file__), '../creds/service-account-key.json'),
+    os.path.join(os.path.dirname(__file__), 'creds/service-account-key.json'),
+    os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json'),
+    '/home/ubuntu/swfl-arrest-scrapers/creds/service-account-key.json'  # Legacy fallback
+]
+
+CREDENTIALS_PATH = None
+for path in possible_creds:
+    if path and os.path.exists(path):
+        CREDENTIALS_PATH = path
+        break
 
 # County sheet GIDs (for reference)
 COUNTY_GIDS = {
@@ -58,12 +71,35 @@ SCOPES = [
 class SimpleSheetsWriter:
     """Simple writer for appending arrest records to Google Sheets."""
     
-    def __init__(self, credentials_path: str = CREDENTIALS_PATH):
+    def __init__(self, credentials_path: Optional[str] = CREDENTIALS_PATH):
         """Initialize the sheets writer with credentials."""
-        self.credentials = Credentials.from_service_account_file(
-            credentials_path,
-            scopes=SCOPES
-        )
+        if not credentials_path:
+            # Try once more from env directly (for CI/CD)
+            env_var = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+            if env_var:
+                import json
+                import base64
+                try:
+                    content = env_var.strip()
+                    if not content.startswith('{'):
+                        decoded = base64.b64decode(content).decode('utf-8')
+                        service_account_info = json.loads(decoded)
+                    else:
+                        service_account_info = json.loads(content)
+                    self.credentials = Credentials.from_service_account_info(
+                        service_account_info,
+                        scopes=SCOPES
+                    )
+                except Exception as e:
+                    raise ValueError(f"Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
+            else:
+                raise ValueError("No Google Service Account credentials found (path or env)")
+        else:
+            self.credentials = Credentials.from_service_account_file(
+                credentials_path,
+                scopes=SCOPES
+            )
+            
         self.client = gspread.authorize(self.credentials)
         self.spreadsheet = self.client.open_by_key(SPREADSHEET_ID)
     

@@ -20,6 +20,9 @@
     "run:hillsborough": "cd python_scrapers && python3 run_hillsborough.py",
     "run:orange": "cd python_scrapers && python3 run_orange.py",
     "run:polk": "cd python_scrapers && python3 run_polk.py",
+    "run:osceola": "cd python_scrapers && python3 run_osceola_to_sheets.py",
+    "run:pinellas": "cd python_scrapers && python3 run_pinellas_to_sheets.py",
+    "run:seminole": "cd python_scrapers && python3 run_seminole_to_sheets.py",
     "test": "node --test tests/*.test.js"
   },
   "keywords": [
