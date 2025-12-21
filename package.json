@@ -8,6 +8,7 @@
     "start": "echo 'Use python scripts for scraping'",
     "run:desoto": "node scrapers/desoto_incremental.js",
     "run:collier": "node scrapers/collier_webforms.js",
+    "run:lee": "node scrapers/lee_trigger.js",
     "run:manatee": "cd python_scrapers && python3 scrapers/run_manatee.py",
     "run:manatee:v2": "cd python_scrapers && python3 scrapers/run_manatee.py",
     "run:charlotte": "cd python_scrapers && python3 scrapers/run_charlotte.py",
