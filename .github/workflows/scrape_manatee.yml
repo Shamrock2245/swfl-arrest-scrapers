@@ -40,7 +40,13 @@ jobs:
         run: npm ci
 
       - name: Install Python Dependencies
-        run: pip install DrissionPage
+        run: |
+          pip install -r python_scrapers/requirements.txt
+
+      - name: Create Credentials File
+        run: |
+          mkdir -p creds
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > creds/service-account-key.json
 
       - name: Run Manatee Scraper
         # Run with xvfb to support "headful" mode required for Cloudflare bypass

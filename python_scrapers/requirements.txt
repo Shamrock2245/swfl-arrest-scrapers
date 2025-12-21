@@ -19,6 +19,7 @@ lxml>=4.9.3
 # Optional: Browser Automation (if implementing Python scrapers)
 selenium>=4.15.0
 playwright>=1.40.0
+DrissionPage>=4.0.0
 
 # Development Dependencies
 pytest>=7.4.0

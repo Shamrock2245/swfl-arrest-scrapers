@@ -144,11 +144,17 @@ def main():
         sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
         
         # Check standard credential locations
-        creds_path = None
-        local_path = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
+        possible_creds = [
+            os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
+            os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json'),
+            os.path.join(os.path.dirname(__file__), '../../../creds/service-account-key.json')
+        ]
         
-        if os.path.exists(local_path):
-             creds_path = local_path
+        creds_path = None
+        for path in possible_creds:
+            if path and os.path.exists(path):
+                creds_path = path
+                break
         
         writer = SheetsWriter(
             spreadsheet_id=sheets_id,

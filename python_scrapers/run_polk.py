@@ -131,21 +131,19 @@ def run_polk(days_back: int = 1):
             # Get credentials path - check environment variable first
             SPREADSHEET_ID = '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
             
-            # Check for credentials in multiple locations
-            credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-            if not credentials_path or not os.path.exists(credentials_path):
-                # Try local path
-                local_path = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
-                if os.path.exists(local_path):
-                    credentials_path = local_path
-                else:
-                    # Try relative path for CI/CD
-                    ci_path = os.path.join(os.path.dirname(__file__), '..', 'creds', 'service-account-key.json')
-                    if os.path.exists(ci_path):
-                        credentials_path = ci_path
-                    else:
-                        print("❌ Could not find Google credentials file")
-                        return False
+            # Check standard credential locations
+            possible_creds = [
+                os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
+                os.path.join(os.path.dirname(__file__), '../creds/service-account-key.json'),
+                os.path.join(os.path.dirname(__file__), 'creds/service-account-key.json'),
+                os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json')
+            ]
+            
+            credentials_path = None
+            for path in possible_creds:
+                if path and os.path.exists(path):
+                    credentials_path = path
+                    break
             
             writer = SheetsWriter(spreadsheet_id=SPREADSHEET_ID, credentials_path=credentials_path)
             writer.write_records(processed_records, county='Polk')

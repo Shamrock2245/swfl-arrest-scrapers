@@ -97,14 +97,22 @@ def main():
     print(f"📊 Processed {len(processed_records)} valid records")
 
     # 3. Write to Sheets
+    # Get credentials from environment or use defaults
     sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
-    creds_path = os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH', '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json')
     
-    if not processed_records:
-        print("No records to write.")
-    else:
-        # ordered_headers = list(processed_records[0].keys()) # Removed: ArrestRecord is object
-        pass
+    # Check standard credential locations
+    possible_creds = [
+        os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
+        os.path.join(os.path.dirname(__file__), '../creds/service-account-key.json'),
+        os.path.join(os.path.dirname(__file__), 'creds/service-account-key.json'),
+        os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json')
+    ]
+    
+    creds_path = None
+    for path in possible_creds:
+        if path and os.path.exists(path):
+            creds_path = path
+            break
 
     try:
         writer = SheetsWriter(

@@ -96,8 +96,22 @@ def run_hillsborough():
         # 4. Write to Sheets
         if processed_records:
             SPREADSHEET_ID = '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
-            CREDENTIALS_PATH = '/Users/brendan/Desktop/swfl-arrest-scrapers/creds/service-account-key.json'
-            writer = SheetsWriter(spreadsheet_id=SPREADSHEET_ID, credentials_path=CREDENTIALS_PATH)
+            
+            # Check standard credential locations
+            possible_creds = [
+                os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
+                os.path.join(os.path.dirname(__file__), '../creds/service-account-key.json'),
+                os.path.join(os.path.dirname(__file__), 'creds/service-account-key.json'),
+                os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json')
+            ]
+            
+            creds_path = None
+            for path in possible_creds:
+                if path and os.path.exists(path):
+                    creds_path = path
+                    break
+                    
+            writer = SheetsWriter(spreadsheet_id=SPREADSHEET_ID, credentials_path=creds_path)
             writer.write_records(processed_records, county='Hillsborough')
             print("✅ Done!")
         else:
