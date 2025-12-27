@@ -6,6 +6,10 @@ import os
 from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
+# Configuration: Allow headless mode via environment variable
+# Set HEADLESS=false for local debugging, true for automation
+HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
+
 def clean_charge_text(raw_charge):
     """
     Clean charge text to extract only the human-readable description.
@@ -55,7 +59,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
     
     try:
         co = ChromiumOptions()
-        co.headless(False)
+        co.headless(HEADLESS_MODE)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
         co.set_argument('--ignore-certificate-errors')
@@ -184,6 +188,8 @@ def scrape_charlotte(days_back=21, max_pages=10):
 
                 data = {}
                 data['Detail_URL'] = detail_url
+                data['County'] = 'Charlotte'
+                data['State'] = 'FL'
                 
                 if '/bookings/' in detail_url:
                     parts = detail_url.split('/bookings/')
@@ -391,7 +397,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
 
 if __name__ == "__main__":
     days_back = 21
-    max_pages = 1
+    max_pages = 10  # Increased from 1 to capture more arrests
     if len(sys.argv) > 1:
         try: days_back = int(sys.argv[1])
         except: pass

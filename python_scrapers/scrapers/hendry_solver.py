@@ -27,6 +27,10 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
+# Configuration: Allow headless mode via environment variable
+# Set HEADLESS=false for local debugging, true for automation
+HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
+
 
 def get_text_by_label(card_ele, label_text):
     """
@@ -118,8 +122,8 @@ def scrape_hendry(days_back=30):
     co.set_argument('--ignore-certificate-errors')
     co.set_argument('--disable-blink-features=AutomationControlled')
     
-    # Use headed mode for Cloudflare bypass (set to True for CI with xvfb)
-    co.headless(False)
+    # Headless mode configurable via HEADLESS environment variable
+    co.headless(HEADLESS_MODE)
     
     page = ChromiumPage(co)
     
@@ -139,16 +143,32 @@ def scrape_hendry(days_back=30):
                 sys.stderr.write("✅ Page loaded successfully\n")
                 break
         
-        # Sort by Newest First
+        # Sort by Newest First (CRITICAL REQUIREMENT)
         try:
             sys.stderr.write("📋 Setting sort order to Newest...\n")
             sort_select = page.ele('css:select.form-select') or page.ele('css:select#sort')
             if sort_select:
-                sort_select.select.by_value('dateDesc')
-                time.sleep(3)
-                sys.stderr.write("✅ Sorted by Date (Newest First)\n")
+                # Try by value first (most reliable)
+                try:
+                    sort_select.select.by_value('dateDesc')
+                    time.sleep(3)
+                    sys.stderr.write("✅ Sorted by Date (Newest First) - by value\n")
+                except:
+                    # Fallback: Try by text
+                    try:
+                        sort_select.select.by_text('Newest')
+                        time.sleep(3)
+                        sys.stderr.write("✅ Sorted by Date (Newest First) - by text\n")
+                    except:
+                        # Fallback: Try by index (assuming newest is first option)
+                        sort_select.select.by_index(0)
+                        time.sleep(3)
+                        sys.stderr.write("⚠️  Sorted by index 0 (verify this is newest!)\n")
+            else:
+                sys.stderr.write("⚠️  WARNING: Could not find sort dropdown! Results may not be sorted by newest.\n")
         except Exception as e:
-            sys.stderr.write(f"⚠️  Sort warning: {e}\n")
+            sys.stderr.write(f"⚠️  Sort error: {e}\n")
+            sys.stderr.write("⚠️  CRITICAL: Sorting failed! Recent arrests may be missed.\n")
         
         # Find Inmate Cards via "Read More" buttons
         read_more_buttons = page.eles('text:Read More')

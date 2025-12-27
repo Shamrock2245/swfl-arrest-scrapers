@@ -6,6 +6,10 @@ import os
 from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
+# Configuration: Allow headless mode via environment variable
+# Set HEADLESS=false for local debugging, true for automation
+HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
+
 def clean_charge_text(raw_charge):
     """
     Clean charge text to extract only the human-readable description.
@@ -26,10 +30,10 @@ def clean_charge_text(raw_charge):
     
     return text.strip()
 
-def scrape_sarasota(days_back=1):
+def scrape_sarasota(days_back=7):
     """
     Scrape Sarasota County with date range support and RESUME capability
-    Default days_back=1 (Today and Yesterday)
+    Default days_back=7 (covers last week for safety margin)
     """
     records = []
     progress_file = 'sarasota_progress.jsonl'
@@ -55,9 +59,9 @@ def scrape_sarasota(days_back=1):
         co = ChromiumOptions()
         # co.set_browser_path('/usr/bin/chromium-browser')
         
-        # HEADFUL mode for Cloudflare
+        # Headless mode configurable via HEADLESS environment variable
         co.auto_port() # Use a free port to avoid conflicts
-        co.headless(False)
+        co.headless(HEADLESS_MODE)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
         # co.set_argument('--disable-gpu') 
@@ -340,14 +344,15 @@ def scrape_sarasota(days_back=1):
                     
                     # NORMALIZE DATA FOR SHEETS
                     data['County'] = 'Sarasota'
+                    data['State'] = 'FL'
                     if 'ZIP' in data:
                         data['Zipcode'] = data.pop('ZIP')
                     
                     
-                    # Fallback: If still no Booking_Date, use Today (Scrape Date)
+                    # CRITICAL: Do NOT use fallback date - skip record if no booking date
                     if not data.get('Booking_Date'):
-                        data['Booking_Date'] = datetime.now().strftime('%Y-%m-%d')
-                        sys.stderr.write("   ⚠️  Missing Booking_Date, defaulting to Scrape Date (Today)\n")
+                        sys.stderr.write("   ⚠️  Missing Booking_Date, skipping record to avoid data corruption\n")
+                        continue
                             
                     # Clean up Booking Date format if needed
                     # Scraper output: 2025-11-26 00:29:52.000
@@ -407,7 +412,7 @@ def scrape_sarasota(days_back=1):
 
 if __name__ == "__main__":
     # Parse command line arguments
-    days_back = 1  # Default Today + Yesterday
+    days_back = 7  # Default: Last 7 days for safety margin
     
     if len(sys.argv) > 1:
         try:
