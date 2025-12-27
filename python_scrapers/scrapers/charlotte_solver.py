@@ -70,6 +70,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
         # Check environment variable for headless mode
         is_headless = os.getenv('HEADLESS', 'false').lower() == 'true'
         co.headless(is_headless)
+        co.auto_port()
         
         # Support CI paths if they exist
         if os.path.exists('/usr/bin/chromium-browser'):
