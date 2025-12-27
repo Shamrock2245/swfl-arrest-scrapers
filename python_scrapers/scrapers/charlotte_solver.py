@@ -6,6 +6,14 @@ import os
 from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
+# Import validation module
+try:
+    from validation import validate_record, sanitize_record, format_validation_report
+    VALIDATION_AVAILABLE = True
+except ImportError:
+    VALIDATION_AVAILABLE = False
+    sys.stderr.write("⚠️  Validation module not found, skipping validation\n")
+
 # Configuration: Allow headless mode via environment variable
 # Set HEADLESS=false for local debugging, true for automation
 HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
@@ -59,6 +67,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
     
     try:
         co = ChromiumOptions()
+        co.set_browser_path('/usr/bin/chromium-browser')
         co.headless(HEADLESS_MODE)
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
@@ -358,14 +367,33 @@ def scrape_charlotte(days_back=21, max_pages=10):
 
                 sys.stderr.write(f"   Scraped {len(data)} fields. Name: {data.get('Full_Name', 'Unknown')}\n")
 
-                if len(data) > 2:
+                # Sanitize and validate record before saving
+                if VALIDATION_AVAILABLE:
+                    data = sanitize_record(data)
+                    is_valid, issues = validate_record(data, 'Charlotte', strict=False)
+                    
+                    if not is_valid:
+                        sys.stderr.write(f"   ❌ Validation failed for {detail_url}:\n")
+                        for issue in issues:
+                            if issue.startswith('CRITICAL'):
+                                sys.stderr.write(f"      {issue}\n")
+                        sys.stderr.write(f"   ⚠️  Skipping invalid record\n")
+                        continue
+                    
+                    # Log warnings but still save
+                    warnings = [i for i in issues if i.startswith('WARNING')]
+                    if warnings:
+                        sys.stderr.write(f"   ⚠️  {len(warnings)} validation warnings (record will still be saved)\n")
+                
+                # Final check: must have minimum required data
+                if len(data) > 2 and 'Booking_Number' in data and 'Full_Name' in data:
                     records.append(data)
                     # AUTO SAVE
                     with open(progress_file, 'a') as f:
                         f.write(json.dumps(data) + '\n')
                     sys.stderr.write(f"   ✅ Added & Saved record (Total New: {len(records)})\n")
                 else:
-                    sys.stderr.write(f"   ⚠️  Skipping {detail_url}, insufficient data.\n")
+                    sys.stderr.write(f"   ⚠️  Skipping {detail_url}, insufficient data (need Booking_Number and Full_Name)\n")
                 
                 if stopped_early:
                     break
@@ -392,6 +420,20 @@ def scrape_charlotte(days_back=21, max_pages=10):
                     except:pass
     else:
         final_records = records
+
+    # Summary Statistics
+    sys.stderr.write(f"\n🎯 Final Summary:\n")
+    sys.stderr.write(f"   Records scraped this session: {len(records)}\n")
+    sys.stderr.write(f"   Total records in output: {len(final_records)}\n")
+    sys.stderr.write(f"   Previously scraped (skipped): {len(processed_ids)}\n")
+    
+    if VALIDATION_AVAILABLE and records:
+        from validation import get_data_completeness_score
+        completeness_scores = [get_data_completeness_score(r) for r in records]
+        avg_completeness = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0
+        sys.stderr.write(f"   Average data completeness: {avg_completeness:.1f}%\n")
+    
+    sys.stderr.write(f"\n✅ Charlotte County scraping complete!\n")
 
     print(json.dumps(final_records))
 

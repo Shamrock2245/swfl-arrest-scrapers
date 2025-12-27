@@ -57,7 +57,7 @@ def scrape_sarasota(days_back=7):
     
     try:
         co = ChromiumOptions()
-        # co.set_browser_path('/usr/bin/chromium-browser')
+        co.set_browser_path('/usr/bin/chromium-browser')
         
         # Headless mode configurable via HEADLESS environment variable
         co.auto_port() # Use a free port to avoid conflicts
@@ -368,16 +368,33 @@ def scrape_sarasota(days_back=7):
                     bdate = data.get('Arrest_Date', data.get('Booking_Date', 'N/A'))
                     sys.stderr.write(f"   👤 Name: {name} | Date: {bdate}\n")
 
+                    # Sanitize and validate record before saving
+                    if VALIDATION_AVAILABLE:
+                        data = sanitize_record(data)
+                        is_valid, issues = validate_record(data, 'Sarasota', strict=False)
+                        
+                        if not is_valid:
+                            sys.stderr.write(f"   ❌ Validation failed:\n")
+                            for issue in issues:
+                                if issue.startswith('CRITICAL'):
+                                    sys.stderr.write(f"      {issue}\n")
+                            sys.stderr.write("   ⚠️  Skipping invalid record\n")
+                            continue
+                        
+                        warnings = [i for i in issues if i.startswith('WARNING')]
+                        if warnings:
+                            sys.stderr.write(f"   ⚠️  {len(warnings)} validation warnings (record will still be saved)\n")
+
                     if 'Booking_Number' in data or 'Full_Name' in data:
                         records.append(data)
                         
                         # IMMEDIATE SAVE to JSONL
                         with open(progress_file, 'a') as f:
                             f.write(json.dumps(data) + '\n')
-                            
+                        
                         sys.stderr.write(f"   ✅ Added & Saved record (Total New: {len(records)})\n")
                     else:
-                        sys.stderr.write(f"Skipping {detail_url}, missing critical data.\n")
+                        sys.stderr.write("   ⚠️  Skipping - no booking number or name\n")ta.\n")
                         
                 else:
                     sys.stderr.write(f"Body not found on {detail_url}\n")
@@ -407,6 +424,21 @@ def scrape_sarasota(days_back=7):
                     except: pass
     else:
         final_records = records
+
+    # Summary Statistics
+    sys.stderr.write(f"\n🎯 Final Summary:\n")
+    sys.stderr.write(f"   Records scraped this session: {len(records)}\n")
+    sys.stderr.write(f"   Total records in output: {len(final_records)}\n")
+    sys.stderr.write(f"   Previously scraped (skipped): {len(processed_ids)}\n")
+    sys.stderr.write(f"   Dates searched: {days_back} days\n")
+    
+    if VALIDATION_AVAILABLE and records:
+        from validation import get_data_completeness_score
+        completeness_scores = [get_data_completeness_score(r) for r in records]
+        avg_completeness = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0
+        sys.stderr.write(f"   Average data completeness: {avg_completeness:.1f}%\n")
+    
+    sys.stderr.write(f"\n✅ Sarasota County scraping complete!\n")
 
     print(json.dumps(final_records))
 

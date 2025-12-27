@@ -27,6 +27,14 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
+# Import validation module
+try:
+    from validation import validate_record, sanitize_record
+    VALIDATION_AVAILABLE = True
+except ImportError:
+    VALIDATION_AVAILABLE = False
+    sys.stderr.write("⚠️  Validation module not found, skipping validation\n")
+
 # Configuration: Allow headless mode via environment variable
 # Set HEADLESS=false for local debugging, true for automation
 HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
@@ -116,6 +124,7 @@ def scrape_hendry(days_back=30):
     
     # Browser Setup
     co = ChromiumOptions()
+    co.set_browser_path('/usr/bin/chromium-browser')
     co.auto_port()
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
@@ -293,6 +302,23 @@ def scrape_hendry(days_back=30):
                 # Remove None values
                 data = {k: v for k, v in data.items() if v is not None}
                 
+                # Sanitize and validate record before saving
+                if VALIDATION_AVAILABLE:
+                    data = sanitize_record(data)
+                    is_valid, issues = validate_record(data, 'Hendry', strict=False)
+                    
+                    if not is_valid:
+                        sys.stderr.write(f"   ❌ Validation failed:\n")
+                        for issue in issues:
+                            if issue.startswith('CRITICAL'):
+                                sys.stderr.write(f"      {issue}\n")
+                        sys.stderr.write(f"   ⚠️  Skipping invalid record\n")
+                        continue
+                    
+                    warnings = [i for i in issues if i.startswith('WARNING')]
+                    if warnings:
+                        sys.stderr.write(f"   ⚠️  {len(warnings)} validation warnings (record will still be saved)\n")
+                
                 # Validate and save
                 if data.get('Booking_Number') and data.get('Full_Name'):
                     records.append(data)
@@ -347,7 +373,20 @@ def scrape_hendry(days_back=30):
     else:
         final_records = records
     
-    sys.stderr.write(f"\n📊 Total records: {len(final_records)}\n")
+    # Summary Statistics
+    sys.stderr.write(f"\n🎯 Final Summary:\n")
+    sys.stderr.write(f"   Records scraped this session: {len(records)}\n")
+    sys.stderr.write(f"   Total unique records in output: {len(final_records)}\n")
+    sys.stderr.write(f"   Previously scraped (skipped): {len(processed_ids)}\n")
+    
+    if VALIDATION_AVAILABLE and records:
+        from validation import get_data_completeness_score
+        completeness_scores = [get_data_completeness_score(r) for r in records]
+        avg_completeness = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0
+        sys.stderr.write(f"   Average data completeness: {avg_completeness:.1f}%\n")
+    
+    sys.stderr.write(f"\n✅ Hendry County scraping complete!\n")
+    
     print(json.dumps(final_records))
 
 
