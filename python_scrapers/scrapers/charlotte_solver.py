@@ -315,7 +315,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
                     
                     charge_rows = booking_table.eles('css:tr')
                     for row in charge_rows:
-                        cols = row.eles('tag:td')
+                        cols = row.eles('tag:td', timeout=0.1) # Fast lookup
                         if len(cols) >= 3:
                             col_texts = [c.text.strip() for c in cols]
                             
