@@ -300,29 +300,51 @@ def scrape_polk(days_back: int = 1):
         sys.stderr.write("\n📄 Processing results...\n")
         
         html = driver.page_source
+        # Save debug HTML to see what's being parsed
+        try:
+            with open('/tmp/polk_results_debug.html', 'w', encoding='utf-8') as f:
+                f.write(html)
+            sys.stderr.write("💾 Saved debug HTML to /tmp/polk_results_debug.html\n")
+        except Exception as e:
+            sys.stderr.write(f"⚠️ Could not save debug HTML: {e}\n")
+
+
+        # Parse results table
+        sys.stderr.write("\n📄 Processing results...\n")
+        
         soup = BeautifulSoup(html, 'html.parser')
         
         # Find all booking number links
         booking_links = []
         
+        # Check for 'no records' first
+        if soup.find(class_="k-grid-norecords"):
+            sys.stderr.write("ℹ️  No records found for this date.\n")
+            return []
+
         # Look for table with booking info
-        tables = soup.find_all('table')
-        for table in tables:
-            for row in table.find_all('tr')[1:]:  # Skip header
-                cells = row.find_all('td')
-                if cells:
-                    # First cell typically has booking number
-                    link = cells[0].find('a')
-                    if link:
-                        href = link.get('href', '')
-                        booking_num = link.get_text(strip=True)
-                        if href and booking_num.isdigit():
-                            if not href.startswith('http'):
-                                href = BASE_URL + href
-                            booking_links.append((booking_num, href))
-        
-        # Fallback: look for any links with booking number pattern
+        # The data is usually in a div with id="jail-grid" containing a table
+        jail_grid = soup.find(id="jail-grid")
+        if jail_grid:
+            table = jail_grid.find('table')
+            if table:
+                rows = table.find_all('tr')
+                sys.stderr.write(f"📊 Found grid table with {len(rows)} rows\n")
+                for row in rows:
+                    cells = row.find_all('td')
+                    if cells:
+                        link = cells[0].find('a')
+                        if link:
+                            href = link.get('href', '')
+                            booking_num = link.get_text(strip=True)
+                            if href and booking_num.isdigit():
+                                if not href.startswith('http'):
+                                    href = BASE_URL + href
+                                booking_links.append((booking_num, href))
+
+        # Fallback: look for any links with booking number pattern if grid parsing failed
         if not booking_links:
+            sys.stderr.write("⚠️ Grid parsing returned no links, attempting fallback...\n")
             for link in soup.find_all('a', href=re.compile(r'inmate|profile', re.I)):
                 href = link.get('href', '')
                 text = link.get_text(strip=True)
@@ -339,7 +361,10 @@ def scrape_polk(days_back: int = 1):
                 sys.stderr.write(f"   [{idx+1}/{len(booking_links)}] Scraping {booking_num}...")
                 
                 driver.get(detail_url)
-                time.sleep(2)
+                # Wait for detail profile to load
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Booking Number:')]"))
+                )
                 
                 record = parse_detail_page(driver, booking_num)
                 
@@ -376,8 +401,8 @@ def scrape_polk(days_back: int = 1):
 
 
 if __name__ == "__main__":
-    # Default to scraping yesterday
-    days_back = 1
+    # Use 2 days back as a safer historical date for testing
+    days_back = 2
     if len(sys.argv) > 1:
         try:
             days_back = int(sys.argv[1])
@@ -385,3 +410,4 @@ if __name__ == "__main__":
             pass
     
     scrape_polk(days_back=days_back)
+

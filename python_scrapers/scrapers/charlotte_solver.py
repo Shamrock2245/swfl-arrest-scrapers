@@ -67,8 +67,13 @@ def scrape_charlotte(days_back=21, max_pages=10):
     
     try:
         co = ChromiumOptions()
-        co.set_browser_path('/usr/bin/chromium-browser')
-        co.headless(HEADLESS_MODE)
+        # Check environment variable for headless mode
+        is_headless = os.getenv('HEADLESS', 'false').lower() == 'true'
+        co.headless(is_headless)
+        
+        # Support CI paths if they exist
+        if os.path.exists('/usr/bin/chromium-browser'):
+            co.set_browser_path('/usr/bin/chromium-browser')
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
         co.set_argument('--ignore-certificate-errors')

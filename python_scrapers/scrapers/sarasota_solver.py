@@ -57,11 +57,15 @@ def scrape_sarasota(days_back=7):
     
     try:
         co = ChromiumOptions()
-        co.set_browser_path('/usr/bin/chromium-browser')
+        # Check environment variable for headless mode
+        is_headless = os.getenv('HEADLESS', 'false').lower() == 'true'
+        co.headless(is_headless)
         
-        # Headless mode configurable via HEADLESS environment variable
-        co.auto_port() # Use a free port to avoid conflicts
-        co.headless(HEADLESS_MODE)
+        co.auto_port()
+        
+        # Support CI paths if they exist
+        if os.path.exists('/usr/bin/chromium-browser'):
+            co.set_browser_path('/usr/bin/chromium-browser')
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
         # co.set_argument('--disable-gpu') 

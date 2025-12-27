@@ -126,6 +126,9 @@ def scrape_hendry(days_back=30):
     co = ChromiumOptions()
     co.set_browser_path('/usr/bin/chromium-browser')
     co.auto_port()
+    # Check environment variable for headless mode (default to False for dev)
+    is_headless = os.getenv('HEADLESS', 'false').lower() == 'true'
+    co.headless(is_headless)
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
     co.set_argument('--ignore-certificate-errors')
