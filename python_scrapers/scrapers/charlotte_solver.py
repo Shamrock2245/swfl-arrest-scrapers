@@ -212,13 +212,16 @@ def scrape_charlotte(days_back=21, max_pages=10):
                         data['Booking_Number'] = parts[1].split('?')[0].strip()
                 
                 # Helper to get value from input next to label
-                def get_input_val(label_text):
+                def get_input_val(label_text, alt_text=None):
                     try:
                         # Try exact match first
-                        label = page.ele(f'text:^{label_text}$')
+                        label = page.ele(f'text:^{label_text}$', timeout=1)
+                        if not label and alt_text:
+                            label = page.ele(f'text:^{alt_text}$', timeout=1)
+                            
                         if not label:
                             # Try contains match
-                            label = page.ele(f'text:{label_text}')
+                            label = page.ele(f'text:{label_text}', timeout=1)
                         
                         if label:
                             # Get the next element which should be the input
@@ -247,7 +250,7 @@ def scrape_charlotte(days_back=21, max_pages=10):
                 race = get_input_val('Race')
                 if race: data['Race'] = race
                 
-                sex = get_input_val('Gender')
+                sex = get_input_val('Gender', 'Sex')
                 if sex: data['Sex'] = sex
                 
                 height = get_input_val('Height')
