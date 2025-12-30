@@ -1,9 +1,11 @@
 /**
- * WixPortalIntegration.gs
+ * WixPortalIntegration.gs (UPDATED with Case Data Sync)
  * 
  * This module integrates the Dashboard.html/GAS workflow with the Wix portal.
  * When signing links are generated, they are automatically saved to the Wix
  * PendingDocuments collection so clients can see them when they log in.
+ * 
+ * NEW: When case data is saved to Google Sheets, it also syncs to Wix Cases collection
  * 
  * Add this file to your Google Apps Script project alongside SignNowAPI.gs
  */
@@ -29,7 +31,8 @@ function getWixPortalConfig() {
     endpoints: {
       addDocument: '/documentsAdd',
       addDocumentsBatch: '/documentsBatch',
-      updateStatus: '/documentsStatus'
+      updateStatus: '/documentsStatus',
+      syncCaseData: '/api/syncCaseData'  // NEW ENDPOINT
     }
   };
 }
@@ -45,7 +48,105 @@ function setWixApiKey(apiKey) {
 }
 
 // =============================================================================
-// MAIN INTEGRATION FUNCTIONS
+// CASE DATA SYNC (NEW FUNCTIONALITY)
+// =============================================================================
+
+/**
+ * Sync case data to Wix portal when a case is saved
+ * This should be called from FormDataHandler.gs after saveBookingData()
+ * 
+ * @param {Object} caseData - The case data from the form
+ * @param {number} sheetRow - The row number in the Google Sheet
+ * @returns {Object} Result with success status
+ */
+function syncCaseDataToWix(caseData, sheetRow) {
+  const config = getWixPortalConfig();
+  
+  if (!config.apiKey) {
+    Logger.log('Warning: Wix API key not configured. Run setWixApiKey() first.');
+    return { success: false, message: 'Wix API key not configured' };
+  }
+  
+  // Build the payload for Wix
+  const payload = {
+    apiKey: config.apiKey,
+    caseData: {
+      caseNumber: caseData.Case_Number || caseData.Booking_Number || '',
+      defendantName: caseData.Full_Name || '',
+      defendantEmail: caseData.Email || '',
+      defendantPhone: caseData.Phone || '',
+      indemnitorName: caseData.Indemnitor_Name || '',
+      indemnitorEmail: caseData.Indemnitor_Email || '',
+      indemnitorPhone: caseData.Indemnitor_Phone || '',
+      bondAmount: caseData.Bond_Amount || '',
+      county: caseData.County || '',
+      arrestDate: caseData.Arrest_Date || caseData.Booking_Date || '',
+      charges: caseData.Charges || '',
+      status: caseData.Status || 'pending',
+      receiptNumber: caseData.Receipt_Number || '',
+      gasSheetRow: sheetRow || null
+    }
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(config.baseUrl + config.endpoints.syncCaseData, {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    
+    const responseCode = response.getResponseCode();
+    const result = JSON.parse(response.getContentText());
+    
+    if (responseCode === 200) {
+      Logger.log('✅ Case data synced to Wix successfully: ' + JSON.stringify(result));
+      return result;
+    } else {
+      Logger.log('⚠️ Wix sync returned status ' + responseCode + ': ' + JSON.stringify(result));
+      return { success: false, message: 'HTTP ' + responseCode, details: result };
+    }
+    
+  } catch (error) {
+    Logger.log('❌ Error syncing case data to Wix: ' + error.message);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Enhanced version of saveBookingData that also syncs to Wix
+ * This wraps the existing FormDataHandler.saveBookingData function
+ * 
+ * @param {Object} payload - The booking data payload
+ * @returns {Object} Result with both Sheet save and Wix sync status
+ */
+function saveBookingDataWithWixSync(payload) {
+  // First, save to Google Sheets using the existing function
+  const sheetResult = saveBookingData(payload);
+  
+  if (!sheetResult.success) {
+    return sheetResult;
+  }
+  
+  // Now sync to Wix portal
+  const wixResult = syncCaseDataToWix(payload, sheetResult.row);
+  
+  // Return combined result
+  return {
+    success: true,
+    message: sheetResult.message,
+    bookingNumber: sheetResult.bookingNumber,
+    row: sheetResult.row,
+    timestamp: sheetResult.timestamp,
+    wixSync: wixResult,
+    wixSyncMessage: wixResult.success 
+      ? 'Case synced to Wix portal' 
+      : 'Sheet saved but Wix sync failed: ' + wixResult.message
+  };
+}
+
+// =============================================================================
+// SIGNING LINK INTEGRATION (EXISTING FUNCTIONALITY)
 // =============================================================================
 
 /**
@@ -277,6 +378,30 @@ function testWixPortalConnection() {
     Logger.log('Wix portal connection failed: ' + error.message);
     return { success: false, message: error.message };
   }
+}
+
+/**
+ * Test the case data sync endpoint
+ * Run this to verify the new syncCaseData endpoint is working
+ */
+function testWixCaseDataSync() {
+  const testData = {
+    Case_Number: 'TEST-2024-001',
+    Full_Name: 'John Test Doe',
+    Email: 'john.test@example.com',
+    Phone: '2395551234',
+    Bond_Amount: '10000',
+    County: 'Collier',
+    Arrest_Date: '2024-01-15',
+    Charges: 'DUI',
+    Status: 'pending'
+  };
+  
+  Logger.log('Testing Wix case data sync with test data...');
+  const result = syncCaseDataToWix(testData, 999);
+  
+  Logger.log('Test result: ' + JSON.stringify(result));
+  return result;
 }
 
 /**
