@@ -1003,36 +1003,71 @@ function SN_log(action, data) {
 }
 
 /**
- * Create a single embedded signing link
- * Adds missing function expected by Code.gs
+ * Create a single embedded signing link (V2 API)
+ * 1. Create Embedded Invite
+ * 2. Generate Link for Invite
  */
 function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpiration) {
   const config = SN_getConfig();
-  // Using v2 endpoint for generic link creation
-  const url = config.API_BASE + '/document/' + documentId + '/embedded-signing-link';
-  
-  const payload = {
-    auth_method: 'none',
-    link_expiration: linkExpiration || 45
-  };
 
   try {
-    const response = UrlFetchApp.fetch(url, {
+    // Step 1: Create Embedded Invite
+    const inviteUrl = config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites';
+    const invitePayload = {
+      invites: [{
+        email: signerEmail,
+        role: signerRole,
+        order: 1,
+        auth_method: 'none',
+        first_name: 'Valued',
+        last_name: 'Client',
+        force_new_signature: 1
+      }]
+    };
+
+    const inviteResponse = UrlFetchApp.fetch(inviteUrl, {
       method: 'post',
       headers: {
         'Authorization': 'Bearer ' + config.ACCESS_TOKEN,
         'Content-Type': 'application/json'
       },
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(invitePayload),
       muteHttpExceptions: true
     });
 
-    const result = JSON.parse(response.getContentText());
-    
-    if (response.getResponseCode() === 200 && result.data && result.data.link) {
-      return { success: true, link: result.data.link };
+    const inviteResult = JSON.parse(inviteResponse.getContentText());
+
+    // Check for success (200 or 201) and extract invite ID
+    let inviteId = null;
+    if ((inviteResponse.getResponseCode() === 200 || inviteResponse.getResponseCode() === 201) && inviteResult.data && inviteResult.data.length > 0) {
+      inviteId = inviteResult.data[0].id;
     } else {
-      return { success: false, error: JSON.stringify(result) };
+      return { success: false, error: 'Invite creation failed: ' + JSON.stringify(inviteResult), step: 'invite' };
+    }
+
+    // Step 2: Generate Link
+    const linkUrl = config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites/' + inviteId + '/link';
+    const linkPayload = {
+      auth_method: 'none',
+      link_expiration: linkExpiration || 45
+    };
+
+    const linkResponse = UrlFetchApp.fetch(linkUrl, {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + config.ACCESS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(linkPayload),
+      muteHttpExceptions: true
+    });
+
+    const linkResult = JSON.parse(linkResponse.getContentText());
+
+    if ((linkResponse.getResponseCode() === 200 || linkResponse.getResponseCode() === 201) && linkResult.data && linkResult.data.link) {
+      return { success: true, link: linkResult.data.link };
+    } else {
+      return { success: false, error: 'Link generation failed: ' + JSON.stringify(linkResult), step: 'link' };
     }
 
   } catch (e) {
