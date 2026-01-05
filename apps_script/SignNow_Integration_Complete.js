@@ -29,13 +29,13 @@ const INTEGRATION_CONFIG = {
   REDIRECT_URI: 'https://www.shamrockbailbonds.biz',
   DECLINE_REDIRECT_URI: 'https://www.shamrockbailbonds.biz',
   CLOSE_REDIRECT_URI: 'https://www.shamrockbailbonds.biz',
-  
+
   // Wix signing page URL (where embedded iFrame can be shown)
   WIX_SIGNING_PAGE: 'https://www.shamrockbailbonds.biz/sign',
-  
+
   // Link expiration in minutes
   LINK_EXPIRATION_MINUTES: 45,
-  
+
   // Google Drive folder for completed bonds
   COMPLETED_BONDS_FOLDER_ID: '1WnjwtxoaoXVW8_B6s-0ftdCPf_5WfKgs'
 };
@@ -56,23 +56,23 @@ const INTEGRATION_CONFIG = {
 function SN_createAllSignerLinks(documentId, formData, options) {
   const config = SN_getConfig();
   options = options || {};
-  
+
   try {
     // Build signers array from form data
     const signers = buildSignersFromFormData(formData);
-    
+
     if (signers.length === 0) {
       return { success: false, error: 'No signers found in form data' };
     }
-    
+
     SN_log('createAllSignerLinks', { documentId: documentId, signerCount: signers.length });
-    
+
     // First, get document to check for existing roles
     const docInfo = SN_getDocumentInfo(documentId);
     if (!docInfo.success) {
       return { success: false, error: 'Failed to get document info: ' + docInfo.error };
     }
-    
+
     // Build the embedded invite payload
     const invites = signers.map((signer, index) => ({
       email: signer.email || `signer${index + 1}_${Date.now()}@shamrockbailbonds.biz`,
@@ -89,13 +89,13 @@ function SN_createAllSignerLinks(documentId, formData, options) {
       redirect_target: 'self',
       language: 'en'
     }));
-    
+
     // Create the embedded invite
     const invitePayload = {
       invites: invites,
       name_formula: `Shamrock_Bond_${formData['defendant-last-name'] || 'Unknown'}|date`
     };
-    
+
     const inviteResponse = UrlFetchApp.fetch(
       config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites',
       {
@@ -108,30 +108,30 @@ function SN_createAllSignerLinks(documentId, formData, options) {
         muteHttpExceptions: true
       }
     );
-    
+
     const inviteResult = JSON.parse(inviteResponse.getContentText());
-    
+
     if (inviteResponse.getResponseCode() !== 200 && inviteResponse.getResponseCode() !== 201) {
       SN_log('createAllSignerLinks', { error: inviteResult });
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'Failed to create embedded invite: ' + (inviteResult.error || inviteResult.message || JSON.stringify(inviteResult))
       };
     }
-    
+
     // Generate signing links for each invite
     const signingLinks = [];
     const inviteData = inviteResult.data || [];
-    
+
     for (let i = 0; i < inviteData.length; i++) {
       const invite = inviteData[i];
       const signer = signers[i];
-      
+
       const linkPayload = {
         auth_method: 'none',
         link_expiration: options.linkExpiration || INTEGRATION_CONFIG.LINK_EXPIRATION_MINUTES
       };
-      
+
       const linkResponse = UrlFetchApp.fetch(
         config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites/' + invite.id + '/link',
         {
@@ -144,13 +144,13 @@ function SN_createAllSignerLinks(documentId, formData, options) {
           muteHttpExceptions: true
         }
       );
-      
+
       const linkResult = JSON.parse(linkResponse.getContentText());
-      
+
       if (linkResponse.getResponseCode() === 200 || linkResponse.getResponseCode() === 201) {
         // Build Wix signing page URL with parameters
         const wixSigningUrl = buildWixSigningUrl(linkResult.link, signer);
-        
+
         signingLinks.push({
           role: signer.role,
           firstName: signer.firstName,
@@ -173,19 +173,19 @@ function SN_createAllSignerLinks(documentId, formData, options) {
         });
       }
     }
-    
-    SN_log('createAllSignerLinks', { 
-      success: true, 
-      linksGenerated: signingLinks.filter(l => l.link).length 
+
+    SN_log('createAllSignerLinks', {
+      success: true,
+      linksGenerated: signingLinks.filter(l => l.link).length
     });
-    
+
     return {
       success: true,
       documentId: documentId,
       signingLinks: signingLinks,
       wixSigningPageBase: INTEGRATION_CONFIG.WIX_SIGNING_PAGE
     };
-    
+
   } catch (error) {
     SN_log('createAllSignerLinks', { error: error.toString() });
     return { success: false, error: error.toString() };
@@ -202,7 +202,7 @@ function SN_createAllSignerLinks(documentId, formData, options) {
 function buildSignersFromFormData(formData) {
   const signers = [];
   let order = 1;
-  
+
   // 1. Add Defendant (always first)
   if (formData['defendant-first-name'] || formData['defendant-last-name']) {
     signers.push({
@@ -214,7 +214,7 @@ function buildSignersFromFormData(formData) {
       order: order++
     });
   }
-  
+
   // 2. Add all Indemnitors from the indemnitors array
   if (formData.indemnitors && Array.isArray(formData.indemnitors)) {
     formData.indemnitors.forEach((ind, index) => {
@@ -230,7 +230,7 @@ function buildSignersFromFormData(formData) {
       }
     });
   }
-  
+
   // 3. Add Bail Agent (always last - signs in office)
   signers.push({
     role: 'Bail Agent',
@@ -240,7 +240,7 @@ function buildSignersFromFormData(formData) {
     phone: '',
     order: order++
   });
-  
+
   return signers;
 }
 
@@ -256,7 +256,7 @@ function buildWixSigningUrl(signingLink, signer) {
   params.append('link', encodeURIComponent(signingLink));
   params.append('signer', encodeURIComponent(`${signer.firstName} ${signer.lastName}`.trim()));
   params.append('role', encodeURIComponent(signer.role));
-  
+
   return INTEGRATION_CONFIG.WIX_SIGNING_PAGE + '?' + params.toString();
 }
 
@@ -279,39 +279,39 @@ function buildWixSigningUrl(signingLink, signer) {
  */
 function SN_processCompleteWorkflow(params) {
   const { formData, selectedDocs, deliveryMethod, pdfBase64, fileName } = params;
-  
+
   try {
     // Step 1: Upload the merged PDF to SignNow
     SN_log('processCompleteWorkflow', { step: 'upload', fileName: fileName });
     const uploadResult = SN_uploadDocument(pdfBase64, fileName);
-    
+
     if (!uploadResult.success) {
       return { success: false, error: 'Upload failed: ' + uploadResult.error, step: 'upload' };
     }
-    
+
     const documentId = uploadResult.documentId;
-    
+
     // Step 2: Add signature fields based on selected documents
     SN_log('processCompleteWorkflow', { step: 'addFields', documentId: documentId });
     const fieldsResult = SN_addFieldsForSelectedDocs(documentId, selectedDocs, {
       includeCoIndemnitor: (formData.indemnitors && formData.indemnitors.length > 1)
     });
-    
+
     if (!fieldsResult.success) {
-      return { 
-        success: false, 
-        error: 'Add fields failed: ' + fieldsResult.error, 
+      return {
+        success: false,
+        error: 'Add fields failed: ' + fieldsResult.error,
         step: 'addFields',
-        documentId: documentId 
+        documentId: documentId
       };
     }
-    
+
     // Step 3: Handle delivery based on method
     if (deliveryMethod === 'embedded') {
       // Create embedded signing links for all signers
       SN_log('processCompleteWorkflow', { step: 'createLinks' });
       const linksResult = SN_createAllSignerLinks(documentId, formData);
-      
+
       if (!linksResult.success) {
         return {
           success: false,
@@ -320,7 +320,7 @@ function SN_processCompleteWorkflow(params) {
           documentId: documentId
         };
       }
-      
+
       return {
         success: true,
         documentId: documentId,
@@ -328,7 +328,7 @@ function SN_processCompleteWorkflow(params) {
         signingLinks: linksResult.signingLinks,
         wixSigningPageBase: linksResult.wixSigningPageBase
       };
-      
+
     } else if (deliveryMethod === 'email') {
       // Send email invites
       const signers = buildSignersFromFormData(formData).filter(s => s.email && s.role !== 'Bail Agent');
@@ -336,19 +336,19 @@ function SN_processCompleteWorkflow(params) {
         subject: `Shamrock Bail Bonds - Documents for ${formData['defendant-first-name']} ${formData['defendant-last-name']}`,
         message: 'Please review and sign the attached bail bond documents.'
       });
-      
+
       return {
         success: emailResult.success,
         documentId: documentId,
         deliveryMethod: 'email',
         error: emailResult.error
       };
-      
+
     } else if (deliveryMethod === 'sms') {
       // Send SMS invites
       const signers = buildSignersFromFormData(formData).filter(s => s.phone && s.role !== 'Bail Agent');
       const smsResult = SN_sendSmsInvite(documentId, signers, {});
-      
+
       return {
         success: smsResult.success,
         documentId: documentId,
@@ -356,9 +356,9 @@ function SN_processCompleteWorkflow(params) {
         error: smsResult.error
       };
     }
-    
+
     return { success: false, error: 'Invalid delivery method: ' + deliveryMethod };
-    
+
   } catch (error) {
     SN_log('processCompleteWorkflow', { error: error.toString() });
     return { success: false, error: error.toString() };
@@ -378,7 +378,7 @@ function SN_addFieldsForSelectedDocs(documentId, selectedDocs, options) {
   options = options || {};
   let totalFieldsAdded = 0;
   let currentPageOffset = 0;
-  
+
   try {
     for (const docType of selectedDocs) {
       const docConfig = SN_SIGNATURE_FIELDS[docType];
@@ -389,7 +389,7 @@ function SN_addFieldsForSelectedDocs(documentId, selectedDocs, options) {
         }
         continue;
       }
-      
+
       // Filter fields based on options
       let fieldsToAdd = docConfig.fields.filter(field => {
         if (field.role === 'Co-Indemnitor' && !options.includeCoIndemnitor) {
@@ -397,25 +397,25 @@ function SN_addFieldsForSelectedDocs(documentId, selectedDocs, options) {
         }
         return true;
       });
-      
+
       // Adjust page numbers for merged PDF
       fieldsToAdd = fieldsToAdd.map(field => ({
         ...field,
         page: field.page + currentPageOffset
       }));
-      
+
       // Add fields to document
       const result = SN_addFields(documentId, fieldsToAdd);
       if (result.success) {
         totalFieldsAdded += fieldsToAdd.length;
       }
-      
+
       // Update page offset for next document
       currentPageOffset += docConfig.pageCount || 1;
     }
-    
+
     return { success: true, fieldsAdded: totalFieldsAdded };
-    
+
   } catch (error) {
     return { success: false, error: error.toString(), fieldsAdded: totalFieldsAdded };
   }
@@ -427,34 +427,34 @@ function SN_addFieldsForSelectedDocs(documentId, selectedDocs, options) {
 
 /**
  * Web App doPost handler for SignNow webhooks
- * Deploy this GAS project as a web app with "Anyone" access
+ * RENAMED to avoid conflict with Code.gs - Use WebhookHandler.gs instead
  */
-function doPost(e) {
+function doPost_LEGACY(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
-    
-    SN_log('webhook', { 
-      event: payload.event, 
+
+    SN_log('webhook', {
+      event: payload.event,
       documentId: payload.document_id,
       timestamp: new Date().toISOString()
     });
-    
+
     // Handle document completion
     if (payload.event === 'document.complete') {
       const result = handleDocumentComplete(payload);
       return ContentService.createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
     }
-    
+
     // Handle other events as needed
     if (payload.event === 'document.update') {
       // Document was updated (signature added)
       SN_log('webhook', { event: 'document.update', documentId: payload.document_id });
     }
-    
+
     return ContentService.createTextOutput(JSON.stringify({ received: true }))
       .setMimeType(ContentService.MimeType.JSON);
-      
+
   } catch (error) {
     SN_log('webhook_error', { error: error.toString() });
     return ContentService.createTextOutput(JSON.stringify({ error: error.toString() }))
@@ -470,14 +470,14 @@ function doPost(e) {
  */
 function handleDocumentComplete(payload) {
   const documentId = payload.document_id;
-  
+
   try {
     // Get document details
     const docInfo = SN_getDocumentInfo(documentId);
     if (!docInfo.success) {
       return { success: false, error: 'Failed to get document info' };
     }
-    
+
     // Extract defendant name from document name
     // Expected format: "Shamrock_Bond_LastName|date" or similar
     let defendantName = 'Unknown';
@@ -486,35 +486,35 @@ function handleDocumentComplete(payload) {
     if (nameMatch) {
       defendantName = nameMatch[1];
     }
-    
+
     // Get current date
     const bondDate = Utilities.formatDate(new Date(), 'America/New_York', 'MM-dd-yyyy');
-    
+
     // Download the signed document
     const pdfBlob = SN_downloadDocument(documentId, 'collapsed');
     if (!pdfBlob) {
       return { success: false, error: 'Failed to download signed document' };
     }
-    
+
     // Create folder name and file name
     const folderName = `${defendantName} - ${bondDate}`;
     const fileName = `${defendantName} - Signed Bond Package - ${bondDate}.pdf`;
     pdfBlob.setName(fileName);
-    
+
     // Get or create defendant folder in Completed Bonds
     const completedFolder = DriveApp.getFolderById(INTEGRATION_CONFIG.COMPLETED_BONDS_FOLDER_ID);
     let defendantFolder;
-    
+
     const existingFolders = completedFolder.getFoldersByName(folderName);
     if (existingFolders.hasNext()) {
       defendantFolder = existingFolders.next();
     } else {
       defendantFolder = completedFolder.createFolder(folderName);
     }
-    
+
     // Save the signed PDF
     const savedFile = defendantFolder.createFile(pdfBlob);
-    
+
     // Log completion to spreadsheet
     logCompletedBond({
       documentId: documentId,
@@ -525,14 +525,14 @@ function handleDocumentComplete(payload) {
       folderUrl: defendantFolder.getUrl(),
       completedAt: new Date().toISOString()
     });
-    
+
     SN_log('documentComplete', {
       success: true,
       documentId: documentId,
       defendantName: defendantName,
       driveFileId: savedFile.getId()
     });
-    
+
     return {
       success: true,
       driveFileId: savedFile.getId(),
@@ -540,7 +540,7 @@ function handleDocumentComplete(payload) {
       folderUrl: defendantFolder.getUrl(),
       fileName: fileName
     };
-    
+
   } catch (error) {
     SN_log('documentComplete_error', { error: error.toString() });
     return { success: false, error: error.toString() };
@@ -554,7 +554,7 @@ function logCompletedBond(data) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('Completed Bonds Log');
-    
+
     if (!sheet) {
       sheet = ss.insertSheet('Completed Bonds Log');
       sheet.appendRow([
@@ -568,7 +568,7 @@ function logCompletedBond(data) {
       ]);
       sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
     }
-    
+
     sheet.appendRow([
       data.completedAt,
       data.defendantName,
@@ -578,7 +578,7 @@ function logCompletedBond(data) {
       data.driveUrl,
       data.folderUrl
     ]);
-    
+
   } catch (error) {
     SN_log('logCompletedBond_error', { error: error.toString() });
   }
@@ -596,7 +596,7 @@ function logCompletedBond(data) {
  */
 function SN_registerCompletionWebhook(webhookUrl) {
   const config = SN_getConfig();
-  
+
   if (!webhookUrl) {
     // Try to get the deployed web app URL
     const scriptUrl = ScriptApp.getService().getUrl();
@@ -606,13 +606,27 @@ function SN_registerCompletionWebhook(webhookUrl) {
       return { success: false, error: 'Please provide webhook URL or deploy as web app first' };
     }
   }
-  
+
   try {
+    // 1. Get User ID (Entity ID)
+    const user = SN_getCurrentUser();
+    if (!user || !user.id) {
+      return { success: false, error: 'Could not retrieve SignNow User ID for webhook registration.' };
+    }
+
+    // 2. Build V2 Payload
     const payload = {
-      event: 'document.complete',
-      callback_url: webhookUrl
+      event: 'user.document.complete',
+      entity_id: user.id,
+      action: 'callback',
+      attributes: {
+        callback: webhookUrl,
+        headers: {}
+      }
     };
-    
+
+    SN_log('registerWebhook', { step: 'sending_request', entity_id: user.id, url: webhookUrl });
+
     const response = UrlFetchApp.fetch(
       config.API_BASE + '/api/v2/events',
       {
@@ -625,25 +639,44 @@ function SN_registerCompletionWebhook(webhookUrl) {
         muteHttpExceptions: true
       }
     );
-    
-    const result = JSON.parse(response.getContentText());
-    const success = response.getResponseCode() === 200 || response.getResponseCode() === 201;
-    
-    SN_log('registerWebhook', { success: success, result: result });
-    
+
+    const responseCode = response.getResponseCode();
+    let result = {};
+    const content = response.getContentText();
+
+    if (content && content.trim().length > 0) {
+      try {
+        result = JSON.parse(content);
+      } catch (e) {
+        result = { error: 'Could not parse response', raw: content };
+      }
+    }
+
+    const success = responseCode === 200 || responseCode === 201; // 201 Created is success
+
+    SN_log('registerWebhook', { success: success, code: responseCode, result: result });
+
+    // Treat "Already Exists" error as success
+    if (!success && result.errors && result.errors.some(e => e.code === 15006045)) {
+      SN_log('registerWebhook', { info: 'Webhook already registered. Converting to success.' });
+      return { success: true, result: result, note: 'Webhook already active' };
+    }
+
     return { success: success, result: result };
-    
+
   } catch (error) {
+    SN_log('registerWebhook_error', { error: error.toString() });
     return { success: false, error: error.toString() };
   }
 }
+
 
 /**
  * List all registered webhooks
  */
 function SN_listRegisteredWebhooks() {
   const config = SN_getConfig();
-  
+
   try {
     const response = UrlFetchApp.fetch(
       config.API_BASE + '/api/v2/events',
@@ -653,9 +686,9 @@ function SN_listRegisteredWebhooks() {
         muteHttpExceptions: true
       }
     );
-    
+
     return JSON.parse(response.getContentText());
-    
+
   } catch (error) {
     return { error: error.toString() };
   }
@@ -670,7 +703,7 @@ function SN_listRegisteredWebhooks() {
  */
 function SN_getDocumentInfo(documentId) {
   const config = SN_getConfig();
-  
+
   try {
     const response = UrlFetchApp.fetch(
       config.API_BASE + '/document/' + documentId,
@@ -680,13 +713,13 @@ function SN_getDocumentInfo(documentId) {
         muteHttpExceptions: true
       }
     );
-    
+
     if (response.getResponseCode() === 200) {
       return { success: true, ...JSON.parse(response.getContentText()) };
     } else {
       return { success: false, error: response.getContentText() };
     }
-    
+
   } catch (error) {
     return { success: false, error: error.toString() };
   }
@@ -702,10 +735,10 @@ function SN_sendSingleSigningLinkSms(phone, signingLink, signerName, role) {
   if (!formattedPhone) {
     return { success: false, error: 'Invalid phone number' };
   }
-  
+
   // Build message
   const message = `Shamrock Bail Bonds: ${signerName}, please sign your bail bond documents as the ${role}: ${signingLink}`;
-  
+
   // Use existing SMS sending mechanism
   // This would integrate with your SMS provider (Twilio, etc.)
   // For now, return the message to be sent
@@ -739,10 +772,10 @@ function testCompleteWorkflow() {
       }
     ]
   };
-  
+
   const signers = buildSignersFromFormData(sampleFormData);
   Logger.log('Built signers: ' + JSON.stringify(signers, null, 2));
-  
+
   return signers;
 }
 
@@ -753,4 +786,218 @@ function testWebhookRegistration() {
   const result = SN_listRegisteredWebhooks();
   Logger.log('Registered webhooks: ' + JSON.stringify(result, null, 2));
   return result;
+}
+
+// ============================================================================
+// CORE API FUNCTIONS (RESTORED)
+// ============================================================================
+
+/**
+ * Get configuration with Access Token
+ */
+function SN_getConfig() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('SIGNNOW_API_TOKEN');
+
+  if (!token) {
+    throw new Error('SIGNNOW_API_TOKEN is missing in Script Properties');
+  }
+
+  return {
+    API_BASE: 'https://api.signnow.com',
+    ACCESS_TOKEN: token
+  };
+}
+
+/**
+ * Get Current User Info
+ */
+function SN_getCurrentUser() {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/user';
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN },
+      muteHttpExceptions: true
+    });
+
+    if (response.getResponseCode() === 200) {
+      return JSON.parse(response.getContentText());
+    }
+    SN_log('getCurrentUser', { error: response.getContentText() });
+    return null;
+  } catch (e) {
+    SN_log('getCurrentUser', { error: e.toString() });
+    return null;
+  }
+}
+
+/**
+ * Upload a document to SignNow
+ */
+function SN_uploadDocument(pdfBase64, fileName) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document';
+
+  // Create boundary for multipart/form-data
+  const boundary = '-------' + Utilities.getUuid();
+  const blob = Utilities.newBlob(Utilities.base64Decode(pdfBase64), 'application/pdf', fileName);
+
+  // Build the body manually for GAS
+  let body = Utilities.newBlob(
+    '--' + boundary + '\r\n' +
+    'Content-Disposition: form-data; name="file"; filename="' + fileName + '"\r\n' +
+    'Content-Type: application/pdf\r\n\r\n'
+  ).getBytes();
+
+  body = body.concat(blob.getBytes());
+  body = body.concat(Utilities.newBlob('\r\n--' + boundary + '--\r\n').getBytes());
+
+  const options = {
+    method: 'post',
+    contentType: 'multipart/form-data; boundary=' + boundary,
+    headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN },
+    payload: body,
+    muteHttpExceptions: true
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const result = JSON.parse(response.getContentText());
+
+    if (response.getResponseCode() === 200) {
+      return { success: true, documentId: result.id };
+    } else {
+      return { success: false, error: JSON.stringify(result) };
+    }
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * Add fields to a document
+ */
+function SN_addFields(documentId, fields) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId;
+
+  const payload = {
+    fields: fields
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'put',
+      headers: {
+        'Authorization': 'Bearer ' + config.ACCESS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const result = JSON.parse(response.getContentText());
+    if (response.getResponseCode() === 200) {
+      return { success: true, id: result.id };
+    } else {
+      return { success: false, error: JSON.stringify(result) };
+    }
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * Download a document
+ */
+function SN_downloadDocument(documentId, type) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId + '/download?type=' + (type || 'collapsed');
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN },
+      muteHttpExceptions: true
+    });
+
+    if (response.getResponseCode() === 200) {
+      return response.getBlob();
+    } else {
+      SN_log('downloadDocument', { error: response.getContentText() });
+      return null;
+    }
+  } catch (e) {
+    SN_log('downloadDocument', { error: e.toString() });
+    return null;
+  }
+}
+
+/**
+ * Send email invite
+ */
+function SN_sendEmailInvite(documentId, signers, options) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId + '/invite';
+
+  const payload = {
+    to: signers.map(s => ({
+      email: s.email,
+      role: s.role,
+      order: s.order,
+      subject: options.subject || 'Please sign this document',
+      message: options.message || 'Please sign attached document.'
+    })),
+    from: PropertiesService.getScriptProperties().getProperty('SIGNNOW_SENDER_EMAIL') || 'admin@shamrockbailbonds.biz'
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + config.ACCESS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const result = JSON.parse(response.getContentText());
+    if (response.getResponseCode() === 200) {
+      return { success: true, inviteId: result.id };
+    } else {
+      return { success: false, error: JSON.stringify(result) };
+    }
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+/**
+ * SMS Invite (Simple wrapper, SignNow doesn't have direct SMS endpoint, usually done via third party or embedded link text)
+ * This function is a placeholder or uses the embedded link flow + Twilio (not implemented here fully)
+ */
+function SN_sendSmsInvite(documentId, signers, options) {
+  return { success: false, error: "SMS sending not fully implemented in this version (requires Twilio)" };
+}
+
+/**
+ * Format phone number (Helper)
+ */
+function SN_formatPhoneE164(phone) {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits.startsWith('1')) return '+' + digits;
+  return null;
+}
+
+/**
+ * Central Logger
+ */
+function SN_log(action, data) {
+  Logger.log(`[SignNow] ${action}: ` + JSON.stringify(data));
 }

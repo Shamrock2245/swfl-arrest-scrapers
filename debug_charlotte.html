@@ -1,0 +1,1346 @@
+<!DOCTYPE html><html lang="en"><head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="8GcDaPClkzQGw8BaGz5zsHTOOmhDs74PNf7tKTjS">
+
+        <title>Charlotte County FL Inmate Search</title>
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&amp;display=swap">
+
+        <!-- Styles -->
+        <link rel="stylesheet" href="https://inmates.charlottecountyfl.revize.com/css/app.css">
+
+        <!-- Scripts -->
+        <script src="https://inmates.charlottecountyfl.revize.com/js/app.js" defer=""></script>
+    </head>
+    <body class="bg-light">
+        <script>
+    var framed = false;
+    try {
+        framed = window.self !== window.top;
+    } catch (e) {
+        framed = true;
+    }
+    if (framed) {
+        var frameStyle = document.createElement("style");
+        frameStyle.innerHTML = "body.bg-light{background-color:transparent!important;padding:25px 0}#app-logo{display:none}"
+        document.querySelector("head").append(frameStyle);
+        document.querySelector("body").classList.add("framed");
+
+        var RZlastWidth = 0;
+
+        function frameResize(message) {
+            message = message || "";
+
+            if (message !== "") {
+                console.log(message);
+            }
+
+            RZlastWidth = window.innerWidth;
+            var height = document.getElementsByTagName("body")[0].scrollHeight;
+            window.parent.postMessage(["setNotifyHeight", height], "*");
+        }
+
+
+        window.addEventListener("resize", function () {
+            if (window.innerWidth !== RZlastWidth) {
+                frameResize("");
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            var tabs = document.querySelectorAll("#app-nav-tabs .nav-item");
+            console.log(tabs);
+            if (tabs.length) {
+                //if (window.location.href.indexOf("incidents") > -1) { tabs[0].remove(); } else { tabs[1].remove(); }
+                document.querySelector("#app-nav-tabs").remove();
+            }
+            frameResize("");
+        });
+
+        window.addEventListener("load", function() { frameResize(""); })
+        setTimeout(function() { frameResize(""); },500);
+    }
+</script>        <nav x-data="{ open: false }" class="bg-white" style="position:relative;z-index:1">
+    <!-- Primary Navigation Menu -->
+    <div class="container pt-3">
+        <div class="row mb-3">
+            <div class="col-3">
+                <!-- Logo -->
+                <div id="app-logo" class="p-0 pt-2">
+                    <a href="../">
+                        <!--<svg xmlns="http://www.w3.org/2000/svg" width="88.906" height="22.281" viewBox="0 0 88.906 22.281" class="application-logo text-left" >
+    <path fill-rule:="" evenodd;="" id="revizelogo" class="cls-1" d="M0.93,22H5.49v-5.94a6.067,6.067,0,0,1,1.3-4.29,4.7,4.7,0,0,1,3.585-1.38h0.24V5.624a4.6,4.6,0,0,0-3.24.9,6.688,6.688,0,0,0-1.89,2.64V5.924H0.93V22Zm14.73-9.3a4.666,4.666,0,0,1,1.155-2.49,3.062,3.062,0,0,1,2.325-.93,2.99,2.99,0,0,1,2.31.945A4.443,4.443,0,0,1,22.53,12.7H15.66Zm7.74,8.865a8.092,8.092,0,0,0,2.76-2.2l-2.61-2.31a6.939,6.939,0,0,1-1.86,1.26,5.083,5.083,0,0,1-2.04.39,4.085,4.085,0,0,1-2.565-.8,3.84,3.84,0,0,1-1.365-2.355H26.91q0.03-.33.045-0.63t0.015-.57a11.548,11.548,0,0,0-.465-3.285,8.058,8.058,0,0,0-1.44-2.79A7.081,7.081,0,0,0,22.62,6.344a7.834,7.834,0,0,0-3.48-.72,7.626,7.626,0,0,0-5.73,2.46,8.237,8.237,0,0,0-1.635,2.67,8.994,8.994,0,0,0-.585,3.24v0.06a8.708,8.708,0,0,0,.63,3.375,7.906,7.906,0,0,0,1.755,2.625,7.738,7.738,0,0,0,2.67,1.71,9.164,9.164,0,0,0,3.345.6A8.561,8.561,0,0,0,23.4,21.569Zm10.35,0.555h4.14l6.33-16.2H39.48l-3.63,10.77-3.6-10.77H27.42ZM45.57,22h4.56V5.924H45.57V22ZM45.45,4.154h4.8V0.1h-4.8v4.05ZM52.38,22H66.36v-3.69H58.02l8.34-9.18V5.924H52.65v3.69h8.04l-8.31,9.18V22ZM72,12.7a4.666,4.666,0,0,1,1.155-2.49,3.062,3.062,0,0,1,2.325-.93,2.99,2.99,0,0,1,2.31.945,4.443,4.443,0,0,1,1.08,2.475H72Zm7.74,8.865a8.092,8.092,0,0,0,2.76-2.2l-2.61-2.31a6.939,6.939,0,0,1-1.86,1.26,5.083,5.083,0,0,1-2.04.39,4.085,4.085,0,0,1-2.565-.8,3.84,3.84,0,0,1-1.365-2.355h11.19q0.03-.33.045-0.63t0.015-.57a11.548,11.548,0,0,0-.465-3.285,8.058,8.058,0,0,0-1.44-2.79,7.081,7.081,0,0,0-2.445-1.935,7.834,7.834,0,0,0-3.48-.72,7.626,7.626,0,0,0-5.73,2.46,8.237,8.237,0,0,0-1.635,2.67,8.994,8.994,0,0,0-.585,3.24v0.06a8.708,8.708,0,0,0,.63,3.375,7.906,7.906,0,0,0,1.755,2.625,7.738,7.738,0,0,0,2.67,1.71,9.164,9.164,0,0,0,3.345.6A8.561,8.561,0,0,0,79.739,21.569ZM85.019,22h4.83V17.2h-4.83V22Z" transform="translate(-0.938 -0.094)"></path>
+</svg>-->
+<img src="/logo.jpg" style="height:60px;border-radius:50%">
+                    </a>
+                </div>
+            </div>
+
+            <!-- Settings Dropdown -->
+                    </div>
+        <div>
+            <ul id="app-nav-tabs" class="nav nav-tabs">
+                                <li class="nav-item">
+                    <a class="nav-link active" href="https://inmates.charlottecountyfl.revize.com/bookings">Arrest Inquiries</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " href="https://inmates.charlottecountyfl.revize.com/warrants">Warrants</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " href="https://inmates.charlottecountyfl.revize.com/lostfound">Lost &amp; Found</a>
+                </li>
+                            </ul>
+        </div>
+    </div>
+
+    <!-- Responsive Navigation Menu -->
+    <div x-show="open" class="container-fluid d-md-none" style="display:none" x-transition="">
+
+        <!-- Responsive Settings Options -->
+            </div>
+</nav>
+
+        <!-- Page Heading -->
+        <header class="container-fluid bg-white border-bottom">
+            <div class="container">
+                
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="container py-3">
+            <div class="row justify-content-center">
+        <div class="col-lg-12 bg-white p-3 rounded border">
+            <div class="text-center mb-4">
+                <img id="inmate-mugshot" src="data:image/png;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCACIAGgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCTfx1o3j1qrvpN5rJEXLRcetIHHrVXdTWkxwKHoFy75g9ajadapmRjwBkntUUkMkg+Y5HpWMqqibU6Upq6Ln22AHBlQH03CpFlVxlWBHsay1scsPlq7FZFQNvBqfrKW5t9XkyyGpcimmKRFyRketR766ac1NXiYzg4O0iwDUitVQNUqtWyM2WN1FQhjmincRSpKO9Fc5AhOBUWSTUj9KSAbp0X3rObsioK7SLMduwTJHNOEJBrQMShAT3FMEJcYV/1rzW3J3PcppRjYiRVwT6dasKNyZGAKU2zAfNn2560JE0jAFtoHqaGuhasTpakgBu/pWXf2rWs3T5W5FdHAkayKTLvI7AVT8RxKtrG4/vVrhZuM7dzDFRUoehz4PFSqagB96epr1kzymTg80UwHmimIgpMU7FGKwMLkL5zT7aKQXCtt+UH7w6UkgwauQzLFB5PVpGJwOwzXNWk0tDvwNKNRtvdF2ZVMS7n2j1rDuJPs0xI1AJ6JtzmuiCKUUOu5MYrGv8AS4bq4QnDMvC57Cuem11O6Sb2NHSZzcQ5aUMOgzTNWWG1uTAbht+B92i3s/sXlxIpIBBOO1aWraSZZY71DhgMEjtU8/veRp7P3SjpixqvmfaTIAeSTyKua/uawjUAk7x0p2n6ZZ2++baJJJG3HHUmtOWWC3lj+0hUQ9c84o57TTQlDmXKzh3jeJ9kg2n0pynipL1BFcmLOSgxn15J/rUKmvVpybimzy60VCo4x2RKGopoNFaGY8c0YqMSfNin5rA5Xcay8VJBFHxcMxDoNvHOQfWmE8c1VknEZI3HnsDWVWHMrHVhK3sZ3etzp8fInJxjGO1VrwRQR72fae1WUw8COPSsTUnkl1HygobavQnpXClqetz2JrTV3S+kkaVmtiFCJsHykdefetu31OS6iMdxOryFyRhNox2FczGLhHwYoRk9OTWosN2YSwhiIAzlSQauVrFxujqbaySHEoPJqnqlkLqT9637uL52A6nHb6Vb02Vp9PglfuvArm/EuoS/bmt45Sse0blB61NOnzy5US63s1zsxZJDNM8jdWYmgGog1PBr1lorHkN3d2SA0UgOKKdwIA/7wU9pwoqis4D5PpUEtwTxWTaI5V1Lc16xBA4qvFunfr8oPzGobeP7RNh22r39TWr8iLEigKnmoMf8CFYznYxdeEZqEd20bqStbIAwyhH5Vlai2bvfAPmZclq2ygxtPes+60wlt0eRjnrXHBq+p7lVO+hnQNKwDOzbgcVtwvMsi7WzGVzjNYa208dwRuPPbFdJYaZcND+8Jx79vpWkuUmMm1axs2k6xwpHFzheB6VwV1ctd3MlwzbvMO4EdCK9AggS3gYjjA5Nec+HLKS+8JW8o5mV32g/xDceKeGmlJtnPjpqnGF+rHg5p4NQBiDg8EdRUgNeicpODmio89qKAMWUiFcs43ntSTXCQQjYR5shwpA/WoJv39ztWVdo67himqkk1+G3p5acCudanmyqSluWt5ilyCeOOfpVySVpbOQJ98Dcv1HIqoQsm/D7mDnNSWhPmY65qGcjb5r9Udbp9/HqVlDcI2NyjcPQ1c3EjGa4zT7htLuXjBzEWyMHpXSpeI6qwOQa5ZQs9D7ClVjVgpLqadtFG824gZHtW0j4jxisG0lAfcTV6TUIohuLdBUSuzVJIb4j1BdM8NX85YK/ksqD/aIwK57QojY+H7GAjDiMMfqeazNcvJdd1G3scnyN4Zx7CtK8vordeWACjAFawjaNu589nVfnlGmumpn64VivFucYifiQr/CfWo2hliAYgPGRkOpyCKoz3B1CO5UkhdmePrUei6mYovs8rM6A8Bh0/WuqDcUcdGtOETTVgehoqYLbz/cIVvVf8KK1VSPU7I4qnbU5pFbz3JjDHPUVJEuJMeSc59TinmOISHZKy57GpI4x5ufP4/z71k9jgbIUiPmSkQ4YnqM1X1FruMxGPckbDawUY/WtERhWbFx17ZpJ7fzLUf6SpI5AzT6gt0ZWi3hjimsLhctHk7269a6nTSfKwcmuZurJ0ljuo2Usw2sa2tLnaOEpIV9BipqRurnrYDERjLlfX8zZimlLfKcLVPULqQuE3ELU1tJnJJGKxr6733Ekig7YfmUf3z2/WsYx10PRxdZUoczHW+r2On3DyXLPvxtOFzs+tJcxPcIk4YtHLyjHuK5yK1GoXsUJZ8yNlyea7JgiXJSGVQkCgKDxWzilsfM13zT5nuQ2EUaaXKwfZIxKncO1Zht5ILkMuwhua1S0g0ti0StuJbP/AOqqV2kYtYS0bK+OxoREWTuJYJR8iknkbT/hRVGeZSExJJkDHT/69FOwWRJIrmb5rcE/Qj+VSRIQCfs3t0b/ABpBFG0jYn/OrCwqMKtytKwMrOU3HMOPocUoMJix5b/99f8A1qn2y9rj9aVI7kpgTA89mpisygUhaF02uD2Oc1FFMgVV2twd3Xv+VX/LnDc7CfdP/rVnzw3ZuEjifDMSABxTRpG6ZfivGntjHGQrHr/hWfczvLtSLbhRyfU1Y8oqnkrGGxwWHVj61E0MQONjr+tKMbM2r4iVWXNIveHoZIrlp3hDhVJPephNA6TM8ZDOeo/z/Sm2SrHbSlJsEjGDxQvnFMBlcY6Eg/zo3OVu7JWSE2aokrAnAwf8inX0EioESVXVVAx1pFyXQyQDCdTgimXnlOhYB1+hzS6hfWxStraae7jQxrtzydoopIHFvDPOk5Dqu1evU8UU2m9i0mx6Oigs0QyegBNSAx7QTE3X+9RRSJaGboST8rD6HNOjMP8A00/SiigSZFJ5QOQZKj01Yne5uGL5T5V4H40UU+g0/dbHIVEr7JiuTnDdKnDS4xhZB6Dn9P8A61FFUMmjljETJJBg+3FKqW7dGZaKKlsm+pNDEBlorjBJx1xVl4LhrdyQkgHJLD+pooo3KSuYkybbIs8ACeZksM9BRRRVI2jBNH//2Q==" style="width:220px;max-width:100%">
+                <script>
+                    var mugshotData = "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCACIAGgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCTfx1o3j1qrvpN5rJEXLRcetIHHrVXdTWkxwKHoFy75g9ajadapmRjwBkntUUkMkg+Y5HpWMqqibU6Upq6Ln22AHBlQH03CpFlVxlWBHsay1scsPlq7FZFQNvBqfrKW5t9XkyyGpcimmKRFyRketR766ac1NXiYzg4O0iwDUitVQNUqtWyM2WN1FQhjmincRSpKO9Fc5AhOBUWSTUj9KSAbp0X3rObsioK7SLMduwTJHNOEJBrQMShAT3FMEJcYV/1rzW3J3PcppRjYiRVwT6dasKNyZGAKU2zAfNn2560JE0jAFtoHqaGuhasTpakgBu/pWXf2rWs3T5W5FdHAkayKTLvI7AVT8RxKtrG4/vVrhZuM7dzDFRUoehz4PFSqagB96epr1kzymTg80UwHmimIgpMU7FGKwMLkL5zT7aKQXCtt+UH7w6UkgwauQzLFB5PVpGJwOwzXNWk0tDvwNKNRtvdF2ZVMS7n2j1rDuJPs0xI1AJ6JtzmuiCKUUOu5MYrGv8AS4bq4QnDMvC57Cuem11O6Sb2NHSZzcQ5aUMOgzTNWWG1uTAbht+B92i3s/sXlxIpIBBOO1aWraSZZY71DhgMEjtU8/veRp7P3SjpixqvmfaTIAeSTyKua/uawjUAk7x0p2n6ZZ2++baJJJG3HHUmtOWWC3lj+0hUQ9c84o57TTQlDmXKzh3jeJ9kg2n0pynipL1BFcmLOSgxn15J/rUKmvVpybimzy60VCo4x2RKGopoNFaGY8c0YqMSfNin5rA5Xcay8VJBFHxcMxDoNvHOQfWmE8c1VknEZI3HnsDWVWHMrHVhK3sZ3etzp8fInJxjGO1VrwRQR72fae1WUw8COPSsTUnkl1HygobavQnpXClqetz2JrTV3S+kkaVmtiFCJsHykdefetu31OS6iMdxOryFyRhNox2FczGLhHwYoRk9OTWosN2YSwhiIAzlSQauVrFxujqbaySHEoPJqnqlkLqT9637uL52A6nHb6Vb02Vp9PglfuvArm/EuoS/bmt45Sse0blB61NOnzy5US63s1zsxZJDNM8jdWYmgGog1PBr1lorHkN3d2SA0UgOKKdwIA/7wU9pwoqis4D5PpUEtwTxWTaI5V1Lc16xBA4qvFunfr8oPzGobeP7RNh22r39TWr8iLEigKnmoMf8CFYznYxdeEZqEd20bqStbIAwyhH5Vlai2bvfAPmZclq2ygxtPes+60wlt0eRjnrXHBq+p7lVO+hnQNKwDOzbgcVtwvMsi7WzGVzjNYa208dwRuPPbFdJYaZcND+8Jx79vpWkuUmMm1axs2k6xwpHFzheB6VwV1ctd3MlwzbvMO4EdCK9AggS3gYjjA5Nec+HLKS+8JW8o5mV32g/xDceKeGmlJtnPjpqnGF+rHg5p4NQBiDg8EdRUgNeicpODmio89qKAMWUiFcs43ntSTXCQQjYR5shwpA/WoJv39ztWVdo67himqkk1+G3p5acCudanmyqSluWt5ilyCeOOfpVySVpbOQJ98Dcv1HIqoQsm/D7mDnNSWhPmY65qGcjb5r9Udbp9/HqVlDcI2NyjcPQ1c3EjGa4zT7htLuXjBzEWyMHpXSpeI6qwOQa5ZQs9D7ClVjVgpLqadtFG824gZHtW0j4jxisG0lAfcTV6TUIohuLdBUSuzVJIb4j1BdM8NX85YK/ksqD/aIwK57QojY+H7GAjDiMMfqeazNcvJdd1G3scnyN4Zx7CtK8vordeWACjAFawjaNu589nVfnlGmumpn64VivFucYifiQr/CfWo2hliAYgPGRkOpyCKoz3B1CO5UkhdmePrUei6mYovs8rM6A8Bh0/WuqDcUcdGtOETTVgehoqYLbz/cIVvVf8KK1VSPU7I4qnbU5pFbz3JjDHPUVJEuJMeSc59TinmOISHZKy57GpI4x5ufP4/z71k9jgbIUiPmSkQ4YnqM1X1FruMxGPckbDawUY/WtERhWbFx17ZpJ7fzLUf6SpI5AzT6gt0ZWi3hjimsLhctHk7269a6nTSfKwcmuZurJ0ljuo2Usw2sa2tLnaOEpIV9BipqRurnrYDERjLlfX8zZimlLfKcLVPULqQuE3ELU1tJnJJGKxr6733Ekig7YfmUf3z2/WsYx10PRxdZUoczHW+r2On3DyXLPvxtOFzs+tJcxPcIk4YtHLyjHuK5yK1GoXsUJZ8yNlyea7JgiXJSGVQkCgKDxWzilsfM13zT5nuQ2EUaaXKwfZIxKncO1Zht5ILkMuwhua1S0g0ti0StuJbP/AOqqV2kYtYS0bK+OxoREWTuJYJR8iknkbT/hRVGeZSExJJkDHT/69FOwWRJIrmb5rcE/Qj+VSRIQCfs3t0b/ABpBFG0jYn/OrCwqMKtytKwMrOU3HMOPocUoMJix5b/99f8A1qn2y9rj9aVI7kpgTA89mpisygUhaF02uD2Oc1FFMgVV2twd3Xv+VX/LnDc7CfdP/rVnzw3ZuEjifDMSABxTRpG6ZfivGntjHGQrHr/hWfczvLtSLbhRyfU1Y8oqnkrGGxwWHVj61E0MQONjr+tKMbM2r4iVWXNIveHoZIrlp3hDhVJPephNA6TM8ZDOeo/z/Sm2SrHbSlJsEjGDxQvnFMBlcY6Eg/zo3OVu7JWSE2aokrAnAwf8inX0EioESVXVVAx1pFyXQyQDCdTgimXnlOhYB1+hzS6hfWxStraae7jQxrtzydoopIHFvDPOk5Dqu1evU8UU2m9i0mx6Oigs0QyegBNSAx7QTE3X+9RRSJaGboST8rD6HNOjMP8A00/SiigSZFJ5QOQZKj01Yne5uGL5T5V4H40UU+g0/dbHIVEr7JiuTnDdKnDS4xhZB6Dn9P8A61FFUMmjljETJJBg+3FKqW7dGZaKKlsm+pNDEBlorjBJx1xVl4LhrdyQkgHJLD+pooo3KSuYkybbIs8ACeZksM9BRRRVI2jBNH//2Q==".trim();
+                    if (mugshotData.length) {
+                        if (mugshotData.indexOf("0x") === 0) {
+                            mugshotData = mugshotData.substr(2);
+                        }
+
+                        /* var bits = new Array();
+                        for (var i = 0; i < mugshotData.length; i += 2) {
+                            bits.push(parseInt(mugshotData.substr(i, 2), 16));
+                        }
+                        var arrayBuffer = new Uint8Array(bits);
+                        var blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+
+                        document.querySelector("#inmate-mugshot").src = URL.createObjectURL(blob); */
+
+                        document.querySelector("#inmate-mugshot").src = 'data:image/png;base64,' + mugshotData;
+                    }
+                </script>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">Personal Information</div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" value="TIMOTHY" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" value="PICKEL" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-3">
+                            <label class="form-label">Middle Name</label>
+                            <input type="text" class="form-control" value="CRAIG" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Suffix</label>
+                            <input type="text" class="form-control" value="JR" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="text" class="form-control" value="1979-01-19" readonly="">
+                        </div>
+                        <div class="col-lg-3">
+                            <label class="form-label">Juvenile</label>
+                            <input type="text" class="form-control" value="No" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Gender</label>
+                            <input type="text" class="form-control" value="Male" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Race</label>
+                            <input type="text" class="form-control" value="White" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Ethnicity</label>
+                            <input type="text" class="form-control" value="Not Hispanic" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Citizenship</label>
+                            <input type="text" class="form-control" value="US - United States" readonly="">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-lg-6">
+                            <label class="form-label">Hair</label>
+                            <input type="text" class="form-control" value="Brown" readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Eye</label>
+                            <input type="text" class="form-control" value="Brown" readonly="">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <label class="form-label">Height</label>
+                            <input type="text" class="form-control" value="5 ft. 9 in." readonly="">
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label">Weight</label>
+                            <input type="text" class="form-control" value="170" readonly="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Bookings</div>
+                <div class="card-body">
+                    <table id="bookings-table" class="table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Book #</th>
+                                <th>Agency</th>
+                                <th>Book Date</th>
+                                <th>Release Date</th>
+                                <th>Rel. Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-booking="0">
+                                <td><button onclick="toggleArrests(0)">▼</button></td>
+                                <td>202502828</td>
+                                <td>CCSO</td>
+                                <td>05-28-2025</td>
+                                                            <td style="color:#CCC">N/A</td>
+                                <td style="color:#CCC">N/A</td>
+                                                        </tr>
+                            <tr data-arrest="0">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 948.06 - Violation of probation or community control (3848) (Principal - P)</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td></td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Sentenced: Serving 1 days - Concurrent</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td></td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="1">
+                                <td><button onclick="toggleArrests(1)">▼</button></td>
+                                <td>202501964</td>
+                                <td>CCSO</td>
+                                <td>04-16-2025</td>
+                                
+                                <td>04-25-2025</td>
+                                <td>Bonded Out</td>
+                                                        </tr>
+                            <tr data-arrest="1">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 00.01a - FAILURE TO APPEAR MISDEMEANOR- NO NEW CHG ENTRY (Principal - P)</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td>26601 AIRPORT RD, PUNTA GORDA, FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 00.08 - Underlying Charge (Principal - P)</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td>26601 AIRPORT RD, PUNTA GORDA, FL</td>
+                                                <td>5000.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="2">
+                                <td><button onclick="toggleArrests(2)">▼</button></td>
+                                <td>202402600</td>
+                                <td>CCSO</td>
+                                <td>05-07-2024</td>
+                                
+                                <td>05-14-2024</td>
+                                <td>Probation</td>
+                                                        </tr>
+                            <tr data-arrest="2">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Court Order: 00.01b - OFF BOND/FORFEITURE/REVOCATIONS- NO NEW CHG ENTRY</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td>26601 AIRPORT ROAD PUNTA GORDA FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="3">
+                                <td><button onclick="toggleArrests(3)">▼</button></td>
+                                <td>202401859</td>
+                                <td>PGPD</td>
+                                <td>04-05-2024</td>
+                                
+                                <td>04-12-2024</td>
+                                <td>Bonded Out</td>
+                                                        </tr>
+                            <tr data-arrest="3">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 893.13 6a - Possess Cntrl Sub WO Prescription (LEV F DEG T 3695) (Principal - P)</td>
+                                                <td>Third Degree Felony</td>
+                                                <td>FL0080200</td>
+                                                <td>100 MADRID BLVD, PUNTA GORDA, FL</td>
+                                                <td>2500.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 893.147 1 - Drug Paraphernalia - Possession or Use Of (LEV:M DEG:F 3768) (Principal - P)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080200</td>
+                                                <td>100 MADRID BLVD, PUNTA GORDA, FL</td>
+                                                <td>1000.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="4">
+                                <td><button onclick="toggleArrests(4)">▼</button></td>
+                                <td>202203495</td>
+                                <td>CCSO</td>
+                                <td>07-15-2022</td>
+                                
+                                <td>08-02-2022</td>
+                                <td>Bonded Out</td>
+                                                        </tr>
+                            <tr data-arrest="4">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 810.09 2b - Trespass Failure to Leave Property Upon Order by Owner (LEV:M DEG:F 2774) (Principal - P)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td>5560 SWAYING PALM DRIVE PUNTA GORDA FL</td>
+                                                <td>1500.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="5">
+                                <td><button onclick="toggleArrests(5)">▼</button></td>
+                                <td>202101473</td>
+                                <td>CCSO</td>
+                                <td>03-18-2021</td>
+                                
+                                <td>03-19-2021</td>
+                                <td>Bonded Out</td>
+                                                        </tr>
+                            <tr data-arrest="5">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 322.34 2 - Knowingly Driving While License Suspended or Revoked (LEV:M DEG:S 7253) (Principal - P)</td>
+                                                <td>Second Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td>VETERANS BLVD / ATWATER PORT CHARLOTTE, FL</td>
+                                                <td>2500.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="6">
+                                <td><button onclick="toggleArrests(6)">▼</button></td>
+                                <td>201703119</td>
+                                <td>CCSO</td>
+                                <td>05-14-2017</td>
+                                
+                                <td>05-16-2017</td>
+                                <td>Bonded Out</td>
+                                                        </tr>
+                            <tr data-arrest="6">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 784.03 1a1 - Battery by Intentional Touch or Strike (LEV:M DEG:F 2560) (Principal - P)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td>5560 SWAYING PALM DR, PUNTA GORDA, FL </td>
+                                                <td>25000.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="7">
+                                <td><button onclick="toggleArrests(7)">▼</button></td>
+                                <td>201500279</td>
+                                <td>CCSO</td>
+                                <td>01-13-2015</td>
+                                
+                                <td>05-12-2015</td>
+                                <td>Credit Time Served</td>
+                                                        </tr>
+                            <tr data-arrest="7">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 784.041 2a - FELONY BATTERY / DOMESTIC BATTERY BY STRANGULATION  (LEV: F DEG:T 6895) (Principal - P)</td>
+                                                <td>Third Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>ROYAL RD. AND MANGO DR.</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 784.03 1a1 - Battery by Intentional Touch or Strike (LEV:M DEG:F 2560) (Principal - P)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td>ROYAL RD. AND MANGO DR.</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Sentenced: Serving 9 days - Concurrent</td>
+                                                <td></td>
+                                                <td></td>
+                                                <td>ROYAL RD. AND MANGO DR.</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="8">
+                                <td><button onclick="toggleArrests(8)">▼</button></td>
+                                <td>201404096</td>
+                                <td>CCSO</td>
+                                <td>06-21-2014</td>
+                                
+                                <td>09-08-2014</td>
+                                <td>Credit Time Served</td>
+                                                        </tr>
+                            <tr data-arrest="8">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 812.014 2e - LARC / PETIT 1ST DEGREE PROPERTY 100 TO UND 300 DOLS (LEV M DEG F 2797) (Principal - P)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td></td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="9">
+                                <td><button onclick="toggleArrests(9)">▼</button></td>
+                                <td>56958012</td>
+                                <td></td>
+                                <td>09-04-2012</td>
+                                
+                                <td>10-30-2013</td>
+                                <td>Credit Time Served</td>
+                                                        </tr>
+                            <tr data-arrest="9">
+                                <td></td>
+                                <td colspan="6">
+<table class="table table-striped arrest-table table-hover table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="40%">Desc.</th>
+                                                <th width="20%">Degree</th>
+                                                <th width="10%">Agency</th>
+                                                <th width="20%">Location</th>
+                                                <th width="10%">Bond Amt.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>New Charge: 00.01 - BOND/FORFEITURE/REVOCATIONS- NO NEW CHG ENTRY</td>
+                                                <td></td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 812.019 1 - Dealing in Stolen Property (LEV:F DEG:S 2808)</td>
+                                                <td>Second Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 810.02 4b - Burglary of an Unoccupied Conveyance Unarmed (LEV:F DEG:T 6267)</td>
+                                                <td>Third Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 812.014 2e - Petit Theft Property Valued Under $300 (LEV:M DEG:F 2797)</td>
+                                                <td>First Degree Misdemeanor</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 790.23 1a - Possession of Firearm Ammunition or Weapon by Florida Convicted Felon (LEV:F DEG:S 2674)</td>
+                                                <td>Second Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 810.02 2b - Burglary of Dwelling Structure or Conveyance While Armed (LEV:F DEG:F 2763)</td>
+                                                <td>First Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>New Charge: 812.014 2c5 - Grand Theft of Firearm (LEV:F DEG:T 2791)</td>
+                                                <td>Third Degree Felony</td>
+                                                <td>FL0080000</td>
+                                                <td>1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</td>
+                                                <td>0.0000</td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table id="bookings-table-mobile" class="table table-mobile w-100">
+                        <tbody>
+                            <tr data-booking="0-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">201404096</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">06-21-2014</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">09-08-2014</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Credit Time Served</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('0-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="0-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 812.014 2e - LARC / PETIT 1ST DEGREE PROPERTY 100 TO UND 300 DOLS (LEV M DEG F 2797) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="1-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">201500279</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">01-13-2015</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">05-12-2015</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Credit Time Served</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('1-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="1-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 784.041 2a - FELONY BATTERY / DOMESTIC BATTERY BY STRANGULATION  (LEV: F DEG:T 6895) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Third Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">ROYAL RD. AND MANGO DR.</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 784.03 1a1 - Battery by Intentional Touch or Strike (LEV:M DEG:F 2560) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">ROYAL RD. AND MANGO DR.</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">Sentenced: Serving 9 days - Concurrent</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">ROYAL RD. AND MANGO DR.</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="2-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">201703119</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">05-14-2017</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">05-16-2017</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Bonded Out</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('2-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="2-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 784.03 1a1 - Battery by Intentional Touch or Strike (LEV:M DEG:F 2560) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">5560 SWAYING PALM DR, PUNTA GORDA, FL </span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">25000.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="3-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202502828</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">05-28-2025</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">N/A</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block"></span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('3-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="3-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 948.06 - Violation of probation or community control (3848) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">Sentenced: Serving 1 days - Concurrent</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="4-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">56958012</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block"></span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">09-04-2012</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">10-30-2013</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Credit Time Served</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('4-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="4-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 00.01 - BOND/FORFEITURE/REVOCATIONS- NO NEW CHG ENTRY</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 812.019 1 - Dealing in Stolen Property (LEV:F DEG:S 2808)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Second Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 810.02 4b - Burglary of an Unoccupied Conveyance Unarmed (LEV:F DEG:T 6267)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Third Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 812.014 2e - Petit Theft Property Valued Under $300 (LEV:M DEG:F 2797)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 790.23 1a - Possession of Firearm Ammunition or Weapon by Florida Convicted Felon (LEV:F DEG:S 2674)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Second Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 810.02 2b - Burglary of Dwelling Structure or Conveyance While Armed (LEV:F DEG:F 2763)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 812.014 2c5 - Grand Theft of Firearm (LEV:F DEG:T 2791)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Third Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">1255 TAMIAMI TRAIL UNIT 6  PUNTA GORDA,FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="5-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202101473</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">03-18-2021</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">03-19-2021</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Bonded Out</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('5-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="5-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 322.34 2 - Knowingly Driving While License Suspended or Revoked (LEV:M DEG:S 7253) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Second Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">VETERANS BLVD / ATWATER PORT CHARLOTTE, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">2500.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="6-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202203495</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">07-15-2022</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">08-02-2022</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Bonded Out</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('6-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="6-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 810.09 2b - Trespass Failure to Leave Property Upon Order by Owner (LEV:M DEG:F 2774) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">5560 SWAYING PALM DRIVE PUNTA GORDA FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">1500.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="7-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202401859</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">PGPD</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">04-05-2024</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">04-12-2024</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Bonded Out</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('7-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="7-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 893.13 6a - Possess Cntrl Sub WO Prescription (LEV F DEG T 3695) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">Third Degree Felony</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080200</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">100 MADRID BLVD, PUNTA GORDA, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">2500.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 893.147 1 - Drug Paraphernalia - Possession or Use Of (LEV:M DEG:F 3768) (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block">First Degree Misdemeanor</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080200</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">100 MADRID BLVD, PUNTA GORDA, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">1000.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="8-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202501964</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">04-16-2025</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">04-25-2025</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Bonded Out</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('8-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="8-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 00.01a - FAILURE TO APPEAR MISDEMEANOR- NO NEW CHG ENTRY (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">26601 AIRPORT RD, PUNTA GORDA, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">New Charge: 00.08 - Underlying Charge (Principal - P)</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">26601 AIRPORT RD, PUNTA GORDA, FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">5000.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                            <tr data-booking="9-mobile">
+                                <td>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book #</span><span class="d-inline-block">202402600</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Agency</span><span class="d-inline-block">CCSO</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Book Date</span><span class="d-inline-block">05-07-2024</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Date</span><span class="d-inline-block">05-14-2024</span>
+                                    </div>
+                                    <div class="border-bottom">
+                                        <span class="mobile-row">Release Reason</span><span class="d-inline-block">Probation</span>
+                                    </div>
+                                    <button class="d-block" onclick="toggleArrests('9-mobile')">▼</button>
+                                </td>
+                            </tr>
+                            <tr data-arrest="9-mobile">
+                                <td>
+<table class="table table-striped arrest-table table-hover table-bordered table-mobile">
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Description</span><span class="d-inline-block">Court Order: 00.01b - OFF BOND/FORFEITURE/REVOCATIONS- NO NEW CHG ENTRY</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Degree</span><span class="d-inline-block"></span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Agency</span><span class="d-inline-block">FL0080000</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Location</span><span class="d-inline-block">26601 AIRPORT ROAD PUNTA GORDA FL</span>
+                                                    </div>
+                                                    <div class="border-bottom">
+                                                        <span class="mobile-row">Bond Amount</span><span class="d-inline-block">0.0000</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                </table>
+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+        </main>
+
+        <style>
+            #bookings-table button{font-family:sans-serif}
+        </style>
+        <script>
+            function toggleArrests(ind) {
+                var booking = document.querySelector('[data-booking="'+ind+'"]');
+                booking.querySelector("button").innerText = (booking.querySelector("button").innerText == "▼") ? "►" : "▼";
+                var arrest = document.querySelector('[data-arrest="'+ind+'"]');
+                arrest.style.display = (arrest.style.display == "none") ? "table-row" : "none";
+            }
+        </script>
+    
+
+</body></html>

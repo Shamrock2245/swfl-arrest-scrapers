@@ -1,19 +1,20 @@
-# ------------------------------------------------------
-# 1. IGNORE EVERYTHING IN THE PROJECT ROOT
-# ------------------------------------------------------
-# This blocks venv, scrapers, node_modules, python scripts, etc.
-**/**
+# Ignore specific system/dev folders
+.git/
+node_modules/
+venv/
+__pycache__/
+.DS_Store
 
-# ------------------------------------------------------
-# 2. EXCEPTION: ALLOW THE APPS SCRIPT FOLDER
-# ------------------------------------------------------
-# We explicitly un-ignore (!) the folder where your actual GAS code lives
-!apps_script/
-!apps_script/**
+# Ignore specific files
+.env
+package.json
+package-lock.json
+requirements.txt
+README.md
+*.py
+*.yaml
+*.yml
 
-# ------------------------------------------------------
-# 3. EXCEPTION: MANIFEST FILE
-# ------------------------------------------------------
-# Depending on where you keep it, ensure the manifest is allowed
-!appsscript.json
-!apps_script/appsscript.json
+# Explicitly ignore root files we don't want
+# But ALLOW apps_script/
+# (Implicitly allowed because we are not ignoring it)

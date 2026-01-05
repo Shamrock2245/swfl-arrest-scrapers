@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-Manatee County Scraper Runner - Production Ready
+Orange County Scraper Runner - Production Ready
 
-Integrates manatee_solver.py with the Python scraper infrastructure:
+Integrates orange_solver.py with the Python scraper infrastructure:
 - Calls the solver to scrape raw data
 - Converts to ArrestRecord objects
 - Scores records with LeadScorer
 - Writes to Google Sheets via SheetsWriter
 
 Author: SWFL Arrest Scrapers Team
-Date: December 10, 2025
+Date: December 27, 2025
 """
 
 import sys
 import os
 import json
 import subprocess
-import argparse
+from datetime import datetime
 from typing import List
 
 # Add parent directory to path
@@ -32,21 +32,21 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     
     # Map raw fields to ArrestRecord schema v3.0 (39 columns)
     record = ArrestRecord(
-        County="Manatee",
+        County="Orange",
         Booking_Number=raw_data.get('Booking_Number', ''),
         Person_ID=raw_data.get('Person_ID', ''),
         Full_Name=raw_data.get('Full_Name', ''),
         First_Name=raw_data.get('First_Name', ''),
         Middle_Name=raw_data.get('Middle_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
-        DOB=raw_data.get('DOB', ''),
+        DOB=raw_data.get('DOB', raw_data.get('Date of Birth', '')),
         Arrest_Date=raw_data.get('Arrest_Date', ''),
         Arrest_Time=raw_data.get('Arrest_Time', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
         Booking_Time=raw_data.get('Booking_Time', ''),
         Status=raw_data.get('Status', 'IN CUSTODY'),
         Facility=raw_data.get('Facility', ''),
-        Agency=raw_data.get('Agency', ''),
+        Agency=raw_data.get('Arrest_Agency', ''), # Mapped from Arrest_Agency
         Race=raw_data.get('Race', ''),
         Sex=raw_data.get('Sex', ''),
         Height=raw_data.get('Height', ''),
@@ -54,7 +54,7 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         Address=raw_data.get('Address', ''),
         City=raw_data.get('City', ''),
         State=raw_data.get('State', 'FL'),
-        ZIP=raw_data.get('Zipcode', raw_data.get('ZIP', '')),
+        ZIP=raw_data.get('ZIP', ''),
         Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         Charges=raw_data.get('Charges', ''),
         Bond_Amount=raw_data.get('Bond_Amount', '0'),
@@ -83,27 +83,21 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 
 def main():
     """Main execution function."""
-    parser = argparse.ArgumentParser(description='Run Manatee County scraper')
-    parser.add_argument('--days-back', type=int, default=21, help='Days back to scrape')
-    parser.add_argument('--max-pages', type=int, default=10, help='Max pages to scrape')
-    args = parser.parse_args()
     
     print(f"\n{'='*80}")
-    print(f"🚦 Manatee County Scraper - Production Runner")
+    print(f"🍊 Orange County Scraper - Production Runner")
     print(f"{'='*80}\n")
     
     # Get script directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    solver_path = os.path.join(script_dir, 'manatee_solver.py')
+    solver_path = os.path.join(script_dir, 'orange_solver.py')
     
     # Run the solver
-    # manatee_solver.py args: [days_back] [max_pages]
-    print(f"📡 Running Manatee solver (days_back={args.days_back}, max_pages={args.max_pages})...")
-    
+    print(f"📡 Running Orange solver (days_back={args.days_back})...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
-            ['python3', solver_path, str(args.days_back), str(args.max_pages)],
+            ['python3', solver_path, str(args.days_back)],
             stdout=subprocess.PIPE,
             stderr=sys.stderr,  # Stream logs directly to console
             text=True,
@@ -116,33 +110,20 @@ def main():
         
         # Parse JSON output
         try:
-            raw_records = json.loads(stdout_clean)
-        except:
-             # Try to find array brackets - handle case where unrelated text is in stdout
-             try:
-                 # Look for the last occurrence of ']'
-                 end_idx = stdout_clean.rfind(']')
-                 if end_idx != -1:
-                     # Look for the matching '[' before it
-                     # This is heuristic; assuming the largest JSON array at the end is our data
-                     # A safer way is to find the last '[' that starts a valid JSON array ending at end_idx
-                     subset = stdout_clean[:end_idx+1]
-                     start_idx = subset.rfind('[')
-                     if start_idx != -1:
-                        candidate = subset[start_idx:]
-                        raw_records = json.loads(candidate)
-                     else:
-                        raw_records = []
-                 else:
-                     raw_records = []
-             except Exception as e:
-                 print(f"Failed to extract JSON from output: {e}")
-                 raw_records = []
-
+            raw_records = json.loads(result.stdout)
+            print(f"✅ Solver extracted {len(raw_records)} raw records")
+        except json.JSONDecodeError:
+            end = stdout_str.rfind(']')
+            if start != -1 and end != -1:
+                json_str = stdout_str[start:end+1]
+                raw_records = json.loads(json_str)
+            else:
+                raise
+            
         print(f"✅ Solver extracted {len(raw_records)} raw records")
         
     except subprocess.TimeoutExpired:
-        print("❌ Solver timed out after 20 minutes")
+        print("❌ Solver timed out after 5 minutes")
         return
     except Exception as e:
         print(f"❌ Error running solver: {e}")
@@ -202,14 +183,14 @@ def main():
             credentials_path=creds_path
         )
         
-        # Write to Manatee tab
-        stats = writer.write_records(scored_records, county="Manatee")
+        # Write to Orange tab
+        stats = writer.write_records(scored_records, county="Orange")
         
         # Also log to ingestion log
-        writer.log_ingestion("Manatee", stats)
+        writer.log_ingestion("Orange", stats)
         
         print(f"\n{'='*80}")
-        print(f"✅ Manatee County Scraper Complete!")
+        print(f"✅ Orange County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
         print(f"   Updated: {stats.get('updated_records', 0)}")

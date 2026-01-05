@@ -17,12 +17,12 @@ import json
 @dataclass
 class ArrestRecord:
     """
-    Universal arrest record model with 34 fields.
-    Matches the project's canonical data schema exactly.
+    Universal arrest record model with 39 fields.
+    Matches the project's canonical data schema v3.0.
     """
-    # === Master Schema (34 Columns) ===
+    # === Master Schema (39 Columns) ===
     Scrape_Timestamp: str = ""   # 1. When record was scraped (ISO format)
-    County: str = ""             # 2. Source county (Lee, Collier, etc.)
+    County: str = ""             # 2. Source county
     Booking_Number: str = ""     # 3. Primary Key
     Person_ID: str = ""          # 4. County-specific person ID
     Full_Name: str = ""          # 5. Full name
@@ -30,33 +30,38 @@ class ArrestRecord:
     Middle_Name: str = ""        # 7. Middle name
     Last_Name: str = ""          # 8. Last name
     DOB: str = ""                # 9. Date of birth
-    Booking_Date: str = ""       # 10. Date booked
-    Booking_Time: str = ""       # 11. Time booked
-    Status: str = ""             # 12. Current status (In Custody, Released, etc.)
-    Facility: str = ""           # 13. Facility name
-    Race: str = ""               # 14. Race
-    Sex: str = ""                # 15. Sex (M/F)
-    Height: str = ""             # 16. Height
-    Weight: str = ""             # 17. Weight
-    Address: str = ""            # 18. Street address
-    City: str = ""               # 19. City
-    State: str = "FL"            # 20. State
-    ZIP: str = ""                # 21. ZIP code
-    Mugshot_URL: str = ""        # 22. URL to mugshot image
-    Charges: str = ""            # 23. Pipe | separated charges
-    Bond_Amount: str = "0"       # 24. Numeric bond amount
-    Bond_Paid: str = "NO"        # 25. YES/NO
-    Bond_Type: str = ""          # 26. CASH, SURETY, etc.
-    Court_Type: str = ""         # 27. Felony, Misdemeanor, etc.
-    Case_Number: str = ""        # 28. Court case number
-    Court_Date: str = ""         # 29. Court date
-    Court_Time: str = ""         # 30. Court time
-    Court_Location: str = ""     # 31. Courthouse location
-    Detail_URL: str = ""         # 32. Original source URL
-    Lead_Score: int = 0          # 33. Calculated score
-    Lead_Status: str = ""        # 34. Hot, Warm, Cold, Disqualified
+    Arrest_Date: str = ""        # 10. Date of arrest
+    Arrest_Time: str = ""        # 11. Time of arrest
+    Booking_Date: str = ""       # 12. Date booked
+    Booking_Time: str = ""       # 13. Time booked
+    Status: str = ""             # 14. Current status
+    Facility: str = ""           # 15. Facility name
+    Agency: str = ""             # 16. Arresting agency
+    Race: str = ""               # 17. Race
+    Sex: str = ""                # 18. Sex (M/F)
+    Height: str = ""             # 19. Height
+    Weight: str = ""             # 20. Weight
+    Address: str = ""            # 21. Street address
+    City: str = ""               # 22. City
+    State: str = "FL"            # 23. State
+    ZIP: str = ""                # 24. ZIP code
+    Mugshot_URL: str = ""        # 25. URL to mugshot image
+    Charges: str = ""            # 26. Pipe | separated charges
+    Bond_Amount: str = "0"       # 27. Numeric bond amount
+    Bond_Paid: str = "NO"        # 28. YES/NO
+    Bond_Type: str = ""          # 29. CASH, SURETY, etc.
+    Court_Type: str = ""         # 30. Felony, Misdemeanor, etc.
+    Case_Number: str = ""        # 31. Court case number
+    Court_Date: str = ""         # 32. Court date
+    Court_Time: str = ""         # 33. Court time
+    Court_Location: str = ""     # 34. Courthouse location
+    Detail_URL: str = ""         # 35. Original source URL
+    Lead_Score: int = 0          # 36. Calculated score
+    Lead_Status: str = ""        # 37. Hot, Warm, Cold, Disqualified
+    LastChecked: str = ""        # 38. Last verification time
+    LastCheckedMode: str = ""    # 39. INITIAL, UPDATE, MANUAL
 
-    # === INTERNAL METADATA (not part of 34-column output) ===
+    # === INTERNAL METADATA (not part of 39-column output) ===
     ingested_at: Optional[datetime] = None
     extra_data: Dict[str, Any] = field(default_factory=dict)
 
@@ -80,7 +85,7 @@ class ArrestRecord:
         return asdict(self)
 
     def to_sheet_row(self) -> list:
-        """Returns the 34 fields in canonical order."""
+        """Returns the 39 fields in canonical order."""
         return [
             self.Scrape_Timestamp,
             self.County,
@@ -91,10 +96,13 @@ class ArrestRecord:
             self.Middle_Name,
             self.Last_Name,
             self.DOB,
+            self.Arrest_Date,
+            self.Arrest_Time,
             self.Booking_Date,
             self.Booking_Time,
             self.Status,
             self.Facility,
+            self.Agency,
             self.Race,
             self.Sex,
             self.Height,
@@ -116,19 +124,21 @@ class ArrestRecord:
             self.Detail_URL,
             self.Lead_Score,
             self.Lead_Status,
+            self.LastChecked,
+            self.LastCheckedMode
         ]
 
     @classmethod
     def get_header_row(cls) -> list:
-        """Returns the canonical 34-column header row."""
+        """Returns the canonical 39-column header row."""
         return [
             "Scrape_Timestamp", "County", "Booking_Number", "Person_ID", "Full_Name",
-            "First_Name", "Middle_Name", "Last_Name", "DOB", "Booking_Date",
-            "Booking_Time", "Status", "Facility", "Race", "Sex", "Height", "Weight",
-            "Address", "City", "State", "ZIP", "Mugshot_URL", "Charges",
-            "Bond_Amount", "Bond_Paid", "Bond_Type", "Court_Type", "Case_Number",
-            "Court_Date", "Court_Time", "Court_Location", "Detail_URL",
-            "Lead_Score", "Lead_Status"
+            "First_Name", "Middle_Name", "Last_Name", "DOB", "Arrest_Date", "Arrest_Time",
+            "Booking_Date", "Booking_Time", "Status", "Facility", "Agency",
+            "Race", "Sex", "Height", "Weight", "Address", "City", "State", "ZIP",
+            "Mugshot_URL", "Charges", "Bond_Amount", "Bond_Paid", "Bond_Type",
+            "Court_Type", "Case_Number", "Court_Date", "Court_Time", "Court_Location",
+            "Detail_URL", "Lead_Score", "Lead_Status", "LastChecked", "LastCheckedMode"
         ]
 
     @classmethod
@@ -144,7 +154,7 @@ class ArrestRecord:
 
 # Schema metadata
 SCHEMA_VERSION = "3.0"
-SCHEMA_FIELD_COUNT = 34
+SCHEMA_FIELD_COUNT = 39
 
 class FieldIndex:
     """Constants for field positions (0-indexed)."""
@@ -155,10 +165,13 @@ class FieldIndex:
     FULL_NAME = 4
     FIRST_NAME = 5
     DOB = 8
-    STATUS = 11
-    MUGSHOT_URL = 21
-    CHARGES = 22
-    BOND_AMOUNT = 23
-    CASE_NUMBER = 27
-    LEAD_SCORE = 32
-    LEAD_STATUS = 33
+    ARREST_DATE = 9
+    BOOKING_DATE = 11
+    STATUS = 13
+    AGENCY = 15
+    MUGSHOT_URL = 24
+    CHARGES = 25
+    BOND_AMOUNT = 26
+    CASE_NUMBER = 30
+    LEAD_SCORE = 35
+    LEAD_STATUS = 36

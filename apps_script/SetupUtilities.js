@@ -1,284 +1,275 @@
 /**
  * SetupUtilities.gs
+ * Version: 3.5.0 (Aligned with Code.gs & WixPortalIntegration.gs)
  * 
- * Utility functions for setting up the Shamrock Bail Bonds integration
- * Run these functions once during initial setup
+ * Utility functions for setting up and validating the Shamrock Bail Bonds integration.
+ * Run `runSystemDiagnostics()` to verify your environment is correctly configured.
  */
 
+// =============================================================================
+// 1. SYSTEM DIAGNOSTICS (Start Here)
+// =============================================================================
+
 /**
- * Generate a secure API key for Wix integration
- * Run this function and save the output to both:
- * 1. GAS Script Properties as 'WIX_API_KEY'
- * 2. Wix Secrets Manager as 'GAS_API_KEY'
+ * Runs a full health check on the system configuration and connections.
+ * Verifies Script Properties, Google Drive access, SignNow API, and Wix API.
  */
-function generateWixApiKey() {
-  const key = Utilities.getUuid() + '-' + Utilities.getUuid();
+function runSystemDiagnostics() {
+  const ui = console; // Use console for logging
+  ui.log('='.repeat(60));
+  ui.log('🔍 SHAMROCK BAIL BONDS - SYSTEM DIAGNOSTICS (v3.5.1)');
+  ui.log('⏱️ Time: ' + new Date().toISOString());
+  ui.log('='.repeat(60));
   
-  console.log('='.repeat(60));
-  console.log('GENERATED WIX API KEY');
-  console.log('='.repeat(60));
-  console.log('');
-  console.log('Your API Key:');
-  console.log(key);
-  console.log('');
-  console.log('IMPORTANT: Save this key in TWO places:');
-  console.log('');
-  console.log('1. GAS Script Properties:');
-  console.log('   - Go to Project Settings → Script Properties');
-  console.log('   - Add property: WIX_API_KEY');
-  console.log('   - Value: ' + key);
-  console.log('');
-  console.log('2. Wix Secrets Manager:');
-  console.log('   - Go to Wix Dashboard → Developer Tools → Secrets Manager');
-  console.log('   - Add secret: GAS_API_KEY');
-  console.log('   - Value: ' + key);
-  console.log('');
-  console.log('='.repeat(60));
+  const props = PropertiesService.getScriptProperties().getProperties();
+  let errors = [];
+  let warnings = [];
+
+  // --- CHECK 1: REQUIRED SCRIPT PROPERTIES ---
+  ui.log('\n[1/4] Checking Configuration Keys...');
+  const requiredKeys = [
+    'SIGNNOW_API_TOKEN',            // Used in Code.gs
+    'WIX_API_KEY',                  // Used in WixPortalIntegration.gs
+    'WEBHOOK_URL',                  // Used for SignNow callbacks
+    'GOOGLE_DRIVE_FOLDER_ID',       // Templates source
+    'GOOGLE_DRIVE_OUTPUT_FOLDER_ID' // Completed PDF destination
+  ];
+
+  requiredKeys.forEach(key => {
+    if (!props[key]) {
+      ui.error(`❌ MISSING: ${key}`);
+      errors.push(`Missing Property: ${key}`);
+    } else {
+      ui.log(`✅ Found: ${key}`);
+    }
+  });
+
+  // --- CHECK 2: GOOGLE DRIVE ACCESS ---
+  ui.log('\n[2/4] Verifying Google Drive Access...');
+  
+  // Check Output Folder
+  const outputId = props['GOOGLE_DRIVE_OUTPUT_FOLDER_ID'];
+  if (outputId) {
+    try {
+      const folder = DriveApp.getFolderById(outputId);
+      ui.log(`✅ Output Folder Accessible: "${folder.getName()}"`);
+    } catch (e) {
+      ui.error(`❌ Output Folder Error: ${e.message}`);
+      errors.push(`Invalid Output Folder ID: ${outputId}`);
+    }
+  }
+
+  // Check Template Folder
+  const templateId = props['GOOGLE_DRIVE_FOLDER_ID'];
+  if (templateId) {
+    try {
+      const folder = DriveApp.getFolderById(templateId);
+      ui.log(`✅ Template Folder Accessible: "${folder.getName()}"`);
+    } catch (e) {
+      ui.error(`❌ Template Folder Error: ${e.message}`);
+      errors.push(`Invalid Template Folder ID: ${templateId}`);
+    }
+  }
+
+  // --- CHECK 3: SIGNNOW CONNECTIVITY ---
+  ui.log('\n[3/4] Testing SignNow API...');
+  const snToken = props['SIGNNOW_API_TOKEN'];
+  if (snToken) {
+    const snStatus = testSignNowConnection(snToken);
+    if (!snStatus) errors.push('SignNow API Verification Failed');
+  } else {
+    ui.warn('⚠️ Skipping SignNow test (No Token)');
+  }
+
+  // --- CHECK 4: WIX PORTAL CONNECTIVITY ---
+  ui.log('\n[4/4] Testing Wix Portal API...');
+  const wixKey = props['WIX_API_KEY'];
+  if (wixKey) {
+    const wixStatus = testWixHealth(wixKey);
+    if (!wixStatus) warnings.push('Wix Portal Health Check Failed (Ensure site is published)');
+  } else {
+    ui.warn('⚠️ Skipping Wix test (No Key)');
+  }
+
+  // --- REPORT ---
+  ui.log('\n' + '='.repeat(60));
+  if (errors.length > 0) {
+    ui.error(`❌ DIAGNOSTICS FAILED with ${errors.length} errors:`);
+    errors.forEach(e => ui.error(`  - ${e}`));
+    ui.log('\nACTION REQUIRED: Run setupScriptProperties() to fix missing keys.');
+  } else if (warnings.length > 0) {
+    ui.warn(`⚠️ PASSED WITH WARNINGS:`);
+    warnings.forEach(w => ui.warn(`  - ${w}`));
+  } else {
+    ui.log('✅ ALL SYSTEMS OPERATIONAL');
+  }
+  ui.log('='.repeat(60));
+}
+
+// =============================================================================
+// 2. SETUP & CONFIGURATION HELPERS
+// =============================================================================
+
+/**
+ * Sets up default properties and validates existing ones.
+ * Aligns strictly with Code.gs and WixPortalIntegration.gs expectations.
+ */
+function setupScriptProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const existing = props.getProperties();
+  
+  console.log('📝 Configuring Script Properties...');
+
+  // 1. Set Defaults for commonly constant values if missing
+  const defaults = {
+    'SIGNNOW_API_BASE_URL': 'https://api.signnow.com',
+    'CURRENT_RECEIPT_NUMBER': '202500' // Start of 2025 sequence
+  };
+
+  Object.entries(defaults).forEach(([key, val]) => {
+    if (!existing[key]) {
+      props.setProperty(key, val);
+      console.log(`➕ Set Default: ${key} = ${val}`);
+    }
+  });
+
+  // 2. Check for Output Folder (Auto-create if missing logic could go here, but safer to ask)
+  if (!existing['GOOGLE_DRIVE_OUTPUT_FOLDER_ID']) {
+    console.log('⚠️ GOOGLE_DRIVE_OUTPUT_FOLDER_ID is missing.');
+    console.log('   Run `getOrCreateOutputFolder()` to generate it.');
+  }
+
+  // 3. Generate Wix Key if missing
+  if (!existing['WIX_API_KEY']) {
+    console.log('⚠️ WIX_API_KEY is missing.');
+    console.log('   Run `generateMyWixApiKey()` to create one.');
+  }
+
+  // 4. Check for Webhook URL
+  if (!existing['WEBHOOK_URL']) {
+    console.log('⚠️ WEBHOOK_URL is missing. SignNow events won\'t reach this script.');
+    console.log('   Run `setWebhookUrl("YOUR_DEPLOYED_WEB_APP_URL")` to fix.');
+  }
+
+  console.log('✅ Configuration Update Complete. Run `runSystemDiagnostics()` to verify.');
+}
+
+/**
+ * Save the deployed Web App URL for webhook callbacks
+ */
+function setWebhookUrl(url) {
+  if (!url || !url.includes('script.google.com')) {
+    throw new Error('Invalid Google Apps Script Web App URL');
+  }
+  PropertiesService.getScriptProperties().setProperty('WEBHOOK_URL', url);
+  console.log('✅ Webhook URL saved: ' + url);
+}
+
+/**
+ * Creates or retrieves the 'Shamrock Completed Bonds' folder and saves ID.
+ */
+function getOrCreateOutputFolder() {
+  const folderName = 'Shamrock Completed Bonds';
+  const props = PropertiesService.getScriptProperties();
+  
+  // Check if we already have it configured
+  const existingId = props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID');
+  if (existingId) {
+    try {
+      const f = DriveApp.getFolderById(existingId);
+      console.log(`✅ Folder already configured: "${f.getName()}" (ID: ${existingId})`);
+      return existingId;
+    } catch (e) {
+      console.log('⚠️ Configured folder ID is invalid. Searching/Creating new one...');
+    }
+  }
+
+  // Search existing
+  const folders = DriveApp.getFoldersByName(folderName);
+  let folder;
+  if (folders.hasNext()) {
+    folder = folders.next();
+    console.log(`✅ Found existing folder: "${folderName}"`);
+  } else {
+    folder = DriveApp.createFolder(folderName);
+    console.log(`mjb Created new folder: "${folderName}"`);
+  }
+
+  props.setProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID', folder.getId());
+  console.log(`💾 Saved Property: GOOGLE_DRIVE_OUTPUT_FOLDER_ID = ${folder.getId()}`);
+  return folder.getId();
+}
+
+/**
+ * Generates a secure random key for Wix Integration.
+ * Use this key in Wix Secrets Manager as well.
+ */
+function generateMyWixApiKey() {
+  const key = Utilities.getUuid(); // Simple UUID is sufficient for this purpose
+  const props = PropertiesService.getScriptProperties();
+  
+  props.setProperty('WIX_API_KEY', key);
+  
+  console.log('🔑 WIX API KEY GENERATED & SAVED LOCALLY');
+  console.log('------------------------------------------------');
+  console.log(`Key: ${key}`);
+  console.log('------------------------------------------------');
+  console.log('👉 ACTION REQUIRED:');
+  console.log('1. Go to your Wix Dashboard > Settings > Secrets Manager');
+  console.log('2. Create a new Secret named "GAS_API_KEY" (or logic updates)');
+  console.log('3. Paste this key value.');
   
   return key;
 }
 
-/**
- * Set up all required Script Properties
- * Run this function to configure the integration
- */
-function setupScriptProperties() {
-  const props = PropertiesService.getScriptProperties();
-  
-  // Check what's already set
-  const existing = props.getProperties();
-  
-  console.log('Current Script Properties:');
-  console.log(JSON.stringify(existing, null, 2));
-  
-  // Set defaults for missing properties
-  const defaults = {
-    'SIGNNOW_ACCESS_TOKEN': '0c35edbbf6823555a8434624aaec4830fd4477bb5befee3da2fa29e2b258913d',
-    'SIGNNOW_SENDER_EMAIL': 'admin@shamrockbailbonds.biz',
-    'WIX_SITE_URL': 'https://www.shamrockbailbonds.biz',
-    'REDIRECT_URL': 'https://www.shamrockbailbonds.biz'
-  };
-  
-  for (const [key, value] of Object.entries(defaults)) {
-    if (!existing[key]) {
-      props.setProperty(key, value);
-      console.log(`Set default for ${key}`);
-    }
-  }
-  
-  // Check for required properties that need manual setup
-  const required = ['WIX_API_KEY', 'COMPLETED_BONDS_FOLDER_ID'];
-  const missing = required.filter(key => !existing[key]);
-  
-  if (missing.length > 0) {
-    console.log('');
-    console.log('MISSING REQUIRED PROPERTIES:');
-    missing.forEach(key => {
-      console.log(`  - ${key}`);
-    });
-    console.log('');
-    console.log('Run generateWixApiKey() to create WIX_API_KEY');
-    console.log('Run getCompletedBondsFolderId() to get COMPLETED_BONDS_FOLDER_ID');
-  }
-  
-  console.log('');
-  console.log('Setup complete. Check the logs above for any missing properties.');
-}
+// =============================================================================
+// 3. CONNECTIVITY TESTERS (Private helpers)
+// =============================================================================
 
-/**
- * Get or create the Completed Bonds folder and return its ID
- */
-function getCompletedBondsFolderId() {
-  const folderName = 'Completed Bonds';
-  const folders = DriveApp.getFoldersByName(folderName);
-  
-  let folder;
-  if (folders.hasNext()) {
-    folder = folders.next();
-    console.log('Found existing folder: ' + folderName);
-  } else {
-    folder = DriveApp.createFolder(folderName);
-    console.log('Created new folder: ' + folderName);
-  }
-  
-  const folderId = folder.getId();
-  
-  console.log('');
-  console.log('='.repeat(60));
-  console.log('COMPLETED BONDS FOLDER');
-  console.log('='.repeat(60));
-  console.log('');
-  console.log('Folder ID: ' + folderId);
-  console.log('Folder URL: ' + folder.getUrl());
-  console.log('');
-  console.log('Add this to Script Properties:');
-  console.log('  Property: COMPLETED_BONDS_FOLDER_ID');
-  console.log('  Value: ' + folderId);
-  console.log('');
-  
-  // Optionally set it automatically
-  PropertiesService.getScriptProperties().setProperty('COMPLETED_BONDS_FOLDER_ID', folderId);
-  console.log('Property set automatically!');
-  
-  return folderId;
-}
-
-/**
- * Deploy the web app and get the URL
- * Note: This function provides instructions; actual deployment must be done manually
- */
-function getWebAppDeploymentInstructions() {
-  console.log('='.repeat(60));
-  console.log('WEB APP DEPLOYMENT INSTRUCTIONS');
-  console.log('='.repeat(60));
-  console.log('');
-  console.log('To deploy the webhook handler as a web app:');
-  console.log('');
-  console.log('1. Click "Deploy" in the top right');
-  console.log('2. Select "New deployment"');
-  console.log('3. Click the gear icon and select "Web app"');
-  console.log('4. Configure:');
-  console.log('   - Description: "Shamrock Bail Bonds Webhook Handler"');
-  console.log('   - Execute as: "Me"');
-  console.log('   - Who has access: "Anyone"');
-  console.log('5. Click "Deploy"');
-  console.log('6. Copy the Web app URL');
-  console.log('');
-  console.log('After deployment, register the URL as a webhook in SignNow:');
-  console.log('');
-  console.log('1. Go to SignNow Dashboard → API → Webhooks');
-  console.log('2. Click "Add Webhook"');
-  console.log('3. Enter your Web app URL');
-  console.log('4. Select event: "document.complete"');
-  console.log('5. Save');
-  console.log('');
-  console.log('Also add the URL to Wix Secrets Manager:');
-  console.log('  Secret: GAS_WEBHOOK_URL');
-  console.log('  Value: (your web app URL)');
-  console.log('');
-}
-
-/**
- * Test the SignNow API connection
- */
-function testSignNowConnection() {
+function testSignNowConnection(token) {
   try {
-    const config = SN_getConfig();
-    const accessToken = config.accessToken;
-    
     const response = UrlFetchApp.fetch('https://api.signnow.com/user', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      },
+      headers: { 'Authorization': `Bearer ${token}` },
       muteHttpExceptions: true
     });
     
     if (response.getResponseCode() === 200) {
       const user = JSON.parse(response.getContentText());
-      console.log('✅ SignNow connection successful!');
-      console.log('Connected as: ' + user.email);
-      console.log('User ID: ' + user.id);
+      console.log(`✅ SignNow Connected: ${user.email} (ID: ${user.id})`);
       return true;
     } else {
-      console.log('❌ SignNow connection failed');
-      console.log('Response code: ' + response.getResponseCode());
-      console.log('Response: ' + response.getContentText());
+      console.error(`❌ SignNow Error ${response.getResponseCode()}: ${response.getContentText()}`);
       return false;
     }
-    
-  } catch (error) {
-    console.log('❌ SignNow connection error: ' + error.message);
+  } catch (e) {
+    console.error(`❌ SignNow Exception: ${e.message}`);
     return false;
   }
 }
 
-/**
- * Test the Wix API connection
- */
-function testWixConnection() {
+function testWixHealth(apiKey) {
+  // Try to hit the health endpoint
+  // Note: Adjust URL if using a different site/environment
+  const baseUrl = 'https://www.shamrockbailbonds.biz/_functions'; 
+  
   try {
-    const wixApiKey = PropertiesService.getScriptProperties().getProperty('WIX_API_KEY');
-    const wixSiteUrl = PropertiesService.getScriptProperties().getProperty('WIX_SITE_URL') || 'https://www.shamrockbailbonds.biz';
-    
-    if (!wixApiKey) {
-      console.log('❌ WIX_API_KEY not set in Script Properties');
-      console.log('Run generateWixApiKey() first');
-      return false;
-    }
-    
-    const response = UrlFetchApp.fetch(wixSiteUrl + '/_functions/health', {
+    const response = UrlFetchApp.fetch(`${baseUrl}/health`, {
       method: 'GET',
-      headers: {
-        'X-API-Key': wixApiKey
-      },
+      headers: { 'X-API-Key': apiKey }, // Passing key just in case, though health might be public
       muteHttpExceptions: true
     });
     
-    if (response.getResponseCode() === 200) {
-      console.log('✅ Wix connection successful!');
-      console.log('Response: ' + response.getContentText());
+    const code = response.getResponseCode();
+    if (code === 200) {
+      console.log(`✅ Wix Portal Healthy: ${response.getContentText()}`);
       return true;
     } else {
-      console.log('⚠️ Wix connection returned: ' + response.getResponseCode());
-      console.log('This may be normal if the health endpoint is not set up yet');
-      return false;
+      console.warn(`⚠️ Wix Health Check returned ${code} (This might be normal if /health isn't exposed yet)`);
+      return false; 
     }
-    
-  } catch (error) {
-    console.log('⚠️ Wix connection test: ' + error.message);
-    console.log('This may be normal if the Wix HTTP functions are not deployed yet');
+  } catch (e) {
+    console.warn(`⚠️ Wix Unavailable: ${e.message}`);
     return false;
   }
-}
-
-/**
- * Run all setup checks
- */
-function runFullSetupCheck() {
-  console.log('='.repeat(60));
-  console.log('SHAMROCK BAIL BONDS - FULL SETUP CHECK');
-  console.log('='.repeat(60));
-  console.log('');
-  
-  // Check Script Properties
-  console.log('📋 Checking Script Properties...');
-  setupScriptProperties();
-  console.log('');
-  
-  // Test SignNow
-  console.log('📋 Testing SignNow Connection...');
-  testSignNowConnection();
-  console.log('');
-  
-  // Test Wix
-  console.log('📋 Testing Wix Connection...');
-  testWixConnection();
-  console.log('');
-  
-  // Check Drive folder
-  console.log('📋 Checking Google Drive Folder...');
-  getCompletedBondsFolderId();
-  console.log('');
-  
-  console.log('='.repeat(60));
-  console.log('SETUP CHECK COMPLETE');
-  console.log('='.repeat(60));
-}
-
-/**
- * Create a test document in SignNow to verify the workflow
- */
-function createTestDocument() {
-  console.log('Creating test document...');
-  
-  // Create a simple test PDF
-  const testContent = 'This is a test document for Shamrock Bail Bonds integration testing.';
-  const blob = Utilities.newBlob(testContent, 'text/plain', 'test-document.txt');
-  
-  // For a real test, you would upload this to SignNow
-  // This is just a placeholder to show the structure
-  
-  console.log('Test document created (placeholder)');
-  console.log('To fully test, use the Dashboard.html interface to generate a real packet');
 }

@@ -1,6 +1,6 @@
 // ============================================================================
 // Shamrock Bail Bonds - Unified Production Backend (Code.gs)
-// Version: 3.2 - Integrated Advanced SignNow Workflows & Hardened API
+// Version: 3.3.1 - Resolving doGet Conflict & Syncing Redundant Files
 // ============================================================================
 /**
  * SINGLE ENTRY POINT for all GAS Web App requests.
@@ -28,7 +28,10 @@ function getConfig() {
     SIGNNOW_API_BASE: props.getProperty('SIGNNOW_API_BASE_URL') || 'https://api.signnow.com',
     SIGNNOW_ACCESS_TOKEN: props.getProperty('SIGNNOW_API_TOKEN') || '',
     SIGNNOW_FOLDER_ID: props.getProperty('SIGNNOW_FOLDER_ID') || '79a05a382b38460b95a78d94a6d79a5ad55e89e6',
-    GOOGLE_DRIVE_OUTPUT_FOLDER_ID: props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID') || '1ZyTCodt67UAxEbFdGqE3VNua-9TlblR3',
+    // Template Folder (Source of blanks)
+    GOOGLE_DRIVE_FOLDER_ID: props.getProperty('GOOGLE_DRIVE_FOLDER_ID') || '1ZyTCodt67UAxEbFdGqE3VNua-9TlblR3',
+    // Output Folder (Destination for signed docs)
+    GOOGLE_DRIVE_OUTPUT_FOLDER_ID: props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID') || '1WnjwtxoaoXVW8_B6s-0ftdCPf_5WfKgs',
     CURRENT_RECEIPT_NUMBER: parseInt(props.getProperty('CURRENT_RECEIPT_NUMBER') || '201204')
   };
 }
@@ -267,6 +270,16 @@ function doPost(e) {
     }
 
     const data = JSON.parse(e.postData.contents);
+    
+    // Check for SignNow Webhook Event
+    if (data.event && data.event.startsWith('document.')) {
+      if (data.event === 'document.complete') {
+        const result = handleDocumentComplete(data); // Defined in SignNowAPI.gs (was in Complete file)
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ received: true })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     const action = data.action;
     
     let result;
@@ -296,6 +309,10 @@ function doPost(e) {
         break;
       case 'getDocumentStatus':
         result = getDocumentStatus(data.documentId);
+        break;
+      
+      case 'directSignNowRequest':
+        result = SN_makeRequest(data.endpoint, data.method, data.body);
         break;
       
       // === ADVANCED SIGNNOW WORKFLOWS (Unified) ===
@@ -385,9 +402,22 @@ function doPost(e) {
       case 'runLeeScraper':
         result = runLeeCountyScraper();
         break;
+
+      case 'saveDocumentToDrive':
+        result = handleSaveDocumentToDrive(data.document);
+        break;
+      
+      // --- Wix Portal Integration ---
+      case 'sendToWixPortal':
+        // This function is in WixPortalIntegration.gs
+        result = generateAndSendWithWixPortal(data);
+        break;
       
       default:
-        result = { success: false, error: 'Unknown action: ' + action };
+        // Instead of erroring immediately, check if it's a valid Webhook
+        // This allows the single Web App URL to serve as both API and Webhook endpoint
+        Logger.log(`⚠️ Unknown internal action '${action}'. Attempting to route to WebhookHandler...`);
+        return handleIncomingWebhook(e);
     }
     
     return ContentService.createTextOutput(JSON.stringify(result))
@@ -395,6 +425,10 @@ function doPost(e) {
       
   } catch (error) {
     Logger.log('doPost Error: ' + error.toString());
+    
+    // Last ditch: if it failed and looked like a webhook, maybe handleIncomingWebhook can catch it?
+    // But usually error here means JSON parse failed or top level issue.
+    
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: error.toString()
@@ -698,6 +732,54 @@ function saveFilledPacketToDrive(data) {
   } catch (e) { return { success: false, error: e.toString() }; }
 }
 
+/**
+ * Handles saving a document from a Wix URL to Google Drive.
+ * @param {object} doc - The document object from the Wix payload.
+ * @returns {object} A JSON result indicating success or failure.
+ */
+function handleSaveDocumentToDrive(doc) {
+  if (!doc || !doc.fileUrl || !doc.fileName) {
+    return { success: false, error: 'Missing document details' };
+  }
+
+  try {
+    const config = getConfig();
+    // Use the main output folder as root
+    const rootFolder = DriveApp.getFolderById(config.GOOGLE_DRIVE_OUTPUT_FOLDER_ID); 
+    const caseFolderId = doc.caseId ? doc.caseId : 'Uncategorized';
+    
+    let caseFolder;
+    const existingFolders = rootFolder.getFoldersByName(caseFolderId);
+    
+    if (existingFolders.hasNext()) {
+      caseFolder = existingFolders.next();
+    } else {
+      caseFolder = rootFolder.createFolder(caseFolderId);
+    }
+
+    // Fetch the file from the Wix URL
+    const fileResponse = UrlFetchApp.fetch(doc.fileUrl, { muteHttpExceptions: true });
+    const fileBlob = fileResponse.getBlob();
+    fileBlob.setName(doc.fileName);
+
+    // Save the file to the designated folder
+    const savedFile = caseFolder.createFile(fileBlob);
+    const fileId = savedFile.getId();
+
+    return {
+      success: true,
+      message: 'File saved to Google Drive successfully.',
+      fileId: fileId,
+      fileName: doc.fileName,
+      caseId: doc.caseId
+    };
+
+  } catch (error) {
+    Logger.log('Failed to save document to Drive: ' + error.toString());
+    return { success: false, error: error.toString() };
+  }
+}
+
 // --- Persistence Placeholders (Connect to FormDataHandler.gs) ---
 // --- Persistence Functions ---
 function saveBookingData(formData) {
@@ -898,7 +980,9 @@ function getCountyStatistics() {
     'orange': 'Orange',
     'pinellas': 'Pinellas',
     'broward': 'Broward',
-    'hillsborough': 'Hillsborough'
+    'hillsborough': 'Hillsborough',
+    'polk': 'Polk',
+    'osceola': 'Osceola'
   };
 
   const stats = {};

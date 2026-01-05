@@ -232,12 +232,12 @@ class SheetsWriter:
             return self.spreadsheet.add_worksheet(
                 title=sheet_name,
                 rows=1000,
-                cols=34
+                cols=39
             )
     
     def _ensure_header_row(self, sheet: gspread.Worksheet) -> None:
         """
-        Ensure the sheet has the correct 34-column header row.
+        Ensure the sheet has the correct 39-column header row.
         
         Args:
             sheet: Worksheet instance
@@ -252,10 +252,10 @@ class SheetsWriter:
         
         # Set the header row
         headers = ArrestRecord.get_header_row()
-        sheet.update('A1:AH1', [headers], value_input_option='USER_ENTERED')
+        sheet.update('A1:AM1', [headers], value_input_option='USER_ENTERED')
         
         # Format header row (bold, frozen)
-        sheet.format('A1:AH1', {
+        sheet.format('A1:AM1', {
             'textFormat': {'bold': True},
             'backgroundColor': {'red': 0.0, 'green': 0.66, 'blue': 0.42}
         })
@@ -393,7 +393,7 @@ class SheetsWriter:
             
             if keep_header:
                 # Clear everything except row 1
-                sheet.batch_clear(['A2:AH10000'])
+                sheet.batch_clear(['A2:AM10000'])
             else:
                 # Clear everything
                 sheet.clear()

@@ -30,21 +30,27 @@ from python_scrapers.writers.sheets_writer import SheetsWriter
 def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     """Convert raw scraper data to ArrestRecord object."""
     
-    # Map raw fields to ArrestRecord schema
+    # Map raw fields to ArrestRecord schema v3.0 (39 columns)
     record = ArrestRecord(
         County="Charlotte",
         Booking_Number=raw_data.get('Booking_Number', ''),
         Person_ID=raw_data.get('Person_ID', ''),
         Full_Name=raw_data.get('Full_Name', ''),
         First_Name=raw_data.get('First_Name', ''),
+        Middle_Name=raw_data.get('Middle_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
         DOB=raw_data.get('DOB', raw_data.get('Date of Birth', '')),
-        Sex=raw_data.get('Sex', raw_data.get('Gender', '')),
-        Race=raw_data.get('Race', ''),
+        Arrest_Date=raw_data.get('Arrest_Date', ''),
+        Arrest_Time=raw_data.get('Arrest_Time', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
         Booking_Time=raw_data.get('Booking_Time', ''),
         Status=raw_data.get('Status', 'IN CUSTODY'),
         Facility=raw_data.get('Facility', ''),
+        Agency=raw_data.get('Agency', ''),
+        Race=raw_data.get('Race', ''),
+        Sex=raw_data.get('Sex', raw_data.get('Gender', '')),
+        Height=raw_data.get('Height', ''),
+        Weight=raw_data.get('Weight', ''),
         Address=raw_data.get('Address', ''),
         City=raw_data.get('City', ''),
         State=raw_data.get('State', 'FL'),
@@ -52,10 +58,26 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         Charges=raw_data.get('Charges', ''),
         Bond_Amount=raw_data.get('Bond_Amount', '0'),
+        Bond_Paid=raw_data.get('Bond_Paid', 'NO'),
         Bond_Type=raw_data.get('Bond_Type', ''),
-        Detail_URL=raw_data.get('Detail_URL', '')
+        Court_Type=raw_data.get('Court_Type', ''),
+        Case_Number=raw_data.get('Case_Number', ''),
+        Court_Date=raw_data.get('Court_Date', ''),
+        Court_Time=raw_data.get('Court_Time', ''),
+        Court_Location=raw_data.get('Court_Location', ''),
+        Detail_URL=raw_data.get('Detail_URL', ''),
+        Lead_Score=0,
+        Lead_Status="WARM",
+        LastChecked=datetime.utcnow().isoformat(),
+        LastCheckedMode="INITIAL"
     )
     
+    # Chronological Fallback Logic
+    if not record.Booking_Date and record.Arrest_Date:
+        record.Booking_Date = record.Arrest_Date
+    if not record.Booking_Time and record.Arrest_Time:
+        record.Booking_Time = record.Arrest_Time
+        
     return record
 
 
@@ -71,45 +93,42 @@ def main():
     solver_path = os.path.join(script_dir, 'charlotte_solver.py')
     
     # Run the solver
+    # Run the solver
     print("📡 Running Charlotte solver...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
-        process = subprocess.Popen(
+        result = subprocess.run(
             ['python3', solver_path] + sys.argv[1:],
-            stdout=subprocess.PIPE,  # Capture JSON output
-            stderr=sys.stderr,       # Stream logs directly to console
+            stdout=subprocess.PIPE,
+            stderr=sys.stderr,  # Stream logs directly to console
             text=True,
-            bufsize=1
+            timeout=3600  # 60 minute timeout
         )
         
-        stdout, _ = process.communicate(timeout=600)  # 10 min timeout
-        
-        if process.returncode != 0:
-            print(f"❌ Solver failed with return code {process.returncode}")
+        if result.returncode != 0:
+            print(f"❌ Solver failed with return code {result.returncode}")
             return
         
         # Parse JSON output
         try:
-            # Stdout might contain some Log info if not strictly separated, 
-            # but our solver writes logs to stderr.
-            # Look for the last line which should be the JSON
-            lines = stdout.strip().split('\n')
-            json_line = lines[-1] if lines else "[]"
-            raw_records = json.loads(json_line)
+            # Clean up stdout if needed (sometimes warnings leak into stdout)
+            stdout_clean = result.stdout.strip()
+            # If stdout contains multiple lines, the JSON should be the last one, or the whole thing
+            raw_records = json.loads(stdout_clean)
             print(f"✅ Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-            # Try to find JSON in the output
+            print("⚠️  JSON Warning: Attempting to find JSON structure in output...")
             import re
-            match = re.search(r'\[.*\]', stdout, re.DOTALL)
+            match = re.search(r'\[.*\]', result.stdout, re.DOTALL)
             if match:
                 raw_records = json.loads(match.group(0))
                 print(f"✅ Solver extracted {len(raw_records)} raw records (regex)")
             else:
-                raise
+                print(f"❌ Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+                return
         
     except subprocess.TimeoutExpired:
-        process.kill()
-        print("❌ Solver timed out after 10 minutes")
+        print("❌ Solver timed out after 60 minutes")
         return
     except Exception as e:
         print(f"❌ Error running solver: {e}")

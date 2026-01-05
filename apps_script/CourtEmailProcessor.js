@@ -1,81 +1,75 @@
 /**
- * Court Email Processor for Shamrock Bail Bonds
+ * Court Email Processor for Shamrock Bail Bonds - UNIFIED & HARDENED
  * 
- * Automatically processes court date and forfeiture emails from shamrockbailoffice@gmail.com
- * Creates calendar events in shamrockbailoffice@gmail.com calendar (shared with admin@shamrockbailbonds.biz)
- * Posts notifications to Slack channels
+ * Automatically processes:
+ * 1. Court Dates (Blue)
+ * 2. Forfeitures (Red)
+ * 3. Discharges (Green)
  * 
- * Author: Shamrock Bail Bonds
- * Last Updated: December 10, 2025
- * Version: 2.1 - Fixed for shamrockbailoffice@gmail.com
+ * Creates calendar events in admin@shamrockbailbonds.biz calendar.
+ * Automatically shares events with:
+ * - shamrockbailoffice@gmail.com (Reviewer)
+ * - Defendant (if email found in system)
+ * 
+ * Fixes:
+ * - Removes dependency on external getAppConfig
+ * - Adds robust "Discharge" parsing
+ * - Improves PDF text extraction
  */
 
 // ============================================================================
-// CONFIGURATION - FIXED FOR SHAMROCKBAILOFFICE@GMAIL.COM
+// CONFIGURATION
 // ============================================================================
 
 const CONFIG = {
-  // Email configuration - uses current account
-  emailAccount: Session.getActiveUser().getEmail(),  // ← FIXED: Uses shamrockbailoffice@gmail.com
+  // Master Sheet for Email Lookups
+  masterSheetId: '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E',
   
-  // Calendar configuration - uses current account's calendar
-  calendarId: Session.getActiveUser().getEmail(),  // ← FIXED: Creates events in shamrockbailoffice@gmail.com calendar
+  // Calendar configuration
+  calendarId: 'admin@shamrockbailbonds.biz', 
+  reviewerEmail: 'shamrockbailoffice@gmail.com',
   
-  // Slack webhook URLs (add these after creating webhooks)
+  // Slack webhook URLs (Populate these in Script Properties if needed, or hardcode here)
   slackWebhooks: {
-    courtDates: '', // Add webhook URL for #court-dates channel
-    forfeitures: ''  // Add webhook URL for #forfeitures channel
+    courtDates: '', 
+    forfeitures: '',
+    discharges: ''
   },
   
-  // Email whitelist - accepts emails from county clerk offices
+  // Email whitelist
   emailWhitelist: {
-    // Specific senders
-    specific: [
-      'infocriminalbonds@leeclerk.org',
-      'automail@leeclerk.org'
-    ],
-    
-    // Wildcard domains (any sender from these domains)
+    specific: ['infocriminalbonds@leeclerk.org', 'automail@leeclerk.org'],
     domains: [
-      'leeclerk.org',
-      'collierclerk.com',
-      'hendryso.org',
-      'charlotteclerk.com',
-      'manateeclerk.com',
-      'sarasotaclerk.com',
-      'desotoclerk.com',
+      'leeclerk.org', 
+      'collierclerk.com', 
+      'hendryso.org', 
+      'charlotteclerk.com', 
+      'manateeclerk.com', 
+      'sarasotaclerk.com', 
+      'desotoclerk.com', 
       'hillsboroughclerk.com'
     ],
-    
-    // Pattern matching (any county .org or .gov)
     patterns: [
-      /.*clerk.*\.org$/i,
-      /.*clerk.*\.gov$/i,
-      /.*county.*\.org$/i,
+      /.*clerk.*\.org$/i, 
+      /.*clerk.*\.gov$/i, 
+      /.*county.*\.org$/i, 
       /.*county.*\.gov$/i
     ]
   },
   
   // Processing settings
-  maxEmailsPerRun: 10,                    // Process up to 10 emails per run (to avoid timeout)
-  batchSize: 10,                          // Process 10 emails per batch
-  maxExecutionTime: 300000,               // 5 minutes (300 seconds) - leave 1 min buffer
-  lookbackDays: 30,                       // Look back 30 days for unprocessed emails
-  historicalStartDate: '2025-06-01',      // Start date for historical processing (June 2025)
-  skipAlreadyProcessed: true,             // Skip emails that already have processing labels
-  preventDuplicates: true,                // Check for existing calendar events before creating
-  
-  // Script properties keys for resume capability
-  scriptPropertyKeys: {
-    lastProcessedIndex: 'LAST_PROCESSED_INDEX',
-    totalEmails: 'TOTAL_EMAILS_TO_PROCESS',
-    processingStartTime: 'PROCESSING_START_TIME'
-  },
+  maxEmailsPerRun: 20,
+  batchSize: 10,
+  maxExecutionTime: 240000, // 4 mins
+  lookbackDays: 30,
+  skipAlreadyProcessed: true,
+  preventDuplicates: true,
   
   // Gmail labels
   labels: {
     courtDate: 'Processed - Court Date',
     forfeiture: 'Processed - Forfeiture',
+    discharge: 'Processed - Discharge',
     error: 'Processing Error'
   },
   
@@ -83,13 +77,29 @@ const CONFIG = {
   colors: {
     courtDate: CalendarApp.EventColor.BLUE,
     forfeitureDate: CalendarApp.EventColor.RED,
-    forfeitureReceived: CalendarApp.EventColor.ORANGE
+    forfeitureReceived: CalendarApp.EventColor.ORANGE,
+    discharge: CalendarApp.EventColor.GREEN
   },
   
   // Subject line keywords
   keywords: {
-    courtDate: ['SERVICE OF COURT DOCUMENT for Case Number', 'Notice of Appearance'],
-    forfeiture: ['Notice of Forfeiture', 'FORFEITURE']
+    courtDate: [
+      'SERVICE OF COURT DOCUMENT for Case Number', 
+      'Notice of Appearance', 
+      'Court Date Notice',
+      'Notice of Hearing'
+    ],
+    forfeiture: [
+      'Notice of Forfeiture', 
+      'FORFEITURE'
+    ],
+    discharge: [
+      'Discharge',
+      'Release',
+      'Power of Attorney Discharge',
+      'Bond Discharge',
+      'Certificate of Discharge'
+    ]
   }
 };
 
@@ -98,542 +108,91 @@ const CONFIG = {
 // ============================================================================
 
 /**
- * Main function to process court emails with batch processing
- * Can be run manually or via trigger
- * Automatically processes in batches to avoid timeout
+ * Main function to process court emails
+ * Run this via Time-Driven Trigger (e.g. Every hour)
  */
 function processCourtEmails() {
   const startTime = new Date().getTime();
   
   try {
-    Logger.log('🚀 Starting court email processor...');
-    Logger.log(`📧 Email account: ${CONFIG.emailAccount}`);
-    Logger.log(`📅 Calendar: ${CONFIG.calendarId}`);
+    Logger.log('🚀 Starting Unified Court Email Processor...');
+    Logger.log(`📅 Target Calendar: ${CONFIG.calendarId}`);
     
-    // Get unprocessed emails from the last lookback period
+    // Ensure labels exist
+    setupLabels();
+    
     const emails = getUnprocessedEmails(CONFIG.lookbackDays);
-    
     Logger.log(`📧 Found ${emails.length} unprocessed emails`);
     
-    if (emails.length === 0) {
-      Logger.log('✅ No new emails to process');
-      return {
-        processed: 0,
-        skipped: 0,
-        errors: 0
-      };
-    }
+    if (emails.length === 0) return { processed: 0, skipped: 0, errors: 0 };
     
-    // Process emails in batch (limited to avoid timeout)
     let processed = 0;
     let skipped = 0;
     let errors = 0;
     
     const batchSize = Math.min(CONFIG.batchSize, emails.length);
-    Logger.log(`📦 Processing batch of ${batchSize} emails`);
     
     for (let i = 0; i < batchSize; i++) {
-      // Check if we're approaching timeout
-      const elapsed = new Date().getTime() - startTime;
-      if (elapsed > CONFIG.maxExecutionTime) {
-        Logger.log(`⏱️  Approaching timeout, stopping at ${i}/${batchSize}`);
-        break;
+      // Time Safety Check
+      // Time Safety Check
+      if (new Date().getTime() - startTime > CONFIG.maxExecutionTime) {
+        Logger.log('⏳ Time limit reached. Scheduling continuation trigger...');
+        createContinuationTrigger();
+        return { processed, skipped, errors, continuation: true };
       }
       
       const message = emails[i];
-      
       try {
-        Logger.log(`\n[${i + 1}/${batchSize}] Processing email: ${message.getSubject()}`);
-        
+        Logger.log(`\n[${i + 1}/${batchSize}] Processing: ${message.getSubject()}`);
         const result = processEmail(message);
         
         if (result.success) {
           processed++;
-          Logger.log(`✅ Successfully processed`);
+          Logger.log('✅ Success');
         } else if (result.skipped) {
           skipped++;
-          Logger.log(`⏭️  Skipped: ${result.reason}`);
+          Logger.log(`⏭️ Skipped: ${result.reason}`);
         } else {
           errors++;
           Logger.log(`❌ Error: ${result.error}`);
         }
       } catch (error) {
         errors++;
-        Logger.log(`❌ Error processing email: ${error.message}`);
+        Logger.log(`❌ Critical Error processing email: ${error.message}`);
         labelEmail(message, CONFIG.labels.error);
       }
     }
     
-    // Log summary
-    const remaining = emails.length - batchSize;
-    Logger.log(`\n📊 Batch processing complete:`);
-    Logger.log(`   ✅ Processed: ${processed}`);
-    Logger.log(`   ⏭️  Skipped: ${skipped}`);
-    Logger.log(`   ❌ Errors: ${errors}`);
+    Logger.log(`\n📊 Batch complete: ✅ ${processed} | ⏭️ ${skipped} | ❌ ${errors}`);
+    Logger.log(`\n📊 Batch complete: ✅ ${processed} | ⏭️ ${skipped} | ❌ ${errors}`);
     
-    if (remaining > 0) {
-      Logger.log(`\n⏳ ${remaining} emails remaining`);
-      Logger.log(`💡 Run this function again to process the next batch`);
-    } else {
-      Logger.log(`\n🎉 All emails processed!`);
-    }
+    // If we finished the batch naturally (didn't hit time limit), invoke delete triggers
+    deleteContinuationTriggers();
     
-    return {
-      processed,
-      skipped,
-      errors,
-      remaining
-    };
+    return { processed, skipped, errors };
     
   } catch (error) {
-    Logger.log(`❌ Fatal error in processCourtEmails: ${error.message}`);
+    Logger.log(`❌ Fatal error: ${error.message}`);
     throw error;
   }
 }
-
-/**
- * Process historical emails from configured start date to now
- * Run this ONCE after initial setup to catch up on past emails
- */
-function processHistoricalEmails() {
-  const ui = SpreadsheetApp.getUi();
-  
-  // Confirm with user
-  const response = ui.alert(
-    'Process Historical Emails',
-    `This will process ALL court emails from ${CONFIG.historicalStartDate} to today.\n\n` +
-    `This may take 5-15 minutes depending on email volume.\n\n` +
-    `Continue?`,
-    ui.ButtonSet.YES_NO
-  );
-  
-  if (response !== ui.Button.YES) {
-    Logger.log('❌ Historical processing cancelled by user');
-    return;
-  }
-  
-  try {
-    Logger.log(`🔄 Starting historical email processing...`);
-    Logger.log(`📅 Date range: ${CONFIG.historicalStartDate} to ${new Date().toISOString().split('T')[0]}`);
-    
-    // Get historical emails
-    const emails = getHistoricalEmails();
-    
-    Logger.log(`📧 Found ${emails.length} historical emails`);
-    
-    if (emails.length === 0) {
-      ui.alert('No Historical Emails Found', 'No court emails found in the specified date range.', ui.ButtonSet.OK);
-      return;
-    }
-    
-    // Process emails
-    let processed = 0;
-    let skipped = 0;
-    let errors = 0;
-    
-    emails.forEach((message, index) => {
-      try {
-        // Show progress every 10 emails
-        if ((index + 1) % 10 === 0) {
-          Logger.log(`📊 Progress: ${index + 1}/${emails.length} emails processed`);
-        }
-        
-        const result = processEmail(message);
-        
-        if (result.success) {
-          processed++;
-        } else if (result.skipped) {
-          skipped++;
-        } else {
-          errors++;
-        }
-      } catch (error) {
-        errors++;
-        Logger.log(`❌ Error processing email ${index + 1}: ${error.message}`);
-        labelEmail(message, CONFIG.labels.error);
-      }
-    });
-    
-    // Show summary
-    const summary = `
-📊 Historical Processing Complete!
-
-✅ Processed: ${processed}
-⏭️  Skipped: ${skipped}
-❌ Errors: ${errors}
-
-Total emails checked: ${emails.length}
-    `.trim();
-    
-    Logger.log(`\n${summary}`);
-    ui.alert('Historical Processing Complete', summary, ui.ButtonSet.OK);
-    
-  } catch (error) {
-    Logger.log(`❌ Fatal error in processHistoricalEmails: ${error.message}`);
-    ui.alert('Error', `Failed to process historical emails: ${error.message}`, ui.ButtonSet.OK);
-    throw error;
-  }
-}
-
-/**
- * Process custom date range
- */
-function processDateRange() {
-  const ui = SpreadsheetApp.getUi();
-  
-  // Get start date
-  const startResponse = ui.prompt(
-    'Process Custom Date Range',
-    'Enter start date (YYYY-MM-DD):',
-    ui.ButtonSet.OK_CANCEL
-  );
-  
-  if (startResponse.getSelectedButton() !== ui.Button.OK) {
-    return;
-  }
-  
-  const startDate = startResponse.getResponseText().trim();
-  
-  if (!isValidDate(startDate)) {
-    ui.alert('Invalid Date', 'Please enter date in YYYY-MM-DD format (e.g., 2025-01-01)', ui.ButtonSet.OK);
-    return;
-  }
-  
-  // Get end date
-  const endResponse = ui.prompt(
-    'Process Custom Date Range',
-    'Enter end date (YYYY-MM-DD):',
-    ui.ButtonSet.OK_CANCEL
-  );
-  
-  if (endResponse.getSelectedButton() !== ui.Button.OK) {
-    return;
-  }
-  
-  const endDate = endResponse.getResponseText().trim();
-  
-  if (!isValidDate(endDate)) {
-    ui.alert('Invalid Date', 'Please enter date in YYYY-MM-DD format (e.g., 2025-12-31)', ui.ButtonSet.OK);
-    return;
-  }
-  
-  // Process the date range
-  processCustomDateRange(startDate, endDate);
-}
-
-/**
- * Process emails in custom date range
- */
-function processCustomDateRange(startDate, endDate) {
-  const ui = SpreadsheetApp.getUi();
-  
-  try {
-    Logger.log(`🔄 Processing custom date range: ${startDate} to ${endDate}`);
-    
-    // Build search query
-    const query = `has:attachment after:${startDate} before:${endDate}`;
-    const threads = GmailApp.search(query, 0, 500);
-    const messages = [];
-    
-    threads.forEach(thread => {
-      thread.getMessages().forEach(message => {
-        if (isFromWhitelistedSender(message.getFrom())) {
-          messages.push(message);
-        }
-      });
-    });
-    
-    Logger.log(`📧 Found ${messages.length} emails in date range`);
-    
-    if (messages.length === 0) {
-      ui.alert('No Emails Found', `No court emails found between ${startDate} and ${endDate}.`, ui.ButtonSet.OK);
-      return;
-    }
-    
-    // Process emails
-    let processed = 0;
-    let skipped = 0;
-    let errors = 0;
-    
-    messages.forEach((message, index) => {
-      try {
-        const result = processEmail(message);
-        
-        if (result.success) {
-          processed++;
-        } else if (result.skipped) {
-          skipped++;
-        } else {
-          errors++;
-        }
-      } catch (error) {
-        errors++;
-        Logger.log(`❌ Error processing email ${index + 1}: ${error.message}`);
-        labelEmail(message, CONFIG.labels.error);
-      }
-    });
-    
-    // Show summary
-    const summary = `
-📊 Date Range Processing Complete!
-
-Date Range: ${startDate} to ${endDate}
-
-✅ Processed: ${processed}
-⏭️  Skipped: ${skipped}
-❌ Errors: ${errors}
-
-Total emails checked: ${messages.length}
-    `.trim();
-    
-    Logger.log(`\n${summary}`);
-    ui.alert('Processing Complete', summary, ui.ButtonSet.OK);
-    
-  } catch (error) {
-    Logger.log(`❌ Fatal error in processCustomDateRange: ${error.message}`);
-    ui.alert('Error', `Failed to process date range: ${error.message}`, ui.ButtonSet.OK);
-    throw error;
-  }
-}
-
-// ============================================================================
-// EMAIL RETRIEVAL FUNCTIONS
-// ============================================================================
-
-/**
- * Get unprocessed emails from the last N days
- */
-function getUnprocessedEmails(days) {
-  try {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-    const dateStr = Utilities.formatDate(cutoffDate, Session.getScriptTimeZone(), 'yyyy/MM/dd');
-    
-    // Search for emails with attachments after cutoff date
-    const query = `has:attachment after:${dateStr}`;
-    const threads = GmailApp.search(query, 0, CONFIG.maxEmailsPerRun);
-    
-    const messages = [];
-    
-    threads.forEach(thread => {
-      thread.getMessages().forEach(message => {
-        // Check if from whitelisted sender
-        if (!isFromWhitelistedSender(message.getFrom())) {
-          return;
-        }
-        
-        // Check if already processed
-        if (CONFIG.skipAlreadyProcessed && isAlreadyProcessed(message)) {
-          return;
-        }
-        
-        // Check if court-related
-        if (isCourtEmail(message)) {
-          messages.push(message);
-        }
-      });
-    });
-    
-    return messages;
-    
-  } catch (error) {
-    Logger.log(`❌ Error getting unprocessed emails: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Get historical emails from configured start date with proper pagination
- * Gmail search() is limited to 500 results, so we paginate to get ALL emails
- */
-function getHistoricalEmails() {
-  try {
-    const startDate = CONFIG.historicalStartDate;
-    const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd');
-    
-    Logger.log(`📅 Searching for emails from ${startDate} to ${today}`);
-    
-    // Search for emails with attachments in date range
-    const query = `has:attachment after:${startDate} before:${today}`;
-    
-    const messages = [];
-    let start = 0;
-    const batchSize = 500; // Gmail's max per search
-    let hasMore = true;
-    
-    // Paginate through all emails
-    while (hasMore) {
-      Logger.log(`📦 Fetching batch starting at ${start}...`);
-      
-      const threads = GmailApp.search(query, start, batchSize);
-      
-      if (threads.length === 0) {
-        hasMore = false;
-        break;
-      }
-      
-      Logger.log(`   Found ${threads.length} threads in this batch`);
-      
-      threads.forEach(thread => {
-        thread.getMessages().forEach(message => {
-          // Check if from whitelisted sender
-          if (!isFromWhitelistedSender(message.getFrom())) {
-            return;
-          }
-          
-          // Check if already processed (optional)
-          if (CONFIG.skipAlreadyProcessed && isAlreadyProcessed(message)) {
-            return;
-          }
-          
-          // Check if court-related
-          if (isCourtEmail(message)) {
-            messages.push(message);
-          }
-        });
-      });
-      
-      // Move to next batch
-      start += batchSize;
-      
-      // If we got fewer than batchSize, we're done
-      if (threads.length < batchSize) {
-        hasMore = false;
-      }
-    }
-    
-    Logger.log(`✅ Total court emails found: ${messages.length}`);
-    
-    // Sort by date (oldest first)
-    messages.sort((a, b) => a.getDate() - b.getDate());
-    
-    return messages;
-    
-  } catch (error) {
-    Logger.log(`❌ Error getting historical emails: ${error.message}`);
-    throw error;
-  }
-}
-
-// ============================================================================
-// EMAIL VALIDATION FUNCTIONS
-// ============================================================================
-
-/**
- * Check if email is from whitelisted sender
- */
-function isFromWhitelistedSender(from) {
-  const fromLower = from.toLowerCase();
-  
-  // Check specific senders
-  for (const sender of CONFIG.emailWhitelist.specific) {
-    if (fromLower.includes(sender.toLowerCase())) {
-      return true;
-    }
-  }
-  
-  // Check domains
-  for (const domain of CONFIG.emailWhitelist.domains) {
-    if (fromLower.includes(`@${domain.toLowerCase()}`)) {
-      return true;
-    }
-  }
-  
-  // Check patterns
-  for (const pattern of CONFIG.emailWhitelist.patterns) {
-    // Extract email address from "Name <email@domain.com>" format
-    const emailMatch = from.match(/<(.+?)>/);
-    const email = emailMatch ? emailMatch[1] : from;
-    
-    if (pattern.test(email)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/**
- * Check if email is court-related
- */
-function isCourtEmail(message) {
-  const subject = message.getSubject();
-  
-  // Check for court date keywords
-  for (const keyword of CONFIG.keywords.courtDate) {
-    if (subject.includes(keyword)) {
-      return true;
-    }
-  }
-  
-  // Check for forfeiture keywords
-  for (const keyword of CONFIG.keywords.forfeiture) {
-    if (subject.includes(keyword)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/**
- * Check if email has already been processed
- */
-function isAlreadyProcessed(message) {
-  const thread = message.getThread();
-  const labels = thread.getLabels();
-  
-  for (const label of labels) {
-    const labelName = label.getName();
-    if (labelName === CONFIG.labels.courtDate || 
-        labelName === CONFIG.labels.forfeiture ||
-        labelName === CONFIG.labels.error) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/**
- * Validate date format (YYYY-MM-DD)
- */
-function isValidDate(dateString) {
-  const regex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!regex.test(dateString)) {
-    return false;
-  }
-  
-  const date = new Date(dateString);
-  return date instanceof Date && !isNaN(date);
-}
-
-// ============================================================================
-// EMAIL PROCESSING FUNCTIONS
-// ============================================================================
 
 /**
  * Process a single email
  */
 function processEmail(message) {
-  try {
-    const subject = message.getSubject();
-    
-    // Determine email type
-    const isForfeiture = CONFIG.keywords.forfeiture.some(keyword => subject.includes(keyword));
-    
-    if (isForfeiture) {
-      return processForfeitureEmail(message);
-    } else {
-      return processCourtDateEmail(message);
-    }
-    
-  } catch (error) {
-    Logger.log(`❌ Error in processEmail: ${error.message}`);
-    return {
-      success: false,
-      error: error.message
-    };
+  const subject = message.getSubject();
+  
+  // prioritize Forfeiture > Discharge > Court Date
+  if (CONFIG.keywords.forfeiture.some(k => subject.includes(k))) {
+    return processForfeitureEmail(message);
+  } else if (CONFIG.keywords.discharge.some(k => subject.includes(k))) {
+    return processDischargeEmail(message);
+  } else if (CONFIG.keywords.courtDate.some(k => subject.includes(k))) {
+    return processCourtDateEmail(message);
+  } else {
+    // If it matched the search query but not our specific keywords loop
+    return { skipped: true, reason: 'No matching keyword in subject' };
   }
 }
 
@@ -641,617 +200,632 @@ function processEmail(message) {
  * Process court date email
  */
 function processCourtDateEmail(message) {
-  try {
-    // Extract data from PDF attachment
-    const data = extractCourtDateData(message);
-    
-    if (!data) {
-      return {
-        success: false,
-        error: 'Could not extract data from PDF'
-      };
-    }
-    
-    // Create calendar event
-    createCourtDateEvent(data);
-    
-    // Post to Slack
-    if (CONFIG.slackWebhooks.courtDates) {
-      postToSlack(CONFIG.slackWebhooks.courtDates, formatCourtDateSlackMessage(data));
-    }
-    
-    // Label email
-    labelEmail(message, CONFIG.labels.courtDate);
-    
-    return {
-      success: true
-    };
-    
-  } catch (error) {
-    Logger.log(`❌ Error processing court date email: ${error.message}`);
-    return {
-      success: false,
-      error: error.message
-    };
+  Logger.log('🏛️ Type: Court Date');
+  const data = extractCourtDateData(message);
+  
+  if (!data) return { success: false, error: 'Extraction failed' };
+  
+  // Find defendant email
+  data.defendantEmail = lookupDefendantEmail(data.defendant, data.caseNumber);
+  if (data.defendantEmail) Logger.log(`🔍 Found defendant email: ${data.defendantEmail}`);
+  
+  createCourtDateEvent(data);
+  addCourtDateToSheet(data); // Added from Utils.gs
+  
+  if (CONFIG.slackWebhooks.courtDates) {
+    postToSlack(CONFIG.slackWebhooks.courtDates, formatCourtDateSlackMessage(data));
   }
+  
+  labelEmail(message, CONFIG.labels.courtDate);
+  return { success: true };
 }
 
 /**
  * Process forfeiture email
  */
 function processForfeitureEmail(message) {
-  try {
-    // Extract data from PDF attachment
-    const data = extractForfeitureData(message);
-    
-    if (!data) {
-      return {
-        success: false,
-        error: 'Could not extract data from PDF'
-      };
-    }
-    
-    // Create calendar events (2 events: forfeiture date + received date)
-    createForfeitureEvents(data);
-    
-    // Post to Slack
-    if (CONFIG.slackWebhooks.forfeitures) {
-      postToSlack(CONFIG.slackWebhooks.forfeitures, formatForfeitureSlackMessage(data));
-    }
-    
-    // Label email
-    labelEmail(message, CONFIG.labels.forfeiture);
-    
-    return {
-      success: true
-    };
-    
-  } catch (error) {
-    Logger.log(`❌ Error processing forfeiture email: ${error.message}`);
-    return {
-      success: false,
-      error: error.message
-    };
+  Logger.log('⚖️ Type: Forfeiture');
+  const data = extractForfeitureData(message);
+  
+  if (!data) return { success: false, error: 'Extraction failed' };
+  
+  createForfeitureEvents(data);
+  addForfeitureToSheet(data); // Added from Utils.gs
+  
+  if (CONFIG.slackWebhooks.forfeitures) {
+    postToSlack(CONFIG.slackWebhooks.forfeitures, formatForfeitureSlackMessage(data));
   }
+  
+  labelEmail(message, CONFIG.labels.forfeiture);
+  return { success: true };
+}
+
+/**
+ * Process discharge email
+ */
+function processDischargeEmail(message) {
+  Logger.log('✅ Type: Discharge');
+  const data = extractDischargeData(message); // Uses similar extraction to court date
+  
+  if (!data) return { success: false, error: 'Extraction failed' };
+  
+  createDischargeEvent(data);
+  addDischargeToSheet(data); // Added from Utils.gs
+  
+  if (CONFIG.slackWebhooks.discharges) {
+    postToSlack(CONFIG.slackWebhooks.discharges, formatDischargeSlackMessage(data));
+  }
+  
+  labelEmail(message, CONFIG.labels.discharge);
+  return { success: true };
 }
 
 // ============================================================================
-// DATA EXTRACTION FUNCTIONS
+// DATA EXTRACTION
 // ============================================================================
 
 /**
- * Extract court date data from email body (FAST) + quick PDF time scan
+ * Extract court date data
  */
 function extractCourtDateData(message) {
   try {
     const subject = message.getSubject();
     const body = message.getPlainBody();
-    
-    // Extract case number from subject line
-    const caseMatch = subject.match(/(\d{2}-[A-Z]+-\d+)/i);
-    const caseNumber = caseMatch ? caseMatch[1] : 'Unknown';
-    
-    // Extract defendant name from body
-    // Looking for pattern: "Parties: [Name]" or "Defendant: [Name]"
-    let defendant = 'Unknown';
-    const defendantMatch = body.match(/(?:Parties|Defendant)[:\s]+([^\n]+)/i);
-    if (defendantMatch) {
-      defendant = defendantMatch[1].trim();
-    }
-    
-    // Extract courtroom from body
-    // Looking for pattern: "Courtroom 5-A" or "Courtroom: 5-A"
-    let courtroom = 'Unknown';
-    const courtroomMatch = body.match(/Courtroom[:\s]*([A-Z0-9-]+)/i);
-    if (courtroomMatch) {
-      courtroom = courtroomMatch[1];
-    }
-    
-    // Extract court date from body or PDF
-    let courtDateStr = null;
-    const dateMatch = body.match(/(\d{1,2}\/\d{1,2}\/\d{4})/i);
-    if (dateMatch) {
-      courtDateStr = dateMatch[1];
-    }
-    
-    // Quick scan PDF for time only (very fast)
-    let courtTime = '09:00 AM'; // Default time if not found
     const attachments = message.getAttachments();
     
-    for (const attachment of attachments) {
-      if (attachment.getContentType() === 'application/pdf') {
-        const timeFromPDF = extractTimeFromPDF(attachment);
-        if (timeFromPDF) {
-          courtTime = timeFromPDF;
-          
-          // Also try to get date from PDF if not in body
-          if (!courtDateStr) {
-            const pdfDateMatch = attachment.getDataAsString().match(/(\d{1,2}\/\d{1,2}\/\d{4})/i);
-            if (pdfDateMatch) {
-              courtDateStr = pdfDateMatch[1];
-            }
-          }
-        }
-        break; // Only check first PDF
+    // Case Number
+    const caseMatch = subject.match(/(\d{2}-[A-Z]+-\d+)/i) || body.match(/Case\s*No\.?\s*[:\s]*(\d{2}-[A-Z]+-\d+)/i);
+    const caseNumber = caseMatch ? caseMatch[1] : 'Unknown';
+    
+    // Defendant
+    let defendant = 'Unknown';
+    const defendantMatch = body.match(/(?:Parties|Defendant|Name of Defendant|In Re:)\s*[:\s]+([^\n\r,]+)/i);
+    if (defendantMatch) defendant = defendantMatch[1].trim();
+    
+    // Court Date & Time
+    let courtDateStr = null;
+    let courtTime = '09:00 AM';
+    
+    // Try body first
+    const bodyDateMatch = body.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+    const bodyTimeMatch = body.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/);
+    
+    if (bodyDateMatch) courtDateStr = bodyDateMatch[1];
+    if (bodyTimeMatch) courtTime = bodyTimeMatch[1];
+    
+    // Scan PDF for missing info
+    let pdfText = '';
+    const pdf = attachments.find(a => a.getContentType() === 'application/pdf');
+    if (pdf) {
+      pdfText = extractTextFromPDF(pdf);
+      
+      if (!courtDateStr) {
+        const pdfDateMatch = pdfText.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (pdfDateMatch) courtDateStr = pdfDateMatch[1];
+      }
+      
+      const pdfTimeMatch = pdfText.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/);
+      if (pdfTimeMatch) courtTime = pdfTimeMatch[1];
+      
+      // If defendant still unknown, try PDF
+      if (defendant === 'Unknown') {
+        const pdfDefMatch = pdfText.match(/Defendant[:\s]+([^\n\r,]+)/i) || pdfText.match(/State of Florida vs\.?\s+([^\n\r,]+)/i);
+        if (pdfDefMatch) defendant = pdfDefMatch[1].trim();
       }
     }
     
-    // Create court date object
-    if (!courtDateStr) {
-      Logger.log('⚠️  Could not extract court date');
-      return null;
-    }
+    if (!courtDateStr) return null;
+    
+    // Room
+    let courtroom = 'Unknown';
+    const roomMatch = (body + pdfText).match(/Courtroom[:\s]*([A-Z0-9-]+)/i) || (body + pdfText).match(/Room[:\s]*([A-Z0-9-]+)/i);
+    if (roomMatch) courtroom = roomMatch[1];
     
     const courtDate = new Date(courtDateStr + ' ' + courtTime);
-    
-    // Extract bonds from body (if present)
-    const bondMatches = [...body.matchAll(/Bond[\s#]*[:\s]*([A-Z0-9-]+)[^\$]*\$([0-9,]+)/gi)];
-    const bonds = bondMatches.map(match => ({
-      number: match[1],
-      amount: match[2]
-    }));
-    
-    // Extract charges from body (if present)
-    const chargeMatches = [...body.matchAll(/Count[\s]+\d+[:\s]*([A-Z][A-Z\s\-\/]+?)(?:\n|$)/gi)];
-    const charges = chargeMatches.map(match => match[1].trim()).filter(c => c.length > 5);
-    
-    Logger.log(`✅ Extracted: ${defendant}, ${caseNumber}, ${courtroom}, ${courtDateStr} ${courtTime}`);
     
     return {
       caseNumber,
       defendant,
       courtDate,
       courtroom,
-      bonds,
-      charges,
       emailDate: message.getDate()
     };
-    
-  } catch (error) {
-    Logger.log(`❌ Error extracting court date data: ${error.message}`);
+  } catch (e) {
+    Logger.log(`❌ Extraction error: ${e.message}`);
     return null;
   }
 }
 
 /**
- * Extract forfeiture data from PDF attachment
+ * Extract Forfeiture Data
  */
 function extractForfeitureData(message) {
   try {
+    const body = message.getPlainBody();
     const attachments = message.getAttachments();
+    let pdfText = '';
     
-    for (const attachment of attachments) {
-      if (attachment.getContentType() === 'application/pdf') {
-        const pdfText = extractTextFromPDF(attachment);
-        
-        // Extract case number
-        const caseMatch = pdfText.match(/Case Number[:\s]+(\d{2}-[A-Z]+-\d+)/i);
-        const caseNumber = caseMatch ? caseMatch[1] : 'Unknown';
-        
-        // Extract defendant name
-        const defendantMatch = pdfText.match(/vs[.\s]+(.+?)(?:\n|Shamrock)/i);
-        const defendant = defendantMatch ? defendantMatch[1].trim() : 'Unknown';
-        
-        // Extract forfeiture date from "PLEASE TAKE NOTICE" section
-        const forfeitureDateMatch = pdfText.match(/On\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
-        const forfeitureDate = forfeitureDateMatch ? new Date(forfeitureDateMatch[1]) : null;
-        
-        // Extract received date from Certificate of Service
-        const receivedDateMatch = pdfText.match(/(\d{1,2})\s+day\s+of\s+(\w+),\s+(\d{4})/i);
-        let receivedDate = message.getDate();
-        
-        if (receivedDateMatch) {
-          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                            'July', 'August', 'September', 'October', 'November', 'December'];
-          const month = monthNames.indexOf(receivedDateMatch[2]);
-          receivedDate = new Date(receivedDateMatch[3], month, receivedDateMatch[1]);
-        }
-        
-        // Extract bonds
-        const bondMatches = [...pdfText.matchAll(/([A-Z0-9-]+)\s+\$([0-9,]+)/g)];
-        const bonds = bondMatches.map(match => ({
-          number: match[1],
-          amount: match[2]
-        }));
-        
-        // Extract insurer
-        const insurerMatch = pdfText.match(/\[insurer\][^\n]*\n([^\n]+)/i);
-        const insurer = insurerMatch ? insurerMatch[1].trim() : 'Unknown';
-        
-        return {
-          caseNumber,
-          defendant,
-          forfeitureDate,
-          receivedDate,
-          bonds,
-          insurer,
-          emailDate: message.getDate()
-        };
-      }
-    }
+    const pdf = attachments.find(a => a.getContentType() === 'application/pdf');
+    if (pdf) pdfText = extractTextFromPDF(pdf);
     
-    return null;
+    const combinedText = body + '\n' + pdfText;
     
-  } catch (error) {
-    Logger.log(`❌ Error extracting forfeiture data: ${error.message}`);
+    // Extract everything
+    const caseMatch = combinedText.match(/Case\s*No\.?\s*[:\s]*(\d{2}-[A-Z]+-\d+)/i);
+    const defendantMatch = combinedText.match(/Defendant[:\s]+([^\n\r,]+)/i);
+    const amountMatch = combinedText.match(/\$\s*([\d,]+\.?\d*)/);
+    const dateMatch = combinedText.match(/forfeited.*on\s+(\d{1,2}\/\d{1,2}\/\d{4})/i) || combinedText.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+    const powerMatch = combinedText.match(/Power\s*(?:No|Number)?\.?[:\s]*([A-Z0-9-]+)/i);
+    
+    if (!caseMatch && !defendantMatch) return null;
+    
+    return {
+      caseNumber: caseMatch ? caseMatch[1] : 'Unknown',
+      defendant: defendantMatch ? defendantMatch[1].trim() : 'Unknown',
+      amount: amountMatch ? amountMatch[1] : 'Unknown',
+      forfeitureDate: dateMatch ? new Date(dateMatch[1]) : new Date(),
+      powerNumber: powerMatch ? powerMatch[1] : 'Unknown',
+      receivedDate: new Date() // Today
+    };
+    
+  } catch (e) {
+    Logger.log(`❌ Forfeiture extraction error: ${e.message}`);
     return null;
   }
 }
 
 /**
- * Extract text from PDF attachment using DriveApp (no API needed)
+ * Extract Discharge Data (Reuse Logic mostly)
+ */
+function extractDischargeData(message) {
+  try {
+    const subject = message.getSubject();
+    const body = message.getPlainBody();
+    const attachments = message.getAttachments();
+    
+    let pdfText = '';
+    const pdf = attachments.find(a => a.getContentType() === 'application/pdf');
+    if (pdf) pdfText = extractTextFromPDF(pdf);
+    
+    const combinedText = body + '\n' + pdfText;
+    
+    // Case
+    const caseMatch = subject.match(/(\d{2}-[A-Z]+-\d+)/i) || combinedText.match(/Case\s*No\.?\s*[:\s]*(\d{2}-[A-Z]+-\d+)/i);
+    
+    // Defendant
+    let defendant = 'Unknown';
+    const defendantMatch = combinedText.match(/Defendant[:\s]+([^\n\r,]+)/i) || combinedText.match(/Principal[:\s]+([^\n\r,]+)/i);
+    if (defendantMatch) defendant = defendantMatch[1].trim();
+    
+    // Date
+    const dateMatch = combinedText.match(/discharged.*on\s+(\d{1,2}\/\d{1,2}\/\d{4})/i) || combinedText.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+    
+    return {
+      caseNumber: caseMatch ? caseMatch[1] : 'Unknown',
+      defendant: defendant,
+      dischargeDate: dateMatch ? new Date(dateMatch[1]) : new Date(),
+      info: 'Discharge of Bond'
+    };
+    
+  } catch (e) {
+     Logger.log(`❌ Discharge extraction error: ${e.message}`);
+     return null;
+  }
+}
+
+/**
+ * Robust Text Extraction from PDF
  */
 function extractTextFromPDF(attachment) {
   try {
-    // Create temporary file in Drive
-    const blob = attachment.copyBlob();
-    const tempFolder = DriveApp.getRootFolder();
-    const file = tempFolder.createFile(blob);
-    
-    // Get file ID
-    const fileId = file.getId();
-    
-    // Convert to Google Doc to extract text
     const resource = {
-      mimeType: 'application/vnd.google-apps.document'
+      title: attachment.getName(),
+      mimeType: attachment.getContentType()
     };
     
-    const convertedFile = Drive.Files.copy(resource, fileId);
-    const docId = convertedFile.id;
-    
-    // Get text from converted document
-    const doc = DocumentApp.openById(docId);
+    // Drive.Files.insert requires Advanced Drive Service enabled
+    const file = Drive.Files.insert(resource, attachment, { ocr: true });
+    const doc = DocumentApp.openById(file.id);
     const text = doc.getBody().getText();
     
-    // Clean up temporary files
-    DriveApp.getFileById(fileId).setTrashed(true);
-    DriveApp.getFileById(docId).setTrashed(true);
-    
+    Drive.Files.remove(file.id); // Clean up
     return text;
-    
-  } catch (error) {
-    Logger.log(`❌ Error extracting text from PDF: ${error.message}`);
-    
-    // Fallback: Try simple text extraction
-    try {
-      const pdfContent = attachment.getDataAsString();
-      // Extract readable text from PDF string
-      const textMatches = pdfContent.match(/[\x20-\x7E\s]{4,}/g);
-      return textMatches ? textMatches.join(' ') : pdfContent;
-    } catch (fallbackError) {
-      Logger.log(`❌ Fallback also failed: ${fallbackError.message}`);
-      return '';
-    }
+  } catch (e) {
+    Logger.log(`⚠️ OCR failed (using quick text): ${e.message}`);
+    // Fallback if Drive API is not enabled or fails
+    return attachment.getDataAsString();
   }
 }
 
 // ============================================================================
-// CALENDAR FUNCTIONS
+// CALENDAR & EVENTS
 // ============================================================================
 
 /**
- * Create calendar event for court date
+ * Create Court Date Event
  */
 function createCourtDateEvent(data) {
-  try {
-    const calendar = CalendarApp.getCalendarById(CONFIG.calendarId);
-    
-    if (!calendar) {
-      throw new Error(`Calendar not found: ${CONFIG.calendarId}`);
-    }
-    
-    // Create event title
-    const title = `Court: ${data.defendant} - ${data.caseNumber}`;
-    
-    // Create event description
-    const description = `
-**Court Appearance**
-
-**Defendant:** ${data.defendant}
-**Case Number:** ${data.caseNumber}
-**Courtroom:** ${data.courtroom}
-
-**Bonds:**
-${data.bonds.map(b => `- ${b.number}: $${b.amount}`).join('\n')}
-
-**Charges:**
-${data.charges.map((c, i) => `${i + 1}. ${c}`).join('\n')}
-
-**Email received:** ${Utilities.formatDate(data.emailDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')}
-    `.trim();
-    
-    // Check for duplicate
-    if (CONFIG.preventDuplicates) {
-      const existing = calendar.getEventsForDay(data.courtDate);
-      for (const event of existing) {
-        if (event.getTitle() === title) {
-          Logger.log(`⏭️  Calendar event already exists: ${title}`);
-          return;
-        }
-      }
-    }
-    
-    // Create event
-    const event = calendar.createEvent(title, data.courtDate, data.courtDate, {
-      description: description,
-      location: `Courtroom ${data.courtroom}`
-    });
-    
-    // Set color
-    event.setColor(CONFIG.colors.courtDate);
-    
-    Logger.log(`📅 Created calendar event: ${title}`);
-    
-  } catch (error) {
-    Logger.log(`❌ Error creating court date event: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Create calendar events for forfeiture (2 events)
- */
-function createForfeitureEvents(data) {
-  try {
-    const calendar = CalendarApp.getCalendarById(CONFIG.calendarId);
-    
-    if (!calendar) {
-      throw new Error(`Calendar not found: ${CONFIG.calendarId}`);
-    }
-    
-    // Event 1: Forfeiture date (red)
-    if (data.forfeitureDate) {
-      const title1 = `⚠️ FORFEITURE: ${data.defendant} - ${data.caseNumber}`;
-      
-      const description1 = `
-**Bond Forfeiture**
-
-**Defendant:** ${data.defendant}
-**Case Number:** ${data.caseNumber}
-**Forfeiture Date:** ${Utilities.formatDate(data.forfeitureDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')}
-
-**Bonds:**
-${data.bonds.map(b => `- ${b.number}: $${b.amount}`).join('\n')}
-
-**Insurer:** ${data.insurer}
-
-**Notice received:** ${Utilities.formatDate(data.receivedDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')}
-      `.trim();
-      
-      // Check for duplicate
-      if (CONFIG.preventDuplicates) {
-        const existing = calendar.getEventsForDay(data.forfeitureDate);
-        for (const event of existing) {
-          if (event.getTitle() === title1) {
-            Logger.log(`⏭️  Calendar event already exists: ${title1}`);
-            return;
-          }
-        }
-      }
-      
-      const event1 = calendar.createAllDayEvent(title1, data.forfeitureDate, {
-        description: description1
-      });
-      
-      event1.setColor(CONFIG.colors.forfeitureDate);
-      
-      Logger.log(`📅 Created forfeiture date event: ${title1}`);
-    }
-    
-    // Event 2: Received date (orange)
-    const title2 = `📧 Forfeiture Notice Received: ${data.defendant} - ${data.caseNumber}`;
-    
-    const description2 = `
-**Forfeiture Notice Received**
-
-**Defendant:** ${data.defendant}
-**Case Number:** ${data.caseNumber}
-**Received Date:** ${Utilities.formatDate(data.receivedDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')}
-**Forfeiture Date:** ${data.forfeitureDate ? Utilities.formatDate(data.forfeitureDate, Session.getScriptTimeZone(), 'MM/dd/yyyy') : 'Unknown'}
-
-**Bonds:**
-${data.bonds.map(b => `- ${b.number}: $${b.amount}`).join('\n')}
-
-**Insurer:** ${data.insurer}
-    `.trim();
-    
-    const event2 = calendar.createAllDayEvent(title2, data.receivedDate, {
-      description: description2
-    });
-    
-    event2.setColor(CONFIG.colors.forfeitureReceived);
-    
-    Logger.log(`📅 Created received date event: ${title2}`);
-    
-  } catch (error) {
-    Logger.log(`❌ Error creating forfeiture events: ${error.message}`);
-    throw error;
-  }
-}
-
-// ============================================================================
-// SLACK FUNCTIONS
-// ============================================================================
-
-/**
- * Post message to Slack
- */
-function postToSlack(webhookUrl, message) {
-  try {
-    if (!webhookUrl) {
-      Logger.log('⏭️  Slack webhook not configured, skipping notification');
+  const calendar = CalendarApp.getCalendarById(CONFIG.calendarId);
+  if (!calendar) throw new Error(`Target calendar ${CONFIG.calendarId} not found`);
+  
+  const title = `Court: ${data.defendant} $${data.caseNumber}`;
+  const description = `Court Appearance\n\nDefendant: ${data.defendant}\nCase: ${data.caseNumber}\nRoom: ${data.courtroom}`;
+  
+  if (CONFIG.preventDuplicates) {
+    const existing = calendar.getEventsForDay(data.courtDate);
+    if (existing.some(e => e.getTitle() === title)) {
+      Logger.log('⚠️ Duplicate event found, skipping creation.');
       return;
     }
-    
-    const payload = JSON.stringify(message);
-    
-    const options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: payload
-    };
-    
-    UrlFetchApp.fetch(webhookUrl, options);
-    
-    Logger.log('✅ Posted to Slack');
-    
-  } catch (error) {
-    Logger.log(`❌ Error posting to Slack: ${error.message}`);
   }
+  
+  // Guests: Reviewer + Defendant (if any)
+  let guestList = CONFIG.reviewerEmail;
+  if (data.defendantEmail) guestList += `,${data.defendantEmail}`;
+  
+  const options = {
+    description: description,
+    location: `Courtroom ${data.courtroom}`,
+    guests: guestList,
+    sendInvites: true
+  };
+  
+  const event = calendar.createEvent(title, data.courtDate, new Date(data.courtDate.getTime() + 60 * 60 * 1000), options);
+  event.setColor(CONFIG.colors.courtDate);
+  Logger.log(`📅 Created Event: ${title} | Shared with: ${guestList}`);
 }
 
 /**
- * Format court date message for Slack
+ * Create Forfeiture Events
  */
-function formatCourtDateSlackMessage(data) {
-  return {
-    text: `🏛️ New Court Date`,
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: '🏛️ New Court Date'
-        }
-      },
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Defendant:*\n${data.defendant}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Case Number:*\n${data.caseNumber}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Court Date:*\n${Utilities.formatDate(data.courtDate, Session.getScriptTimeZone(), 'MM/dd/yyyy hh:mm a')}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Courtroom:*\n${data.courtroom}`
-          }
-        ]
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*Bonds:*\n${data.bonds.map(b => `• ${b.number}: $${b.amount}`).join('\n')}`
-        }
-      }
-    ]
-  };
+function createForfeitureEvents(data) {
+  const calendar = CalendarApp.getCalendarById(CONFIG.calendarId);
+  
+  // Event 1: The Forfeiture Date (Past)
+  calendar.createEvent(`FORFEITURE: ${data.defendant}`, data.forfeitureDate, data.forfeitureDate, {
+    description: `Case: ${data.caseNumber}\nAmount: $${data.amount}\nPower: ${data.powerNumber}`,
+    guests: CONFIG.reviewerEmail
+  }).setColor(CONFIG.colors.forfeitureDate);
+  
+  // Event 2: Received Notification (Today - All Day)
+  calendar.createAllDayEvent(`⚠️ FORFEITURE RECEIVED: ${data.defendant}`, new Date(), {
+     description: `Case: ${data.caseNumber}\nAmount: $${data.amount}\nCheck File!`,
+     guests: CONFIG.reviewerEmail
+  }).setColor(CONFIG.colors.forfeitureReceived);
+  
+  Logger.log(`📅 Created Forfeiture Events for ${data.defendant}`);
 }
 
 /**
- * Format forfeiture message for Slack
+ * Create Discharge Event
  */
-function formatForfeitureSlackMessage(data) {
-  return {
-    text: `⚠️ FORFEITURE NOTICE`,
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: '⚠️ FORFEITURE NOTICE'
-        }
-      },
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Defendant:*\n${data.defendant}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Case Number:*\n${data.caseNumber}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Forfeiture Date:*\n${data.forfeitureDate ? Utilities.formatDate(data.forfeitureDate, Session.getScriptTimeZone(), 'MM/dd/yyyy') : 'Unknown'}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Received Date:*\n${Utilities.formatDate(data.receivedDate, Session.getScriptTimeZone(), 'MM/dd/yyyy')}`
-          }
-        ]
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*Bonds:*\n${data.bonds.map(b => `• ${b.number}: $${b.amount}`).join('\n')}\n\n*Insurer:* ${data.insurer}`
-        }
-      }
-    ]
-  };
+function createDischargeEvent(data) {
+  const calendar = CalendarApp.getCalendarById(CONFIG.calendarId);
+  
+  calendar.createAllDayEvent(`✅ DISCHARGE: ${data.defendant}`, data.dischargeDate, {
+    description: `Case: ${data.caseNumber}\nBond Discharged.`,
+    guests: CONFIG.reviewerEmail
+  }).setColor(CONFIG.colors.discharge);
+  
+  Logger.log(`📅 Created Discharge Event for ${data.defendant}`);
 }
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// HELPERS & LOOKUPS
 // ============================================================================
 
-/**
- * Label email with specified label
- */
-function labelEmail(message, labelName) {
+function lookupDefendantEmail(name, caseNumber) {
+  if (!name || name === 'Unknown') return null;
   try {
-    let label = GmailApp.getUserLabelByName(labelName);
+    const ss = SpreadsheetApp.openById(CONFIG.masterSheetId);
+    // Search specific high-value sheets
+    const sheets = ['Defendant Locations', 'PortalUsers', 'ArrestLeads'];
+    const searchName = name.toLowerCase();
     
-    if (!label) {
-      label = GmailApp.createLabel(labelName);
+    for (const sName of sheets) {
+      const sheet = ss.getSheetByName(sName);
+      if (!sheet) continue;
+      
+      const data = sheet.getDataRange().getValues();
+      if (data.length < 2) continue;
+      
+      const headers = data[0].map(h => h.toString().toLowerCase());
+      const emailIdx = headers.findIndex(h => h.includes('email'));
+      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('defendant'));
+      
+      if (emailIdx > -1 && nameIdx > -1) {
+        for (let i = 1; i < data.length; i++) {
+          const rowName = data[i][nameIdx].toString().toLowerCase();
+          const rowEmail = data[i][emailIdx].toString();
+          
+          if (rowEmail && rowName.includes(searchName)) {
+            return rowEmail;
+          }
+        }
+      }
     }
+  } catch (e) {
+    Logger.log(`⚠️ Email lookup failed: ${e.message}`);
+  }
+  return null;
+}
+
+function getUnprocessedEmails(days) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const dateStr = Utilities.formatDate(cutoff, "GMT", "yyyy/MM/dd");
+  
+  // Build query
+  let query = `has:attachment after:${dateStr}`;
+  // Optimization: Pre-filter by subject terms to reduce noise
+  // query += ` (subject:court OR subject:appearance OR subject:forfeiture OR subject:discharge OR subject:release)`;
+  
+  const threads = GmailApp.search(query, 0, CONFIG.maxEmailsPerRun);
+  const messages = [];
+  
+  threads.forEach(t => t.getMessages().forEach(m => {
+    // Check if valid sender
+    if (isFromWhitelistedSender(m.getFrom())) {
+       // Check if processed
+       if (!isAlreadyProcessed(m)) {
+         messages.push(m);
+       }
+    }
+  }));
+  return messages;
+}
+
+function isFromWhitelistedSender(from) {
+  const f = from.toLowerCase();
+  
+  // 1. Check Specific
+  if (CONFIG.emailWhitelist.specific.some(s => f.includes(s))) return true;
+  
+  // 2. Check Domains
+  if (CONFIG.emailWhitelist.domains.some(d => f.includes(`@${d}`))) return true;
+  
+  // 3. Check Patterns
+  return CONFIG.emailWhitelist.patterns.some(p => p.test(f));
+}
+
+function isAlreadyProcessed(m) {
+  const labels = m.getThread().getLabels();
+  return labels.some(l => Object.values(CONFIG.labels).includes(l.getName()));
+}
+
+function labelEmail(m, l) {
+  const label = GmailApp.getUserLabelByName(l) || GmailApp.createLabel(l);
+  m.getThread().addLabel(label);
+}
+
+function setupLabels() {
+  Object.values(CONFIG.labels).forEach(l => {
+    if (!GmailApp.getUserLabelByName(l)) GmailApp.createLabel(l);
+  });
+}
+
+function postToSlack(url, msg) {
+  if (!url) return;
+  try {
+    UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(msg) });
+  } catch (e) { Logger.log(`Slack error: ${e.message}`); }
+}
+
+function formatCourtDateSlackMessage(d) {
+  return { text: `🏛️ *Court Date Found*\n*Defendant:* ${d.defendant}\n*Case:* ${d.caseNumber}\n*Date:* ${d.courtDate.toLocaleString()}\n*Room:* ${d.courtroom}\n*Shared with:* ${d.defendantEmail || 'None'}` };
+}
+
+function formatForfeitureSlackMessage(d) {
+  return { text: `🚨 *FORFEITURE NOTICE*\n*Defendant:* ${d.defendant}\n*Amount:* $${d.amount}\n*Forfeiture Date:* ${d.forfeitureDate.toDateString()}` };
+}
+
+
+// ============================================================================
+// TRIGGER MANAGEMENT (Ported from CourtProcessor.gs)
+// ============================================================================
+
+/**
+ * Setup standard daily triggers
+ * Run this ONCE to initialize the automation
+ */
+function setupDailyTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (const trigger of triggers) ScriptApp.deleteTrigger(trigger);
+
+  // Run periodic checks during business hours
+  ScriptApp.newTrigger('processCourtEmails').timeBased().atHour(7).everyDays(1).create();
+  ScriptApp.newTrigger('processCourtEmails').timeBased().atHour(10).everyDays(1).create();
+  ScriptApp.newTrigger('processCourtEmails').timeBased().atHour(14).everyDays(1).create();
+  ScriptApp.newTrigger('processCourtEmails').timeBased().atHour(17).everyDays(1).create();
+
+  Logger.log('🎉 Daily triggers created (7am, 10am, 2pm, 5pm).');
+}
+
+/**
+ * Create a one-off trigger to continue processing in 1 minute
+ * Used when execution time limit is approaching
+ */
+function createContinuationTrigger() {
+  // Clear existing continuation triggers first
+  deleteContinuationTriggers();
+
+  ScriptApp.newTrigger('processCourtEmails')
+    .timeBased()
+    .after(60 * 1000) // Run in 1 minute
+    .create();
     
-    message.getThread().addLabel(label);
-    
+  Logger.log('🔄 Continuation trigger scheduled.');
+}
+
+/**
+ * Delete any pending continuation triggers
+ */
+function deleteContinuationTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'processCourtEmails' && trigger.getTriggerSource() === ScriptApp.TriggerSource.CLOCK) {
+      // We only want to delete the one-off/continuation triggers, but how to distinguish?
+      // Standard triggers are usually recurring. One-offs are not.
+      // However, simplified approach: The main function handles this by checking if it's a recurring run or continuation.
+      // Ideally, we don't delete the daily triggers, only the "after(x)" ones.
+      // But GAS doesn't easily distinguish. 
+      // BETTER APPROACH: Only delete if proper ID is stored or just rely on them expiring? 
+      // Actually, standard practice for "after" triggers is they run once and gone.
+      // But good hygiene is to clear them if we finish early.
+      
+      // For this simplified version, we won't aggressive delete to avoid killing the daily schedule.
+      // We assume "after" triggers self-destruct after running.
+    }
+  }
+}
+
+
+// ============================================================================
+// SHEET LOGGING FUNCTIONS (Ported from Utils.gs)
+// ============================================================================
+
+function addCourtDateToSheet(data) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.masterSheetId);
+    let sheet = ss.getSheetByName('Upcoming Court Dates');
+
+    if (!sheet) {
+      sheet = ss.insertSheet('Upcoming Court Dates');
+      const headers = ['Date Added', 'Defendant Name', 'Case Number', 'Court Date', 'Court Time', 'Courtroom', 'Bond Amount', 'County', 'Status', 'Notes'];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#4285f4').setFontColor('#ffffff');
+      sheet.setFrozenRows(1);
+    }
+
+    if (isCaseInSheet(sheet, data.caseNumber, 3)) {
+      Logger.log(`⏭️ Court date already in sheet: ${data.caseNumber}`);
+      return;
+    }
+
+    const totalBond = calculateTotalBond(data.bonds);
+    const courtDateStr = Utilities.formatDate(data.courtDate, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const courtTimeStr = Utilities.formatDate(data.courtDate, Session.getScriptTimeZone(), 'hh:mm a');
+    const dateAddedStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MM/dd/yyyy HH:mm:ss');
+
+    sheet.appendRow([
+      dateAddedStr,
+      data.defendant,
+      data.caseNumber,
+      courtDateStr,
+      courtTimeStr,
+      data.courtroom,
+      `$${totalBond.toLocaleString()}`,
+      data.county || 'Lee County',
+      'Upcoming',
+      (data.charges || []).slice(0, 2).join('; ')
+    ]);
+    Logger.log(`📝 Added to sheet: ${data.defendant} - ${data.caseNumber}`);
+
   } catch (error) {
-    Logger.log(`❌ Error labeling email: ${error.message}`);
+    Logger.log(`❌ Error adding to sheet: ${error.message}`);
   }
 }
 
-/**
- * Show Slack configuration instructions
- */
-function showSlackConfig() {
-  const ui = SpreadsheetApp.getUi();
-  
-  const message = `
-To enable Slack notifications:
+function addForfeitureToSheet(data) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.masterSheetId);
+    let sheet = ss.getSheetByName('Forfeitures');
 
-1. Go to https://api.slack.com/apps
-2. Create New App → "Shamrock Court Alerts"
-3. Incoming Webhooks → Toggle ON
-4. Add New Webhook → Select #court-dates
-5. Copy webhook URL
-6. Repeat for #forfeitures channel
+    if (!sheet) {
+      sheet = ss.insertSheet('Forfeitures');
+      const headers = ['Date Received', 'Defendant Name', 'Case Number', 'Forfeiture Date', 'Bond Amount', 'Insurer', 'County', 'Status', 'Last Reminder', 'Next Reminder', 'Notes'];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#ea4335').setFontColor('#ffffff');
+      sheet.setFrozenRows(1);
+    }
 
-Then update CONFIG.slackWebhooks in the script:
+    if (isCaseInSheet(sheet, data.caseNumber, 3)) {
+      Logger.log(`⏭️ Forfeiture already in sheet: ${data.caseNumber}`);
+      return;
+    }
 
-slackWebhooks: {
-  courtDates: 'YOUR_WEBHOOK_URL',
-  forfeitures: 'YOUR_WEBHOOK_URL'
-}
-  `.trim();
-  
-  ui.alert('Slack Configuration', message, ui.ButtonSet.OK);
-}
+    // Default values if data missing
+    const totalBond = calculateTotalBond(data.bonds);
+    const receivedDateStr = Utilities.formatDate(data.receivedDate || new Date(), Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const forfeitureDateStr = data.forfeitureDate ? Utilities.formatDate(data.forfeitureDate, Session.getScriptTimeZone(), 'MM/dd/yyyy') : 'Unknown';
+    
+    // Determine reminder
+    const nextReminder = new Date();
+    nextReminder.setDate(nextReminder.getDate() + 10);
+    const nextReminderStr = Utilities.formatDate(nextReminder, Session.getScriptTimeZone(), 'MM/dd/yyyy');
 
-/**
- * Show processing log
- */
-function showProcessingLog() {
-  const ui = SpreadsheetApp.getUi();
-  const log = Logger.getLog();
-  
-  if (!log || log.trim() === '') {
-    ui.alert('Processing Log', 'No processing log available. Run the processor first.', ui.ButtonSet.OK);
-    return;
+    sheet.appendRow([
+      receivedDateStr,
+      data.defendant,
+      data.caseNumber,
+      forfeitureDateStr,
+      `$${totalBond.toLocaleString()}`,
+      data.insurer || 'Unknown',
+      data.county || 'Lee County',
+      'Active',
+      receivedDateStr,
+      nextReminderStr,
+      'Forfeiture notice received'
+    ]);
+    Logger.log(`📝 Added forfeiture to sheet: ${data.defendant} - ${data.caseNumber}`);
+
+  } catch (error) {
+    Logger.log(`❌ Error adding forfeiture to sheet: ${error.message}`);
   }
-  
-  ui.alert('Processing Log', log, ui.ButtonSet.OK);
+}
+
+function addDischargeToSheet(data) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.masterSheetId);
+    let sheet = ss.getSheetByName('Discharges');
+
+    if (!sheet) {
+      sheet = ss.insertSheet('Discharges');
+      const headers = ['Date of email', 'Defendant Name', 'Case Number', 'County', 'Charge', 'Bond Amount', 'Surety', 'Status', 'Notes'];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#34a853').setFontColor('#ffffff');
+      sheet.setFrozenRows(1);
+    }
+
+    if (isCaseInSheet(sheet, data.caseNumber, 3)) {
+      Logger.log(`⏭️ Discharge already in sheet: ${data.caseNumber}`);
+      return;
+    }
+
+    const emailDateStr = Utilities.formatDate(data.receivedDate || new Date(), Session.getScriptTimeZone(), 'MM/dd/yyyy');
+
+    sheet.appendRow([
+      emailDateStr,
+      data.defendant,
+      data.caseNumber,
+      data.county || 'Lee County',
+      data.offense || 'Unknown',
+      data.bondAmount || 'Unknown',
+      data.insuranceCompany || 'Unknown',
+      'Discharged',
+      'Bond discharged - obligations fulfilled'
+    ]);
+    Logger.log(`📝 Added discharge to sheet: ${data.defendant} - ${data.caseNumber}`);
+
+  } catch (error) {
+    Logger.log(`❌ Error adding discharge to sheet: ${error.message}`);
+  }
+}
+
+// Helper for Sheet Duplicates
+function isCaseInSheet(sheet, caseNumber, column) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return false;
+  // Read column (1-based index)
+  const existingData = sheet.getRange(2, column, lastRow - 1, 1).getValues();
+  for (let i = 0; i < existingData.length; i++) {
+    if (String(existingData[i][0]).trim() === String(caseNumber).trim()) return true;
+  }
+  return false;
+}
+
+function calculateTotalBond(bonds) {
+  if (!bonds || !Array.isArray(bonds)) return 0;
+  return bonds.reduce((sum, b) => {
+    const cleanAmount = String(b.amount).replace(/[^0-9.]/g, '');
+    const amount = parseFloat(cleanAmount) || 0;
+    return sum + amount;
+  }, 0);
 }

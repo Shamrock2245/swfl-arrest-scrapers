@@ -170,12 +170,29 @@ def scrape_sarasota(days_back=7):
 
             # Clear and type
             try:
-                date_input.click()
-                date_input.clear()
+                # Ensure we are on the Arrest Date tab
+                # Click it via JS to be sure
+                page.run_js('document.querySelector("#tab1").click()') # Usually tab1 or similar, but text is safer
+                try:
+                    page.ele('text:Arrest Date').click()
+                except: pass
+                
                 time.sleep(0.5)
-                date_input.input(arrest_date)
-                page.actions.type('\n') # Press Enter
-                time.sleep(1)
+
+                # Robust Date Entry
+                # 1. Clear field
+                date_input.run_js('this.value = ""')
+                
+                # 2. Set value via JS
+                date_input.run_js(f'this.value = "{arrest_date}"')
+                
+                # 3. Trigger events manually (essential for some frameworks)
+                date_input.run_js('this.dispatchEvent(new Event("input", { bubbles: true }))')
+                date_input.run_js('this.dispatchEvent(new Event("change", { bubbles: true }))')
+                date_input.run_js('this.dispatchEvent(new Event("blur", { bubbles: true }))')
+                
+                time.sleep(0.5)
+                
             except Exception as e:
                 sys.stderr.write(f"Error typing date: {e}\n")
             
@@ -186,7 +203,8 @@ def scrape_sarasota(days_back=7):
                 try: search_btn.run_js('this.scrollIntoView()')
                 except: pass
                 
-                search_btn.click()
+                # Force click via JS
+                search_btn.run_js('this.click()')
             else:
                 sys.stderr.write("Could not find SEARCH button.\n")
                 current_date += timedelta(days=1)
@@ -194,6 +212,10 @@ def scrape_sarasota(days_back=7):
             
             # Wait for results
             time.sleep(3)
+            
+            # Verify we are on results page (URL should change usually, or content updates)
+            if 'index.php' in page.url and not page.ele('css:a[href*="viewInmate.php"]'):
+                 sys.stderr.write("   ⚠️  Search did not redirect or no results found (URL is still index.php)\n")
             
             # 3. Extract URLs
             links = page.eles('css:a[href*="viewInmate.php"]')
@@ -210,9 +232,15 @@ def scrape_sarasota(days_back=7):
             
             date_urls = list(set(date_urls))
             sys.stderr.write(f"   📋 Found {len(date_urls)} inmates for {arrest_date}\n")
+            
+            # SAFETY CHECK: If we found way too many results, the filter probably failed.
+            if len(date_urls) > 80:
+                sys.stderr.write(f"   ⚠️  WARNING: Found {len(date_urls)} results. This exceeds the expected daily max (~80).\n")
+                sys.stderr.write("      The website's date filter failed. Proceeding with client-side filtering (this may take longer).\n")
+                # We do NOT continue/skip here. We let the client-side filter handle it.
+                
             all_detail_urls.update(date_urls)
             
-            # Move to next date
             # Move to next date
             current_date += timedelta(days=1)
             time.sleep(2)  # Be nice to the server
@@ -321,15 +349,18 @@ def scrape_sarasota(days_back=7):
                             
                             # Intake Date (Booking Date) - Index 6
                             # This is critical for spreadsheet
-                            if len(cells) > 6 and 'Booking_Date' not in data:
+                            # ALWAYS prefer the specific charge intake date over the page-level fallback
+                            if len(cells) > 6:
                                 intake_dt = cells[6].text.strip()
+                                # DEBUG: Log what we found
+                                # sys.stderr.write(f"      [DEBUG] Table Row {rows.index(row)} Col 6 (Intake): '{intake_dt}'\n")
+                                
                                 if intake_dt:
                                     # Fix for Time-Only Booking Dates
-                                    # If it looks like a time (e.g. "14:30") and short, prepend the search date
                                     if ':' in intake_dt and len(intake_dt) < 12 and 'arrest_date' in locals():
-                                        data['Booking_Date'] = f"{arrest_date} {intake_dt}"
+                                         data['Booking_Date'] = f"{arrest_date} {intake_dt}"
                                     else:
-                                        data['Booking_Date'] = intake_dt
+                                         data['Booking_Date'] = intake_dt
                                 
                     if charges:
                         data['Charges'] = " | ".join(charges)
@@ -341,7 +372,7 @@ def scrape_sarasota(days_back=7):
                         src = img.attr('src')
                         data['Mugshot_URL'] = src
                         
-                    sys.stderr.write(f"Scraped {len(data)} keys from {detail_url}\n") 
+                    # sys.stderr.write(f"Scraped {len(data)} keys from {detail_url}\n") 
                     
                     # Log Name
                     name = data.get('Full_Name', 'Unknown')
@@ -358,18 +389,48 @@ def scrape_sarasota(days_back=7):
                         sys.stderr.write("   ⚠️  Missing Booking_Date, skipping record to avoid data corruption\n")
                         continue
                             
-                    # Clean up Booking Date format if needed
-                    # Scraper output: 2025-11-26 00:29:52.000
-                    if 'Booking_Date' in data:
-                        # Make sure we have just the date part for the main Booking_Date field 
-                        # if the schema expects YYYY-MM-DD. 
-                        # But wait, schema says: Booking_Date: str (Fields 10)
-                        # The user provided JSON shows full datetime.
-                        # Let's clean it to be safe, or leave it if Sheets handles it.
-                        # For now, let's leave it, but ensure we populate Arrest_Date
-                        pass
-
                     bdate = data.get('Arrest_Date', data.get('Booking_Date', 'N/A'))
+                    
+                    # CLIENT-SIDE DATE FILTERING
+                    # The website search is unreliable, so we must verify the date falls in our window.
+                    # We allow a small buffer (e.g. 1 extra day back) just in case of timezone/entry delays.
+                    try:
+                        # Attempt to parse the extracted date
+                        # Formats seen: "2024-12-09 14:30:00", "2024-12-09", "12/09/2024"
+                        db_date = None
+                        date_str = str(bdate).split(' ')[0].strip()
+                        
+                        # Debug logic
+                        sys.stderr.write(f"      [DEBUG] Checking Date: '{bdate}' (Parsed: '{date_str}') for {name}\n")
+                        
+                        for fmt in ["%Y-%m-%d", "%m/%d/%Y"]:
+                            try:
+                                db_date = datetime.strptime(date_str, fmt)
+                                break
+                            except:
+                                pass
+                        
+                        if db_date:
+                            # Strict check: reject if older than start_date - 1 day
+                            # Ensure we compare using start_date passed to function
+                            cutoff_date = start_date - timedelta(days=1)
+                            
+                            # Normalize to date only for comparison
+                            db_date_val = db_date.date()
+                            cutoff_val = cutoff_date.date()
+                            
+                            if db_date_val < cutoff_val:
+                                sys.stderr.write(f"   ⚠️  Skipping old record: {bdate} (Is {db_date_val} < Cutoff {cutoff_val}? YES)\n")
+                                continue
+                            else:
+                                # sys.stderr.write(f"      [DEBUG] Date OK: {db_date_val} >= {cutoff_val}\n")
+                                pass
+                        else:
+                            sys.stderr.write(f"   ⚠️  Could not parse date: '{date_str}' - keeping record to be safe\n")
+                            
+                    except Exception as e:
+                        sys.stderr.write(f"   ⚠️  Date parse error: {e}\n")
+
                     sys.stderr.write(f"   👤 Name: {name} | Date: {bdate}\n")
 
                     # Sanitize and validate record before saving
@@ -398,7 +459,7 @@ def scrape_sarasota(days_back=7):
                         
                         sys.stderr.write(f"   ✅ Added & Saved record (Total New: {len(records)})\n")
                     else:
-                        sys.stderr.write("   ⚠️  Skipping - no booking number or name\n")ta.\n")
+                        sys.stderr.write("   ⚠️  Skipping - no booking number or name\n")
                         
                 else:
                     sys.stderr.write(f"Body not found on {detail_url}\n")
@@ -436,14 +497,12 @@ def scrape_sarasota(days_back=7):
     sys.stderr.write(f"   Previously scraped (skipped): {len(processed_ids)}\n")
     sys.stderr.write(f"   Dates searched: {days_back} days\n")
     
-    if VALIDATION_AVAILABLE and records:
-        from validation import get_data_completeness_score
-        completeness_scores = [get_data_completeness_score(r) for r in records]
-        avg_completeness = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0
-        sys.stderr.write(f"   Average data completeness: {avg_completeness:.1f}%\n")
+    # Validation Check (Simple version)
+    # if records:
+    #     avg_fields = sum(len(r) for r in records) / len(records)
+    #     sys.stderr.write(f"   Average fields per record: {avg_fields:.1f}\n")
     
     sys.stderr.write(f"\n✅ Sarasota County scraping complete!\n")
-
     print(json.dumps(final_records))
 
 if __name__ == "__main__":
