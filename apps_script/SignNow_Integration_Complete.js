@@ -1001,3 +1001,41 @@ function SN_formatPhoneE164(phone) {
 function SN_log(action, data) {
   Logger.log(`[SignNow] ${action}: ` + JSON.stringify(data));
 }
+
+/**
+ * Create a single embedded signing link
+ * Adds missing function expected by Code.gs
+ */
+function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpiration) {
+  const config = SN_getConfig();
+  // Using v2 endpoint for generic link creation
+  const url = config.API_BASE + '/document/' + documentId + '/embedded-signing-link';
+  
+  const payload = {
+    auth_method: 'none',
+    link_expiration: linkExpiration || 45
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + config.ACCESS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const result = JSON.parse(response.getContentText());
+    
+    if (response.getResponseCode() === 200 && result.data && result.data.link) {
+      return { success: true, link: result.data.link };
+    } else {
+      return { success: false, error: JSON.stringify(result) };
+    }
+
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
