@@ -973,3 +973,35 @@ function getCountyStatistics() {
     // Simplified implementation of user's stats logic
     return { success: true, message: "Stats function placeholder" };
 }
+
+/**
+ * ============================================================================
+ *  Wrapper Functions for Dashboard.html (google.script.run)
+ * ============================================================================
+ * These functions bridge the direct calls from Dashboard.html to the
+ * doPost() routing system, enabling the frontend to work with the backend.
+ */
+
+function uploadToSignNow(data) {
+    return doPostFromClient({ action: 'uploadToSignNow', ...data });
+}
+
+function addSignatureFields(data) {
+    return doPostFromClient({ action: 'addSignatureFields', ...data });
+}
+
+function sendEmailInvite(data) {
+    return doPostFromClient({ action: 'sendEmailInvite', ...data });
+}
+
+function sendSmsInvite(data) {
+    return doPostFromClient({ action: 'sendSmsInvite', ...data });
+}
+
+function createEmbeddedLink(data) {
+    return doPostFromClient({ action: 'createEmbeddedLink', ...data });
+}
+
+function sendToWixPortal(data) {
+    return doPostFromClient({ action: 'sendToWixPortal', ...data });
+}

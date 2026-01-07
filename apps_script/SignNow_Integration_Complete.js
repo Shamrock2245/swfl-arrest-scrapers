@@ -36,7 +36,7 @@ const INTEGRATION_CONFIG = {
 function SN_registerCompletionWebhook() {
   const config = SN_getConfig();
   const webhookUrl = ScriptApp.getService().getUrl(); // Your Web App URL
-  
+
   if (!webhookUrl) {
     throw new Error("Please deploy your script as a Web App first!");
   }
@@ -69,12 +69,12 @@ function SN_registerCompletionWebhook() {
 function SN_createAllSignerLinks(documentId, formData, options) {
   const config = SN_getConfig();
   const signers = buildSignersFromFormData(formData);
-  
+
   if (signers.length === 0) return { success: false, error: 'No signers found.' };
 
   try {
     const inviteUrl = config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites';
-    
+
     const invitePayload = {
       invites: signers.map((signer, idx) => ({
         email: signer.email || `client${idx}@shamrockbailbonds.biz`,
@@ -127,11 +127,11 @@ function SN_createAllSignerLinks(documentId, formData, options) {
 function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpiration) {
   const config = SN_getConfig();
   const inviteUrl = config.API_BASE + '/v2/documents/' + documentId + '/embedded-invites';
-  
+
   try {
     const invitePayload = {
       invites: [{
-        email: signerEmail, role: signerRole, order: 1, auth_method: 'none', 
+        email: signerEmail, role: signerRole, order: 1, auth_method: 'none',
         first_name: 'Valued', last_name: 'Client', force_new_signature: 1
       }]
     };
@@ -147,10 +147,10 @@ function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpirati
 
     if (inviteRes.getResponseCode() < 300 && inviteResult.data?.length > 0) {
       inviteId = inviteResult.data[0].id;
-    } 
+    }
     else if (inviteResult.errors && inviteResult.errors.some(e => e.code === 19004002)) {
       // HANDLE CONFLICT: Fetch existing invite
-      const getRes = UrlFetchApp.fetch(inviteUrl, { method: 'GET', headers: {'Authorization': 'Bearer ' + config.ACCESS_TOKEN}, muteHttpExceptions: true });
+      const getRes = UrlFetchApp.fetch(inviteUrl, { method: 'GET', headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN }, muteHttpExceptions: true });
       const getData = JSON.parse(getRes.getContentText());
       const match = (getData.data || []).find(inv => inv.email === signerEmail);
       inviteId = match ? match.id : (getData.data?.[0]?.id);
@@ -165,10 +165,10 @@ function SN_createEmbeddedLink(documentId, signerEmail, signerRole, linkExpirati
       payload: JSON.stringify({ auth_method: 'none', link_expiration: linkExpiration || 45 }),
       muteHttpExceptions: true
     });
-    
+
     const linkResult = JSON.parse(linkRes.getContentText());
-    return (linkRes.getResponseCode() < 300 && linkResult.data) 
-      ? { success: true, link: linkResult.data.link } 
+    return (linkRes.getResponseCode() < 300 && linkResult.data)
+      ? { success: true, link: linkResult.data.link }
       : { success: false, error: 'Link generation failed.' };
 
   } catch (e) { return { success: false, error: e.toString() }; }
@@ -190,10 +190,10 @@ function handleDocumentComplete(payload) {
 
     const parentFolder = DriveApp.getFolderById(INTEGRATION_CONFIG.COMPLETED_BONDS_FOLDER_ID);
     const folderName = defendantName + ' - ' + bondDate;
-    let folder = parentFolder.getFoldersByName(folderName).hasNext() 
-               ? parentFolder.getFoldersByName(folderName).next() 
-               : parentFolder.createFolder(folderName);
-    
+    let folder = parentFolder.getFoldersByName(folderName).hasNext()
+      ? parentFolder.getFoldersByName(folderName).next()
+      : parentFolder.createFolder(folderName);
+
     const file = folder.createFile(pdfBlob);
     logCompletedBond({ defendantName, bondDate, documentId, driveUrl: file.getUrl(), completedAt: new Date().toISOString() });
     return { success: true };
@@ -264,4 +264,89 @@ function logCompletedBond(data) {
   let sheet = ss.getSheetByName('Completed Bonds Log') || ss.insertSheet('Completed Bonds Log');
   if (sheet.getLastRow() === 0) sheet.appendRow(['Timestamp', 'Defendant', 'Date', 'SignNow ID', 'Drive URL']);
   sheet.appendRow([data.completedAt, data.defendantName, data.bondDate, data.documentId, data.driveUrl]);
+}
+/**
+ * ============================================================================
+ * 6. FIELD & INVITE MANAGEMENT (IMPLEMENTED)
+ * ============================================================================
+ */
+
+/**
+ * Add signature/initial/text fields to a document
+ * @param {string} documentId - The ID of the document in SignNow
+ * @param {Array} fields - Array of field objects to add
+ * @returns {object} - API response
+ */
+function SN_addFields(documentId, fields) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId;
+
+  const payload = {
+    fields: fields
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN, 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const result = JSON.parse(response.getContentText());
+  SN_log('AddFields', result);
+  return result;
+}
+
+/**
+ * Send a document invite via Email
+ * @param {string} documentId - The ID of the document
+ * @param {Array} signers - Array of signer objects {email, role, order}
+ * @param {object} options - Additional options
+ * @returns {object} API response
+ */
+function SN_sendEmailInvite(documentId, signers, options) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId + '/invite';
+
+  const payload = {
+    to: signers.map(s => ({ email: s.email, role: s.role, order: s.order }))
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN, 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const result = JSON.parse(response.getContentText());
+  SN_log('SendEmailInvite', result);
+  return result;
+}
+
+/**
+ * Send a document invite via SMS
+ * @param {string} documentId - The ID of the document
+ * @param {Array} signers - Array of signer objects {phone, role, order}
+ * @param {object} options - Additional options
+ * @returns {object} API response
+ */
+function SN_sendSmsInvite(documentId, signers, options) {
+  const config = SN_getConfig();
+  const url = config.API_BASE + '/document/' + documentId + '/sms_invite';
+
+  const payload = {
+    to: signers.map(s => ({ phone: s.phone, role: s.role, order: s.order }))
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + config.ACCESS_TOKEN, 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const result = JSON.parse(response.getContentText());
+  SN_log('SendSmsInvite', result);
+  return result;
 }
