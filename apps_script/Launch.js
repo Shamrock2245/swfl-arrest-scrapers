@@ -3,7 +3,7 @@
  * Run this function to finalize the configuration of your Web App.
  */
 function launchApp_v1() {
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzYfpePemMCZJWd8YGkhbcyp4XZlmmU9xrGgYscJ8Ig5Ij0YlcUJ5RuQxuUrnKIQN3y/exec';
+    const WEB_APP_URL = 'https://script.google.com/a/macros/shamrockbailbonds.biz/s/AKfycbw0NcB6LU_sjC_UO-98_Nqxi_Zl8zxFMbDzIIgbhFx1XHWp067CoJJLek9ExRMNip3h0g/exec';
     const ui = console;
 
     ui.log('🚀 INITIALIZING SHAMROCK BAIL BONDS APP...');
