@@ -1,46 +1,57 @@
-name: Scrape Polk
+name: Scrape Polk County
 
 on:
   schedule:
-    # Run at 7:00 AM, 1:00 PM, and 7:00 PM EST (UTC-5)
-    # UTC: 12:00, 18:00, 00:00
-    - cron: '0 0,12,18 * * *'
+    - cron: '40 6,12,18,0 * * *'
   workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Days back to scrape'
+        required: false
+        default: '1'
+        type: string
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 90
     env:
-      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
       GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
       TZ: America/New_York
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install System Dependencies
+      - name: Install Chrome
         run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable xvfb
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            google-chrome-stable xvfb
 
-      - name: Install Python Dependencies
-        working-directory: python_scrapers
-        run: |
-          pip install -r requirements.txt
+      - name: Install Python deps
+        run: pip install -r python_scrapers/requirements.txt
 
-      - name: Create Credentials File
+      - name: Write credentials
         run: |
           mkdir -p creds
-          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > creds/service-account-key.json
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
 
-      - name: Run Polk Scraper
-        working-directory: python_scrapers
-        # Run with xvfb to support headless Chrome
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python3 run_polk.py
+      - name: Run scraper
+        run: |
+          DAYS="${{ github.event.inputs.days_back || '1' }}"
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            python3 python_scrapers/scrapers/run_polk.py --days-back $DAYS
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"\u274c *Polk* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
