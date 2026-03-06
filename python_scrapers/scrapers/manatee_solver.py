@@ -1,351 +1,174 @@
 #!/usr/bin/env python3
 """
 Manatee County Arrest Scraper using DrissionPage
-Bypasses Cloudflare/iframe security and extracts detailed arrest information
-Now with pagination support for historical data collection
+Targets: https://manatee-sheriff.revize.com/bookings
+Approach: DrissionPage browser automation → listing page → detail pages → JSON output
 """
 
-import json
 import sys
+import json
 import time
-import os
-from datetime import datetime, timedelta
+import datetime
 from DrissionPage import ChromiumPage, ChromiumOptions
 
+
 def clean_text(text):
-    """Clean and normalize text"""
+    """Clean and normalize text."""
     if not text:
         return ""
     return " ".join(text.strip().split())
 
-def scrape_manatee_arrests(days_back=21, max_pages=10):
-    """
-    Scrape Manatee County arrests with RESUME support
-    """
-    print(f"🚦 Starting Manatee County Scraper", file=sys.stderr)
-    print(f"📅 Days back: {days_back}", file=sys.stderr)
-    print(f"📄 Max pages: {max_pages}", file=sys.stderr)
-    
-    progress_file = 'manatee_progress.jsonl'
-    
-    # Load processed IDs
-    processed_ids = set()
-    if os.path.exists(progress_file):
-        try:
-            with open(progress_file, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            rec = json.loads(line)
-                            # Booking_Number or Detail_URL
-                            if 'Booking_Number' in rec:
-                                processed_ids.add(rec['Booking_Number'])
-                            if 'Detail_URL' in rec:
-                                processed_ids.add(rec['Detail_URL'])    
-                        except: pass
-        except: pass
-        
-    print(f"ℹ️  Found {len(processed_ids)} previously scraped records. Resuming...", file=sys.stderr)
 
+def setup_browser():
+    """Configure and launch DrissionPage browser."""
     co = ChromiumOptions()
-    co.auto_port()  # Avoid port conflicts
-    co.headless(False) # Headful for CF
+    co.auto_port()
+    co.headless(False)
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
     co.set_argument('--disable-blink-features=AutomationControlled')
     co.set_argument('--window-size=1920,1080')
-    co.set_user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    
-    try:
-        page = ChromiumPage(addr_or_opts=co)
-    except Exception as e:
-        print(f"❌ Failed to start browser: {e}", file=sys.stderr)
-        raise e
-    arrests = [] # New records only
-    cutoff_date = datetime.now() - timedelta(days=days_back)
-    
-    try:
-        base_url = "https://manatee-sheriff.revize.com/bookings"
-        
-        current_page = 1
-        all_booking_links = []
-        
-        # Phase 1: Collect Links
-        while current_page <= max_pages:
-            print(f"\n📄 Processing page {current_page}...", file=sys.stderr)
-            
-            if current_page == 1:
-                url = base_url
-            else:
-                url = f"{base_url}?page={current_page}"
-            
-            print(f"📡 Loading: {url}", file=sys.stderr)
-            try:
-                page.get(url)
-            except Exception as nav_err:
-                 print(f"⚠️ Page {current_page} nav error: {nav_err}. Restarting page...", file=sys.stderr)
-                 try: page.quit() 
-                 except: pass
-                 page = ChromiumPage(addr_or_opts=co)
-                 page.get(url)
-
-            # Cloudflare / Turnstile Check
-            cf_retries = 0
-            while "just a moment" in page.title.lower() and cf_retries < 30:
-                 print(f"   ⚠️  Cloudflare challenge detected. Waiting... ({cf_retries}/30)", file=sys.stderr)
-                 
-                 # ACTIVE BYPASS ATTEMPT
-                 try:
-                     # Try clicking "Verify you are human" if found
-                     verify = page.ele('text:Verify you are human')
-                     if verify:
-                         print("   🖱️ Found verify button, clicking...", file=sys.stderr)
-                         verify.click()
-                         time.sleep(2)
-                     
-                     # Try generic checkbox
-                     cb = page.ele('css:input[type=checkbox]')
-                     if cb:
-                         cb.click()
-                 except: pass
-                 
-                 time.sleep(1)
-                 cf_retries += 1
-            
-            if "just a moment" in page.title.lower():
-                 print("   ❌ Cloudflare challenge failed to clear.", file=sys.stderr)
-                 # Refresh and try one more time?
-                 page.refresh()
-                 time.sleep(5)
-
-            time.sleep(3)
-            
-            booking_links = page.eles('xpath://a[contains(@href, "/bookings/")]')
-            
-            valid_links = []
-            for link in booking_links:
-                href = link.attr('href')
-                if href and not href.endswith('/bookings') and not href.endswith('/bookings/'):
-                    # Check duplication early if possible? No, safer to dedup later
-                    valid_links.append(link)
-            
-            booking_links = valid_links
-            print(f"   📋 Found {len(booking_links)} inmates on page {current_page}", file=sys.stderr)
-            
-            if len(booking_links) == 0:
-                print("   ⚠️  No inmates found on this page, stopping pagination", file=sys.stderr)
-                break
-            
-            # Store tuple (text, href)
-            for link in booking_links:
-                all_booking_links.append((link.text.strip(), link.attr('href')))
-            
-            next_button = page.ele('text:Next') or page.ele('css:.pagination .next') or page.ele('css:a[rel="next"]') or page.ele('xpath://a[contains(text(), "›")]')
-            
-            if not next_button:
-                next_page_num = current_page + 1
-                if not page.ele(f'text:{next_page_num}'):
-                    if current_page >= max_pages:
-                        print(f"   ℹ️  Reached maximum pages ({max_pages})", file=sys.stderr)
-                    else:
-                        print("   ℹ️  No more pages available", file=sys.stderr)
-                    break
-            
-            if current_page >= max_pages:
-                break
-
-            current_page += 1
-            time.sleep(2)
-        
-        # Dedup Links
-        all_booking_links = list(set(all_booking_links))
-        print(f"\n📊 Total inmates found: {len(all_booking_links)}", file=sys.stderr)
-
-        # Filter Processed
-        original_len = len(all_booking_links)
-        filtered_links = []
-        for bnum, url in all_booking_links:
-            # Check ID logic
-            is_processed = False
-            # Check URL
-            if not url.startswith('http'):
-                full_url = f"https://www.manateesheriff.com{url}"
-            else:
-                full_url = url
-            
-            if full_url in processed_ids or bnum in processed_ids:
-                is_processed = True
-            
-            if not is_processed:
-                filtered_links.append((bnum, url))
-        
-        all_booking_links = filtered_links
-        print(f"📉 Remaining to scrape: {len(all_booking_links)} (skipped {original_len - len(all_booking_links)})", file=sys.stderr)
-        
-        stopped_early = False
-        for idx, (booking_number, detail_url) in enumerate(all_booking_links, 1):
-            try:
-                if not detail_url.startswith('http'):
-                    detail_url = f"https://www.manateesheriff.com{detail_url}"
-                
-                print(f"\n🔍 [{idx}/{len(all_booking_links)}] Processing: {booking_number}", file=sys.stderr)
-                
-                page.get(detail_url)
-                time.sleep(2)
-                
-                if "just a moment" in page.title.lower():
-                    time.sleep(3)
-                
-                # record = extract_detail_data(page, booking_number, detail_url)
-                # MOVED: Logic to extract data is now robust.
-                
-                record = extract_detail_data(page, booking_number, detail_url)
-                
-                # Sanity Check: Booking Date vs Statute
-                # User reported Statute (e.g. 948.06) appearing in Booking Date
-                if record and 'Booking_Date' in record:
-                    bd = record['Booking_Date']
-                    # detailed check: if it looks like a float (statute) or doesn't have separators
-                    if '.' in bd or ('-' not in bd and '/' not in bd):
-                        print(f"   ⚠️  Suspicious Booking Date '{bd}' detected (looks like statute?). Clearing.", file=sys.stderr)
-                        del record['Booking_Date']
+    co.set_user_agent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36'
+    )
+    return ChromiumPage(addr_or_opts=co)
 
 
-                
-                if record and 'Booking_Date' in record:
-                    try:
-                        book_date = datetime.strptime(record['Booking_Date'], '%m/%d/%Y')
-                        if book_date < cutoff_date:
-                            print(f"   ⏸️  Reached cutoff date ({book_date.strftime('%Y-%m-%d')}), stopping...", file=sys.stderr)
-                            stopped_early = True
-                            break
-                    except: pass
-                
-                if record:
-                    arrests.append(record)
-                    # AUTO SAVE
-                    with open(progress_file, 'a') as f:
-                        f.write(json.dumps(record) + '\n')
-                    print(f"   ✅ Saved {record.get('Full_Name', 'Unknown')} (Total New: {len(arrests)})", file=sys.stderr)
-                
-                time.sleep(1)
-                
-            except Exception as e:
-                err_msg = str(e)
-                print(f"   ⚠️  Error processing {booking_number}: {err_msg}", file=sys.stderr)
-                
-                # RECOVERY LOGIC
-                if "disconnected" in err_msg.lower() or "connection" in err_msg.lower():
-                    print("   🔄 Browser disconnected! Restarting...", file=sys.stderr)
-                    try:
-                        page.quit()
-                    except: pass
-                    
-                    # Restart Browser
-                    time.sleep(2)
-                    page = ChromiumPage(addr_or_opts=co)
-                    
-                    # Retry this one
-                    try:
-                         print(f"   🔄 Retrying {booking_number}...", file=sys.stderr)
-                         page.get(detail_url)
-                         time.sleep(2)
-                         
-                         record = extract_detail_data(page, booking_number, detail_url)
-                         if record:
-                             arrests.append(record)
-                             with open(progress_file, 'a') as f:
-                                 f.write(json.dumps(record) + '\n')
-                             print(f"   ✅ Saved {record.get('Full_Name', 'Unknown')} (Recovered)", file=sys.stderr)
-                    except Exception as retry_err:
-                         print(f"   ❌ Retry failed for {booking_number}: {retry_err}", file=sys.stderr)
-                
-                continue
-        
-        print(f"\n📊 Total new records collected: {len(arrests)}", file=sys.stderr)
-        if stopped_early:
-            print("ℹ️  Stopped early due to date cutoff", file=sys.stderr)
-        
-    except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
-        pass
-    
-    finally:
-        try: page.quit()
-        except: pass
-    
-    # OUTPUT ALL
-    final_records = []
-    if os.path.exists(progress_file):
-        with open(progress_file, 'r') as f:
-            for line in f:
-                if line.strip():
-                    try: final_records.append(json.loads(line))
-                    except: pass
-    else:
-        final_records = arrests
-        
-    return final_records
+def wait_for_cloudflare(page, max_wait=20):
+    """Wait for Cloudflare challenge to clear, if present."""
+    waited = 0
+    while waited < max_wait:
+        title = page.title.lower() if page.title else ''
+        if 'just a moment' not in title:
+            return True
+        sys.stderr.write(f"   ⏳ Cloudflare challenge... ({waited}/{max_wait}s)\n")
+        time.sleep(1)
+        waited += 1
+    return False
 
-def extract_detail_data(page, booking_number, source_url):
+
+def collect_booking_links(page, max_pages=10):
     """
-    Extract detailed arrest information from booking detail page
-    Uses JavaScript execution for more robust DOM traversal (ported from V2)
+    Phase 1: Collect all booking detail links from the listing pages.
+    Returns list of (booking_number, detail_url) tuples.
+    """
+    base_url = "https://manatee-sheriff.revize.com/bookings"
+    all_links = []
+    current_page = 1
+
+    while current_page <= max_pages:
+        url = base_url if current_page == 1 else f"{base_url}?page={current_page}"
+        sys.stderr.write(f"\n📄 Loading page {current_page}: {url}\n")
+
+        page.get(url)
+        time.sleep(2)
+
+        if not wait_for_cloudflare(page):
+            sys.stderr.write("   ❌ Cloudflare did not clear. Stopping.\n")
+            break
+
+        # Find booking links — they point to /bookings/{id}
+        booking_els = page.eles('xpath://a[contains(@href, "/bookings/")]')
+
+        valid_links = []
+        for el in booking_els:
+            href = el.attr('href') or ''
+            # Skip the main /bookings/ page link itself
+            if href.endswith('/bookings') or href.endswith('/bookings/'):
+                continue
+            text = clean_text(el.text)
+            if not href.startswith('http'):
+                href = f"https://manatee-sheriff.revize.com{href}"
+            valid_links.append((text, href))
+
+        sys.stderr.write(f"   📋 Found {len(valid_links)} inmates on page {current_page}\n")
+
+        if not valid_links:
+            sys.stderr.write("   ⚠️ No inmates found, stopping pagination\n")
+            break
+
+        all_links.extend(valid_links)
+
+        # Check for next page
+        next_btn = page.ele('css:a[rel="next"]') or page.ele('text:Next') or page.ele('css:.pagination .next a')
+        if not next_btn or current_page >= max_pages:
+            break
+
+        current_page += 1
+        time.sleep(1)
+
+    # Deduplicate by URL
+    seen = set()
+    unique_links = []
+    for text, url in all_links:
+        if url not in seen:
+            seen.add(url)
+            unique_links.append((text, url))
+
+    sys.stderr.write(f"\n📊 Total unique inmates found: {len(unique_links)}\n")
+    return unique_links
+
+
+def extract_detail(page, booking_id, detail_url):
+    """
+    Phase 2: Extract structured data from a detail page using JavaScript.
+    Returns a dict matching the ArrestRecord schema fields.
     """
     data = {
-        'Booking_Number': booking_number,
-        'Detail_URL': source_url
+        'Booking_Number': booking_id,
+        'Detail_URL': detail_url,
+        'County': 'Manatee',
+        'State': 'FL',
+        'Scrape_Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
-    
+
     try:
-        # Use JavaScript to extract all data in one go
-        # This is more robust against minor layout changes
+        page.get(detail_url)
+        time.sleep(2)
+
+        if not wait_for_cloudflare(page):
+            sys.stderr.write("   ⚠️ Cloudflare on detail page\n")
+            return data
+
+        # Run JS to extract all data from the detail page in one go
         js_data = page.run_js("""
             const result = {};
-            
-            // 1. Personal Info - Iterate labels
+
+            // 1. Personal Info — iterate label-like elements
             const labels = document.querySelectorAll('label, th, td, dt');
             labels.forEach(label => {
                 const text = label.textContent.trim().replace(/:$/, '');
                 let value = null;
-                
-                // Try parent input (Bootstrap style)
                 const parent = label.parentElement;
                 const input = parent ? parent.querySelector('input') : null;
-                
-                // Try next sibling
-                const nextSibling = label.nextElementSibling;
-                
+                const nextSib = label.nextElementSibling;
                 if (input) value = input.value || input.textContent;
-                else if (nextSibling) value = nextSibling.textContent || nextSibling.value;
-                
+                else if (nextSib) value = nextSib.textContent || nextSib.value;
                 if (value) result[text] = value.trim();
             });
-            
-            // 2. Booking Info from Main Table (#bookings-table)
+
+            // 2. Booking table (#bookings-table)
             const bookTable = document.querySelector('#bookings-table');
             if (bookTable) {
-                // Must explicitly target the booking row
                 const row = bookTable.querySelector('tr[data-booking]');
                 if (row) {
                     const cells = row.querySelectorAll('td');
-                    // cells[0]=button, cells[1]=Book#, cells[2]=BookDate, cells[3]=Status
                     if (cells.length >= 3) {
                         result['__Booking_Date'] = cells[2].textContent.trim();
                         if (cells.length > 3) result['__Status'] = cells[3].textContent.trim();
                     }
                 }
             }
-            
-            // 3. Charges from .arrest-table (Exclude mobile duplicate)
+
+            // 3. Charges from .arrest-table (exclude mobile duplicate)
             const charges = [];
             document.querySelectorAll('table.arrest-table:not(.table-mobile)').forEach(table => {
-                // Ensure we are in a valid table (has headers)
                 const headers = Array.from(table.querySelectorAll('th')).map(h => h.textContent.trim());
                 if (headers.some(h => h.includes('Statute') || h.includes('Desc'))) {
                     table.querySelectorAll('tbody tr').forEach(row => {
                         const cells = row.querySelectorAll('td');
-                        // 0:Date, 1:Statute, 2:Desc, 3:SecDesc, 5:Bond
                         if (cells.length >= 6) {
                             charges.push({
                                 date: cells[0].textContent.trim(),
@@ -358,19 +181,19 @@ def extract_detail_data(page, booking_number, source_url):
                     });
                 }
             });
-            result['__CHARGES_ARR'] = charges;
-            
+            result['__CHARGES'] = charges;
+
             // 4. Mugshot
             const img = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[src*="image"]');
             if (img && !img.src.startsWith('data:')) result['__Mugshot'] = img.src;
-            if (img && img.src.startsWith('data:')) result['__Mugshot_Base64'] = img.src;
 
             return result;
         """)
-        
-        # --- Map JS Result to Schema ---
-        
-        # Personal Info Mapping
+
+        if not js_data:
+            return data
+
+        # Map JS fields → schema fields
         field_map = {
             'First Name': 'First_Name',
             'Last Name': 'Last_Name',
@@ -385,104 +208,150 @@ def extract_detail_data(page, booking_number, source_url):
             'Height': 'Height',
             'Weight': 'Weight',
             'Hair': 'Hair_Color',
-            'Eye': 'Eye_Color'
+            'Eye': 'Eye_Color',
         }
-        
+
         for js_key, py_key in field_map.items():
             if js_key in js_data:
                 data[py_key] = clean_text(js_data[js_key])
-                
-        # Full Name Construction
+
+        # Full Name
         if 'First_Name' in data and 'Last_Name' in data:
             data['Full_Name'] = f"{data['Last_Name']}, {data['First_Name']}"
-            if 'Middle_Name' in data and data['Middle_Name']:
+            if data.get('Middle_Name'):
                 data['Full_Name'] += f" {data['Middle_Name']}"
 
-        # Booking Info
+        # Booking Date (with sanity check — sometimes statute number leaks in)
         if '__Booking_Date' in js_data:
             bd = clean_text(js_data['__Booking_Date'])
-            # 2nd Validation Check for Date
             if len(bd) > 5 and ('-' in bd or '/' in bd) and not any(c.isalpha() for c in bd):
                 data['Booking_Date'] = bd
-        
+
+        # Status
         if '__Status' in js_data:
             data['Status'] = clean_text(js_data['__Status'])
-            
+
         # Charges & Bond
         charges_list = []
         total_bond = 0.0
-        seen_charges = set()
-        
-        charge_entries = js_data.get('__CHARGES_ARR', [])
-        for entry in charge_entries:
+        for entry in js_data.get('__CHARGES', []):
             desc = clean_text(entry.get('desc', ''))
             statute = clean_text(entry.get('statute', ''))
             sec_desc = clean_text(entry.get('sec_desc', ''))
             bond_str = clean_text(entry.get('bond', '0'))
             arr_date = clean_text(entry.get('date', ''))
-            
-            # Use first charge date as Booking Date if missing
+
+            # Use first charge date as Booking Date fallback
             if 'Booking_Date' not in data and arr_date:
                 data['Booking_Date'] = arr_date
-                
-            # Build charge string
-            # Format: Statute - Desc (Sec Desc)
+
             c_str = desc
             if sec_desc and sec_desc != 'A/W':
                 c_str += f" ({sec_desc})"
             if statute:
                 c_str = f"{statute} - {c_str}"
-            
             if c_str:
                 charges_list.append(c_str)
-                
-            # Bond
-            try:
-                b_val = float(bond_str.replace('$', '').replace(',', ''))
-                total_bond += b_val
-            except: pass
 
-            
+            try:
+                total_bond += float(bond_str.replace('$', '').replace(',', ''))
+            except:
+                pass
+
         if charges_list:
             data['Charges'] = " | ".join(charges_list)
-        
         data['Bond_Amount'] = str(total_bond)
-        
-        # Mugshot
-        # Mugshot
+
+        # Mugshot (URL only, never base64)
         if '__Mugshot' in js_data:
             data['Mugshot_URL'] = js_data['__Mugshot']
-        else:
-            # Fallback to constructed URL - Do NOT use Base64 as it exceeds Sheets cell limits (50k chars)
-            data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
-
-        # FINAL SAFETY CHECK
-        if data.get('Mugshot_URL') and len(data['Mugshot_URL']) > 2000:
-            print(f"   ⚠️  Mugshot URL too long ({len(data['Mugshot_URL'])} chars). Truncating to fallback.", file=sys.stderr)
-            data['Mugshot_URL'] = f"https://manatee-sheriff.revize.com/photo?bookingNumber={booking_number}"
 
     except Exception as e:
-        print(f"   ⚠️  Error extracting data: {e}", file=sys.stderr)
-    
+        sys.stderr.write(f"   ⚠️ Error extracting detail: {e}\n")
+
     return data
+
+
+def scrape_manatee(days_back=21, max_pages=10):
+    """
+    Main scraper: collect links → visit details → filter by date → output JSON.
+    """
+    sys.stderr.write(f"🐊 Manatee County Scraper\n")
+    sys.stderr.write(f"📅 Days back: {days_back}  |  📄 Max pages: {max_pages}\n")
+
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days_back)
+    page = setup_browser()
+
+    try:
+        # Phase 1: Collect links
+        booking_links = collect_booking_links(page, max_pages)
+
+        if not booking_links:
+            sys.stderr.write("⚠️ No booking links found.\n")
+            return []
+
+        # Phase 2: Visit each detail page
+        arrests = []
+        for idx, (booking_id, detail_url) in enumerate(booking_links, 1):
+            sys.stderr.write(f"\n🔍 [{idx}/{len(booking_links)}] {booking_id}\n")
+
+            try:
+                record = extract_detail(page, booking_id, detail_url)
+
+                # Date cutoff check
+                if record.get('Booking_Date'):
+                    try:
+                        book_dt = datetime.datetime.strptime(record['Booking_Date'], '%m/%d/%Y')
+                        if book_dt < cutoff_date:
+                            sys.stderr.write(f"   ⏸️ Past cutoff ({record['Booking_Date']}), stopping.\n")
+                            break
+                    except:
+                        pass
+
+                if record.get('Full_Name'):
+                    arrests.append(record)
+                    sys.stderr.write(f"   ✅ {record['Full_Name']}\n")
+                else:
+                    sys.stderr.write(f"   ⚠️ No name extracted, skipping\n")
+
+            except Exception as e:
+                sys.stderr.write(f"   ⚠️ Error: {e}\n")
+                continue
+
+            time.sleep(1)
+
+        sys.stderr.write(f"\n📊 Total records: {len(arrests)}\n")
+        return arrests
+
+    except Exception as e:
+        sys.stderr.write(f"❌ Fatal error: {e}\n")
+        return []
+
+    finally:
+        try:
+            page.quit()
+        except:
+            pass
+
 
 def main():
     days_back = 21
-    max_pages = 1
+    max_pages = 10
     if len(sys.argv) > 1:
-        try: days_back = int(sys.argv[1])
-        except: pass
+        try:
+            days_back = int(sys.argv[1])
+        except:
+            pass
     if len(sys.argv) > 2:
-        try: max_pages = int(sys.argv[2])
-        except: pass
-    
-    try:
-        arrests = scrape_manatee_arrests(days_back, max_pages)
-        print(json.dumps(arrests))
-        return 0 if arrests else 1
-    except Exception as e:
-        print(f"❌ Fatal error: {e}", file=sys.stderr)
-        return 1
+        try:
+            max_pages = int(sys.argv[2])
+        except:
+            pass
+
+    arrests = scrape_manatee(days_back, max_pages)
+    print(json.dumps(arrests))
+    return 0 if arrests else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

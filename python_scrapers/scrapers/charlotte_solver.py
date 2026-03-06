@@ -1,463 +1,385 @@
+#!/usr/bin/env python3
+"""
+Charlotte County Arrest Scraper using DrissionPage
+Targets: https://inmates.charlottecountyfl.revize.com/bookings
+Approach: DrissionPage browser automation → listing page → detail pages → JSON output
+Same Revize CMS as Manatee County
+"""
+
 import sys
 import json
 import time
 import re
-import os
-from datetime import datetime, timedelta
+import datetime
 from DrissionPage import ChromiumPage, ChromiumOptions
 
-# Import validation module
-try:
-    from validation import validate_record, sanitize_record, format_validation_report
-    VALIDATION_AVAILABLE = True
-except ImportError:
-    VALIDATION_AVAILABLE = False
-    sys.stderr.write("⚠️  Validation module not found, skipping validation\n")
 
-# Configuration: Allow headless mode via environment variable
-# Set HEADLESS=false for local debugging, true for automation
-HEADLESS_MODE = os.getenv('HEADLESS', 'true').lower() == 'true'
+def clean_text(text):
+    """Clean and normalize text."""
+    if not text:
+        return ""
+    return " ".join(text.strip().split())
+
 
 def clean_charge_text(raw_charge):
-    """
-    Clean charge text to extract only the human-readable description.
-    """
+    """Clean charge text to extract human-readable description."""
     if not raw_charge:
         return ''
-    
     text = re.sub(r'^(New Charge:|Weekender:)\s*', '', raw_charge, flags=re.IGNORECASE)
     match = re.search(r'[\d.]+[a-z]*\s*-\s*([^(]+)', text, re.IGNORECASE)
     if match:
-        description = match.group(1).strip()
-        return description
-    
+        return match.group(1).strip()
     if '(' in text:
         description = text.split('(')[0].strip()
         description = re.sub(r'^[\d.]+[a-z]*\s*-\s*', '', description)
         return description.strip()
-    
     return text.strip()
 
-def scrape_charlotte(days_back=21, max_pages=10):
+
+def setup_browser():
+    """Configure and launch DrissionPage browser."""
+    co = ChromiumOptions()
+    co.auto_port()
+    co.headless(False)
+    co.set_argument('--no-sandbox')
+    co.set_argument('--disable-dev-shm-usage')
+    co.set_argument('--disable-blink-features=AutomationControlled')
+    co.set_argument('--window-size=1920,1080')
+    co.set_user_agent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36'
+    )
+    return ChromiumPage(addr_or_opts=co)
+
+
+def wait_for_cloudflare(page, max_wait=20):
+    """Wait for Cloudflare challenge to clear, if present."""
+    waited = 0
+    while waited < max_wait:
+        title = page.title.lower() if page.title else ''
+        if 'just a moment' not in title:
+            return True
+        sys.stderr.write(f"   ⏳ Cloudflare challenge... ({waited}/{max_wait}s)\n")
+        time.sleep(1)
+        waited += 1
+    return False
+
+
+def collect_booking_links(page, max_pages=10):
     """
-    Scrape Charlotte County with pagination and RESUME support
+    Phase 1: Collect all booking detail links from listing pages.
+    Returns list of (booking_id, detail_url) tuples.
     """
-    records = []
-    progress_file = 'charlotte_progress.jsonl'
-    cutoff_date = datetime.now() - timedelta(days=days_back)
-    
-    # Load processed IDs (Booking Numbers)
-    processed_ids = set()
-    if os.path.exists(progress_file):
-        try:
-            with open(progress_file, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        try:
-                            rec = json.loads(line)
-                            if 'Booking_Number' in rec:
-                                processed_ids.add(rec['Booking_Number'])
-                            elif 'Detail_URL' in rec: # Fallback
-                                processed_ids.add(rec['Detail_URL'])
-                        except: pass
-        except Exception as e:
-            sys.stderr.write(f"Warning: Could not read progress file: {e}\n")
-            
-    sys.stderr.write(f"ℹ️  Found {len(processed_ids)} previously scraped records. Resuming...\n")
-    
+    base_url = "https://inmates.charlottecountyfl.revize.com"
+    all_links = []
+    current_page = 1
+
+    while current_page <= max_pages:
+        url = f"{base_url}/bookings" if current_page == 1 else f"{base_url}/bookings?page={current_page}"
+        sys.stderr.write(f"\n📄 Loading page {current_page}: {url}\n")
+
+        page.get(url)
+        time.sleep(2)
+
+        if not wait_for_cloudflare(page):
+            sys.stderr.write("   ❌ Cloudflare did not clear. Stopping.\n")
+            break
+
+        # Find booking links — /bookings/{id}
+        booking_els = page.eles('xpath://a[contains(@href, "/bookings/")]')
+
+        valid_links = []
+        for el in booking_els:
+            href = el.attr('href') or ''
+            if href.endswith('/bookings') or href.endswith('/bookings/'):
+                continue
+            text = clean_text(el.text)
+            if not href.startswith('http'):
+                href = f"{base_url}{href}"
+            # Extract booking ID from URL
+            booking_id = href.split('/bookings/')[-1].split('?')[0].strip() if '/bookings/' in href else text
+            valid_links.append((booking_id, href))
+
+        sys.stderr.write(f"   📋 Found {len(valid_links)} inmates on page {current_page}\n")
+
+        if not valid_links:
+            sys.stderr.write("   ⚠️ No inmates found, stopping pagination\n")
+            break
+
+        all_links.extend(valid_links)
+
+        # Check for next page
+        next_btn = page.ele('css:a[rel="next"]') or page.ele('text:Next') or page.ele('css:.pagination .next a')
+        if not next_btn or current_page >= max_pages:
+            break
+
+        current_page += 1
+        time.sleep(1)
+
+    # Deduplicate by URL
+    seen = set()
+    unique = []
+    for bid, url in all_links:
+        if url not in seen:
+            seen.add(url)
+            unique.append((bid, url))
+
+    sys.stderr.write(f"\n📊 Total unique inmates: {len(unique)}\n")
+    return unique
+
+
+def extract_detail(page, booking_id, detail_url):
+    """
+    Phase 2: Extract structured data from a detail page using JavaScript.
+    """
+    data = {
+        'Booking_Number': booking_id,
+        'Detail_URL': detail_url,
+        'County': 'Charlotte',
+        'State': 'FL',
+        'Scrape_Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+
     try:
-        co = ChromiumOptions()
-        # Check environment variable for headless mode
-        is_headless = os.getenv('HEADLESS', 'false').lower() == 'true'
-        co.headless(is_headless)
-        co.auto_port()
-        
-        # Support CI paths if they exist
-        if os.path.exists('/usr/bin/chromium-browser'):
-            co.set_browser_path('/usr/bin/chromium-browser')
-        co.set_argument('--no-sandbox')
-        co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--ignore-certificate-errors')
-        co.set_argument('--disable-blink-features=AutomationControlled')
-        co.set_user_agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-        
-        page = ChromiumPage(co)
-        
-        def handle_cloudflare(page):
-            sys.stderr.write("Checking for Cloudflare...\n")
-            for i in range(15):
-                time.sleep(2)
-                title = page.title.lower()
-                sys.stderr.write(f"[{i+1}/15] Page Title: {page.title}\n")
-                if "just a moment" not in title and "security" not in title and "attention" not in title:
-                    if page.ele('tag:table', timeout=1) or page.ele('tag:a', timeout=1):
-                         sys.stderr.write("✅ Cloudflare cleared - content found!\n")
-                         return True
-                if page.ele('@id=turnstile-wrapper', timeout=1):
-                    sys.stderr.write("⏳ Waiting for Turnstile challenge...\n")
-            return False
+        page.get(detail_url)
+        time.sleep(2)
 
-        base_url = 'https://inmates.charlottecountyfl.revize.com'
-        
-        current_page = 1
-        all_detail_urls = []
-        
-        # Phase 1: Collect ALL Links first
-        # This is slightly less resumable if we crash during link collection, but standard for pagination
-        while current_page <= max_pages:
-            sys.stderr.write(f"\n📄 Processing page {current_page}...\n")
-            
-            if current_page == 1:
-                url = f'{base_url}/bookings'
-            else:
-                url = f'{base_url}/bookings?page={current_page}'
-            
-            page.get(url)
-            
-            if not handle_cloudflare(page):
-                sys.stderr.write("⚠️  Cloudflare bypass may have failed, trying anyway...\n")
-            
-            time.sleep(5)
-            
-            links = page.eles('tag:a')
-            page_detail_urls = []
-            for link in links:
-                href = link.attr('href')
-                if href and '/bookings/' in href:
-                    if href.endswith('/bookings') or href.endswith('/bookings/'):
-                        continue
-                    if not href.startswith('http'):
-                        full_url = base_url + href
-                    else:
-                        full_url = href
-                    page_detail_urls.append(full_url)
-            
-            page_detail_urls = list(set(page_detail_urls))
-            
-            if len(page_detail_urls) == 0:
-                sys.stderr.write("⚠️  No booking links found - stopping pagination\n")
-                break
-            else:
-                sys.stderr.write(f"✅ Found {len(page_detail_urls)} unique inmates on page {current_page}\n")
-            
-            all_detail_urls.extend(page_detail_urls)
-            
-            next_link = page.ele('text:Next') or page.ele('css:a[rel="next"]') or page.ele('xpath://a[contains(text(), "Next")]') or page.ele('xpath://a[contains(text(), "›")]')
-            
-            if not next_link:
-                next_page_num = current_page + 1
-                if page.ele(f'text:{next_page_num}'):
-                    sys.stderr.write(f"   ℹ️  Found link to page {next_page_num}, continuing\n")
-                    pass
-                else:
-                    if current_page >= max_pages:
-                        sys.stderr.write(f"   ℹ️  Reached maximum pages ({max_pages})\n")
-                    else:
-                        sys.stderr.write("   ℹ️  No Next button found, stopping\n")
-                    break
-            
-            if current_page >= max_pages:
-                break
-                
-            current_page += 1
-            time.sleep(2)
-        
-        all_detail_urls = list(set(all_detail_urls))
-        sys.stderr.write(f"\n📊 Total inmates found: {len(all_detail_urls)}\n")
-        
-        # Filter Skipped
-        original_count = len(all_detail_urls)
-        # Extract ID from URL to match
-        filtered_urls = []
-        for u in all_detail_urls:
-            # Extract ID: /bookings/12345
-            parts = u.split('/bookings/')
-            if len(parts) > 1:
-                bid = parts[1].split('?')[0].strip()
-                if bid not in processed_ids:
-                    filtered_urls.append(u)
-            else:
-                filtered_urls.append(u)
-        
-        all_detail_urls = filtered_urls
-        sys.stderr.write(f"📉 Remaining to scrape: {len(all_detail_urls)} (skipped {original_count - len(all_detail_urls)})\n")
-        
-        # Phase 2: Visit Details
-        stopped_early = False
-        for i, detail_url in enumerate(all_detail_urls):
+        if not wait_for_cloudflare(page):
+            sys.stderr.write("   ⚠️ Cloudflare on detail page\n")
+            return data
+
+        # Run JS to extract all data from the Revize detail page
+        js_data = page.run_js("""
+            const result = {};
+
+            // 1. Personal Info — labels + inputs/siblings
+            const labels = document.querySelectorAll('label, th, td, dt');
+            labels.forEach(label => {
+                const text = label.textContent.trim().replace(/:$/, '');
+                let value = null;
+                const parent = label.parentElement;
+                const input = parent ? parent.querySelector('input') : null;
+                const nextSib = label.nextElementSibling;
+                if (input) value = input.value || input.textContent;
+                else if (nextSib) value = nextSib.textContent || nextSib.value;
+                if (value) result[text] = value.trim();
+            });
+
+            // 2. Booking table (#bookings-table)
+            const bookTable = document.querySelector('#bookings-table');
+            if (bookTable) {
+                const row = bookTable.querySelector('tr[data-booking]');
+                if (row) {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length >= 3) {
+                        result['__Booking_Date'] = cells[2].textContent.trim();
+                        if (cells.length > 3) result['__Status'] = cells[3].textContent.trim();
+                    }
+                }
+            }
+
+            // 3. Charges from .arrest-table (exclude mobile)
+            const charges = [];
+            document.querySelectorAll('table.arrest-table:not(.table-mobile)').forEach(table => {
+                const headers = Array.from(table.querySelectorAll('th')).map(h => h.textContent.trim());
+                if (headers.some(h => h.includes('Statute') || h.includes('Desc'))) {
+                    table.querySelectorAll('tbody tr').forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length >= 6) {
+                            charges.push({
+                                date: cells[0].textContent.trim(),
+                                statute: cells[1].textContent.trim(),
+                                desc: cells[2].textContent.trim(),
+                                sec_desc: cells[3].textContent.trim(),
+                                bond: cells[5].textContent.trim()
+                            });
+                        }
+                    });
+                }
+            });
+            result['__CHARGES'] = charges;
+
+            // 4. Also look for ICE hold text
+            result['__HAS_ICE'] = document.body.textContent.includes('ICE HOLD') ||
+                                   document.body.textContent.includes('IMMIGRATION DETAINER');
+
+            // 5. Mugshot
+            const img = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[src*="image"]');
+            if (img && !img.src.startsWith('data:')) result['__Mugshot'] = img.src;
+
+            return result;
+        """)
+
+        if not js_data:
+            return data
+
+        # Map JS fields → schema fields
+        field_map = {
+            'First Name': 'First_Name',
+            'Last Name': 'Last_Name',
+            'Middle Name': 'Middle_Name',
+            'Date of Birth': 'DOB',
+            'Race': 'Race',
+            'Gender': 'Sex',
+            'Address': 'Address',
+            'City': 'City',
+            'State': 'State',
+            'Zip Code': 'ZIP',
+            'Height': 'Height',
+            'Weight': 'Weight',
+        }
+
+        for js_key, py_key in field_map.items():
+            if js_key in js_data:
+                data[py_key] = clean_text(js_data[js_key])
+
+        # Full Name
+        if 'First_Name' in data and 'Last_Name' in data:
+            data['Full_Name'] = f"{data['Last_Name']}, {data['First_Name']}"
+            if data.get('Middle_Name'):
+                data['Full_Name'] += f" {data['Middle_Name']}"
+
+        # Booking Date
+        if '__Booking_Date' in js_data:
+            bd = clean_text(js_data['__Booking_Date'])
+            if len(bd) > 5 and ('-' in bd or '/' in bd):
+                data['Booking_Date'] = bd
+
+        # Status
+        if '__Status' in js_data:
+            data['Status'] = clean_text(js_data['__Status'])
+
+        # Charges & Bond
+        charges_list = []
+        total_bond = 0.0
+        for entry in js_data.get('__CHARGES', []):
+            desc = clean_text(entry.get('desc', ''))
+            statute = clean_text(entry.get('statute', ''))
+            sec_desc = clean_text(entry.get('sec_desc', ''))
+            bond_str = clean_text(entry.get('bond', '0'))
+            arr_date = clean_text(entry.get('date', ''))
+
+            if 'Booking_Date' not in data and arr_date:
+                data['Booking_Date'] = arr_date
+
+            c_str = clean_charge_text(desc)
+            if sec_desc and sec_desc != 'A/W':
+                c_str += f" ({sec_desc})"
+            if statute:
+                c_str = f"{statute} - {c_str}"
+            if c_str:
+                charges_list.append(c_str)
+
             try:
-                sys.stderr.write(f"\n🔍 [{i+1}/{len(all_detail_urls)}] Processing {detail_url}\n")
-                page.get(detail_url)
-                handle_cloudflare(page)
-                
-                is_loaded = False
-                for _ in range(5):
-                    if page.ele('#bookings-table') or page.ele('text:Charges'):
-                        is_loaded = True
-                        break
-                    time.sleep(1)
-                
-                if not is_loaded:
-                     sys.stderr.write("⚠️  Content not loaded, skipping\n")
-                     continue
+                total_bond += float(bond_str.replace('$', '').replace(',', ''))
+            except:
+                pass
 
-                data = {}
-                data['Detail_URL'] = detail_url
-                data['County'] = 'Charlotte'
-                data['State'] = 'FL'
-                
-                if '/bookings/' in detail_url:
-                    parts = detail_url.split('/bookings/')
-                    if len(parts) > 1:
-                        data['Booking_Number'] = parts[1].split('?')[0].strip()
-                
-                # Helper to get value from input next to label
-                def get_input_val(label_text, alt_text=None):
+        # ICE Hold detection
+        if js_data.get('__HAS_ICE'):
+            charges_list.insert(0, "ICE HOLD")
+            sys.stderr.write("   ⚠️ ICE/Federal Hold detected\n")
+
+        if charges_list:
+            data['Charges'] = " | ".join(charges_list)
+        data['Bond_Amount'] = str(total_bond)
+
+        # Mugshot
+        if '__Mugshot' in js_data:
+            data['Mugshot_URL'] = js_data['__Mugshot']
+
+    except Exception as e:
+        sys.stderr.write(f"   ⚠️ Error extracting detail: {e}\n")
+
+    return data
+
+
+def scrape_charlotte(days_back=21, max_pages=10):
+    """Main scraper: collect links → visit details → filter by date → output JSON."""
+    sys.stderr.write(f"🐊 Charlotte County Scraper (DrissionPage)\n")
+    sys.stderr.write(f"📅 Days back: {days_back}  |  📄 Max pages: {max_pages}\n")
+
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days_back)
+    page = setup_browser()
+
+    try:
+        booking_links = collect_booking_links(page, max_pages)
+
+        if not booking_links:
+            sys.stderr.write("⚠️ No booking links found.\n")
+            return []
+
+        arrests = []
+        for idx, (booking_id, detail_url) in enumerate(booking_links, 1):
+            sys.stderr.write(f"\n🔍 [{idx}/{len(booking_links)}] {booking_id}\n")
+
+            try:
+                record = extract_detail(page, booking_id, detail_url)
+
+                # Date cutoff
+                if record.get('Booking_Date'):
                     try:
-                        # Try exact match first
-                        label = page.ele(f'text:^{label_text}$', timeout=1)
-                        if not label and alt_text:
-                            label = page.ele(f'text:^{alt_text}$', timeout=1)
-                            
-                        if not label:
-                            # Try contains match
-                            label = page.ele(f'text:{label_text}', timeout=1)
-                        
-                        if label:
-                            # Get the next element which should be the input
-                            inp = label.next()
-                            if inp and inp.tag == 'input':
-                                return inp.value
-                            elif inp:
-                                return inp.text.strip()
+                        for fmt in ['%m/%d/%Y', '%Y-%m-%d']:
+                            try:
+                                book_dt = datetime.datetime.strptime(record['Booking_Date'].split()[0], fmt)
+                                if book_dt < cutoff_date:
+                                    sys.stderr.write(f"   ⏸️ Past cutoff ({record['Booking_Date']}), stopping.\n")
+                                    return arrests
+                                break
+                            except ValueError:
+                                continue
                     except:
                         pass
-                    return None
 
-                # Strategy 1: Label/Input pairs (New Site Structure)
-                # Personal Info
-                fn = get_input_val('First Name')
-                ln = get_input_val('Last Name')
-                if fn: data['First_Name'] = fn
-                if ln: data['Last_Name'] = ln
-                
-                if fn and ln:
-                    data['Full_Name'] = f"{ln}, {fn}"
-                
-                dob = get_input_val('Date of Birth')
-                if dob: data['DOB'] = dob
-                
-                race = get_input_val('Race')
-                if race: data['Race'] = race
-                
-                sex = get_input_val('Gender', 'Sex')
-                if sex: data['Sex'] = sex
-                
-                height = get_input_val('Height')
-                if height: data['Height'] = height
-                
-                weight = get_input_val('Weight')
-                if weight: data['Weight'] = weight
-                
-                # Address Info
-                addr = get_input_val('Address')
-                if addr: data['Address'] = addr
-                
-                city = get_input_val('City')
-                if city: data['City'] = city
-                
-                state = get_input_val('State')
-                if state: data['State'] = state
-                
-                zip_code = get_input_val('Zip Code')
-                if zip_code: data['ZIP'] = zip_code
-
-                # Strategy 2: Header Name (Fallback if Strategy 1 fails)
-                if 'Full_Name' not in data:
-                    name_ele = page.ele('css:h3.name') or page.ele('css:.inmate-name') or page.ele('css:div.name') or page.ele('css:h1')
-                    if name_ele:
-                        data['Full_Name'] = name_ele.text.strip()
-                        if ',' in data['Full_Name']:
-                            parts = data['Full_Name'].split(',', 1)
-                            data['Last_Name'] = parts[0].strip()
-                            data['First_Name'] = parts[1].strip()
-
-                # Strategy 3: Generic DL/DT/DD (Old Site Structure Fallback)
-                if 'First_Name' not in data: 
-                    dts = page.eles('tag:dt')
-                    for dt in dts:
-                        key = dt.text.strip().replace(':', '')
-                        dd = dt.next('tag:dd')
-                        if dd:
-                            val = dd.text.strip()
-                            if key == 'First Name': data['First_Name'] = val
-                            elif key == 'Last Name': data['Last_Name'] = val
-                            elif key == 'DOB' or key == 'Date of Birth': data['DOB'] = val
-                            elif key == 'Race': data['Race'] = val
-                            elif key == 'Sex' or key == 'Gender': data['Sex'] = val
-                            elif key == 'Height': data['Height'] = val
-                            elif key == 'Weight': data['Weight'] = val
-                            elif key == 'Address': data['Address'] = val
-                            elif key == 'City': data['City'] = val
-                            elif key == 'State': data['State'] = val
-                            elif key == 'Zip Code': data['ZIP'] = val
-                
-                booking_table = page.ele('#bookings-table') or page.ele('css:table.bookings')
-                charges = []
-                total_bond = 0.0
-                
-                if booking_table:
-                    booking_row = booking_table.ele('css:tbody tr')
-                    if booking_row:
-                        tds = booking_row.eles('tag:td')
-                        for td in tds:
-                            txt = td.text.strip()
-                            match = re.search(r'\d{2}/\d{2}/\d{4}', txt)
-                            if match:
-                                data['Booking_Date'] = match.group(0)
-                    
-                    charge_rows = booking_table.eles('css:tr')
-                    for row in charge_rows:
-                        cols = row.eles('tag:td', timeout=0.1) # Fast lookup
-                        if len(cols) >= 3:
-                            col_texts = [c.text.strip() for c in cols]
-                            
-                            bond_val = 0
-                            for t in col_texts:
-                                if '$' in t:
-                                    try:
-                                        b = float(t.replace('$','').replace(',',''))
-                                        if b > 0 and b < 10000000:
-                                            bond_val = b
-                                    except: pass
-                            
-                            if bond_val > 0:
-                                total_bond += bond_val
-                            
-                            desc_cand = ""
-                            for t in col_texts:
-                                if len(t) > 10 and not '$' in t and not '/' in t:
-                                    clean = clean_charge_text(t)
-                                    if clean and len(clean) > 3:
-                                        desc_cand = clean
-                                        break
-                            
-                            if desc_cand:
-                                charges.append(desc_cand)
-
-                if charges:
-                    data['Charges'] = " | ".join(list(set(charges)))
-                if total_bond > 0:
-                    data['Bond_Amount'] = str(total_bond)
+                if record.get('Full_Name'):
+                    arrests.append(record)
+                    sys.stderr.write(f"   ✅ {record['Full_Name']}\n")
                 else:
-                    data['Bond_Amount'] = '0'
+                    sys.stderr.write(f"   ⚠️ No name extracted, skipping\n")
 
-                imgs = page.eles('tag:img')
-                for img in imgs:
-                    src = img.attr('src')
-                    if src and ('mug' in src.lower() or 'photo' in src.lower() or 'base64' in src[:30]):
-                        if not src.startswith('http') and not src.startswith('data:'):
-                            src = base_url + src
-                        if len(src) < 50000:
-                            data['Mugshot_URL'] = src
-                        if 'revize' not in src:
-                             break
-
-                if 'Booking_Date' in data:
-                    try:
-                        dt_str = data['Booking_Date'].split()[0]
-                        booking_date = datetime.strptime(dt_str, '%m/%d/%Y')
-                        if booking_date < cutoff_date:
-                            sys.stderr.write(f"   ⏸️  Reached cutoff date ({booking_date.strftime('%Y-%m-%d')}), stopping...\n")
-                            stopped_early = True
-                            break 
-                    except Exception as e:
-                        pass
-
-                sys.stderr.write(f"   Scraped {len(data)} fields. Name: {data.get('Full_Name', 'Unknown')}\n")
-
-                # Sanitize and validate record before saving
-                if VALIDATION_AVAILABLE:
-                    data = sanitize_record(data)
-                    is_valid, issues = validate_record(data, 'Charlotte', strict=False)
-                    
-                    if not is_valid:
-                        sys.stderr.write(f"   ❌ Validation failed for {detail_url}:\n")
-                        for issue in issues:
-                            if issue.startswith('CRITICAL'):
-                                sys.stderr.write(f"      {issue}\n")
-                        sys.stderr.write(f"   ⚠️  Skipping invalid record\n")
-                        continue
-                    
-                    # Log warnings but still save
-                    warnings = [i for i in issues if i.startswith('WARNING')]
-                    if warnings:
-                        sys.stderr.write(f"   ⚠️  {len(warnings)} validation warnings (record will still be saved)\n")
-                
-                # Final check: must have minimum required data
-                if len(data) > 2 and 'Booking_Number' in data and 'Full_Name' in data:
-                    records.append(data)
-                    # AUTO SAVE
-                    with open(progress_file, 'a') as f:
-                        f.write(json.dumps(data) + '\n')
-                    sys.stderr.write(f"   ✅ Added & Saved record (Total New: {len(records)})\n")
-                else:
-                    sys.stderr.write(f"   ⚠️  Skipping {detail_url}, insufficient data (need Booking_Number and Full_Name)\n")
-                
-                if stopped_early:
-                    break
-                    
-                time.sleep(1)
-                
             except Exception as e:
-                sys.stderr.write(f"   ⚠️  Error processing {detail_url}: {e}\n")
+                sys.stderr.write(f"   ⚠️ Error: {e}\n")
                 continue
-        
-        sys.stderr.write(f"\n📊 Total new records collected: {len(records)}\n")
-        page.quit()
-        
+
+            time.sleep(1)
+
+        sys.stderr.write(f"\n📊 Total records: {len(arrests)}\n")
+        return arrests
+
     except Exception as e:
-        sys.stderr.write(f"❌ Fatal error: {str(e)}\n")
-    
-    # Final Output Combine
-    final_records = []
-    if os.path.exists(progress_file):
-        with open(progress_file, 'r') as f:
-            for line in f:
-                if line.strip():
-                    try:final_records.append(json.loads(line))
-                    except:pass
-    else:
-        final_records = records
+        sys.stderr.write(f"❌ Fatal error: {e}\n")
+        return []
 
-    # Summary Statistics
-    sys.stderr.write(f"\n🎯 Final Summary:\n")
-    sys.stderr.write(f"   Records scraped this session: {len(records)}\n")
-    sys.stderr.write(f"   Total records in output: {len(final_records)}\n")
-    sys.stderr.write(f"   Previously scraped (skipped): {len(processed_ids)}\n")
-    
-    if VALIDATION_AVAILABLE and records:
-        from validation import get_data_completeness_score
-        completeness_scores = [get_data_completeness_score(r) for r in records]
-        avg_completeness = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0
-        sys.stderr.write(f"   Average data completeness: {avg_completeness:.1f}%\n")
-    
-    sys.stderr.write(f"\n✅ Charlotte County scraping complete!\n")
+    finally:
+        try:
+            page.quit()
+        except:
+            pass
 
-    print(json.dumps(final_records))
 
-if __name__ == "__main__":
+def main():
     days_back = 21
-    max_pages = 10  # Increased from 1 to capture more arrests
+    max_pages = 10
     if len(sys.argv) > 1:
-        try: days_back = int(sys.argv[1])
-        except: pass
+        try:
+            days_back = int(sys.argv[1])
+        except:
+            pass
     if len(sys.argv) > 2:
-        try: max_pages = int(sys.argv[2])
-        except: pass
-    
+        try:
+            max_pages = int(sys.argv[2])
+        except:
+            pass
+
     sys.stderr.write(f"🚀 Starting Charlotte County scraper\n")
     sys.stderr.write(f"📅 Days back: {days_back}\n")
     sys.stderr.write(f"📄 Max pages: {max_pages}\n\n")
-    
-    scrape_charlotte(days_back, max_pages)
+
+    arrests = scrape_charlotte(days_back, max_pages)
+    print(json.dumps(arrests))
+    return 0 if arrests else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
