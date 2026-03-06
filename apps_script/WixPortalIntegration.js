@@ -20,7 +20,7 @@
 function getWixPortalConfig() {
   const scriptProps = PropertiesService.getScriptProperties();
   const apiKey = scriptProps.getProperty('WIX_API_KEY');
-  
+
   if (!apiKey) {
     Logger.log('⚠️ CRITICAL: WIX_API_KEY is missing in Script Properties.');
   }
@@ -28,10 +28,10 @@ function getWixPortalConfig() {
   return {
     // Wix site API endpoints
     baseUrl: 'https://www.shamrockbailbonds.biz/_functions',
-    
+
     // API key for authentication
     apiKey: apiKey || '',
-    
+
     // Endpoints
     endpoints: {
       addDocument: '/documentsAdd',
@@ -39,7 +39,7 @@ function getWixPortalConfig() {
       updateStatus: '/documentsStatus',
       syncCaseData: '/api/syncCaseData'
     },
-    
+
     // Retry settings
     maxRetries: 3,
     retryDelayMs: 1000
@@ -69,10 +69,10 @@ function setWixApiKey(apiKey) {
  */
 function syncCaseDataToWix(caseData, sheetRow) {
   const config = getWixPortalConfig();
-  
+
   if (!config.apiKey) return { success: false, message: 'Wix API key missing' };
   if (!caseData) return { success: false, message: 'No case data provided' };
-  
+
   // Sanitize and Format Payload directly
   const payload = {
     apiKey: config.apiKey,
@@ -104,7 +104,7 @@ function syncCaseDataToWix(caseData, sheetRow) {
  */
 function saveSigningLinksToWixBatch(signers, caseData) {
   const config = getWixPortalConfig();
-  
+
   if (!config.apiKey) return { success: false, message: 'Wix API key missing' };
   if (!Array.isArray(signers) || signers.length === 0) {
     return { success: false, message: 'No signers provided for batch sync' };
@@ -141,7 +141,7 @@ function saveSigningLinksToWixBatch(signers, caseData) {
  */
 function generateAndSendWithWixPortal(formData) {
   Logger.log('🚀 Starting Wix Portal Workflow...');
-  
+
   // 1. Validate Dependencies
   if (typeof SN_processCompleteWorkflow !== 'function') {
     Logger.log('❌ Error: SN_processCompleteWorkflow function not found. Check SignNow_Integration_Complete.gs');
@@ -166,17 +166,17 @@ function generateAndSendWithWixPortal(formData) {
     Logger.log('❌ SignNow generation failed: ' + e.message);
     return { success: false, message: 'SignNow error: ' + e.message };
   }
-  
+
   if (!signingResult.success) {
     Logger.log('❌ SignNow generation returned failure: ' + JSON.stringify(signingResult));
     return signingResult;
   }
-  
+
   Logger.log('✅ SignNow links generated. documentId: ' + signingResult.documentId);
 
   // 4. Prepare Data for Wix Sync
-  const defendantName = (formData['defendant-first-name'] && formData['defendant-last-name']) 
-    ? `${formData['defendant-first-name']} ${formData['defendant-last-name']}` 
+  const defendantName = (formData['defendant-first-name'] && formData['defendant-last-name'])
+    ? `${formData['defendant-first-name']} ${formData['defendant-last-name']}`
     : (formData.defendantName || 'Unknown Defendant');
 
   const caseData = {
@@ -186,31 +186,31 @@ function generateAndSendWithWixPortal(formData) {
     signNowDocumentId: signingResult.documentId,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days expiration default
   };
-  
+
   // 5. Map Signers
   // signingResult.signingLinks contains the generated links
   let signersWithLinks = [];
   if (signingResult.signingLinks) {
-      signersWithLinks = signingResult.signingLinks.map(signer => ({
-        email: signer.email,
-        phone: signer.phone,
-        role: signer.role,
-        signingLink: signer.link || signer.signingLink, // Handle both potential return keys
-        signNowDocumentId: signingResult.documentId
-      }));
+    signersWithLinks = signingResult.signingLinks.map(signer => ({
+      email: signer.email,
+      phone: signer.phone,
+      role: signer.role,
+      signingLink: signer.link || signer.signingLink, // Handle both potential return keys
+      signNowDocumentId: signingResult.documentId
+    }));
   }
-  
+
   // 6. Sync to Wix
   const wixResult = saveSigningLinksToWixBatch(signersWithLinks, caseData);
-  
+
   // 7. Return Composite Result
   return {
     success: true,
     signingLinks: signingResult.signingLinks,
     documentId: signingResult.documentId,
     wixPortal: wixResult,
-    message: wixResult.success 
-      ? 'Documents sent to Client Portal successfully!' 
+    message: wixResult.success
+      ? 'Documents sent to Client Portal successfully!'
       : 'Documents created, but Portal Sync failed: ' + wixResult.message
   };
 }
@@ -241,7 +241,7 @@ function sendToWixWithRetry(endpoint, payload) {
       const response = UrlFetchApp.fetch(url, params);
       const code = response.getResponseCode();
       const content = response.getContentText();
-      
+
       let result;
       try {
         result = JSON.parse(content);
@@ -304,7 +304,7 @@ function testWixConnection() {
   const config = getWixPortalConfig();
   Logger.log('🧪 Testing Wix Connection...');
   Logger.log(`URL: ${config.baseUrl}/health`); // Assuming a health endpoint exists or 404 confirms reachability
-  
+
   try {
     const response = UrlFetchApp.fetch(config.baseUrl.replace('/_functions', '') + '/_functions/health', {
       method: 'GET',
@@ -314,4 +314,40 @@ function testWixConnection() {
   } catch (e) {
     Logger.log(`Connection Failed: ${e.message}`);
   }
+}
+
+/**
+ * Server-side handler for 'batchSaveToWixPortal' action from Dashboard.html
+   * Maps Dashboard payload format to Wix API format
+   */
+function batchSaveToWixPortal_Server(documents) {
+  Logger.log(`📥 batchSaveToWixPortal_Server called with ${documents ? documents.length : 0} docs`);
+
+  if (!documents || !Array.isArray(documents)) {
+    return { success: false, error: 'Invalid documents payload' };
+  }
+
+  const config = getWixPortalConfig();
+  if (!config.apiKey) return { success: false, error: 'Wix API key missing' };
+
+  // Map Dashboard format to Wix API format
+  const wixPayloadDocs = documents.map(doc => ({
+    memberEmail: String(doc.signerEmail || '').trim(),
+    memberPhone: String(doc.signerPhone || '').trim(),
+    defendantName: String(doc.defendantName || '').trim(),
+    caseNumber: String(doc.caseNumber || '').trim(),
+    documentName: String(doc.documentName || 'Bail Bond Document').trim(),
+    signingLink: String(doc.signingLink || '').trim(),
+    signerRole: String(doc.signerRole || 'signer').toLowerCase(),
+    signNowDocumentId: String(doc.documentId || doc.signNowDocumentId || '').trim(),
+    expiresAt: doc.expiresAt // Should already be ISO string from Dashboard
+  }));
+
+  const payload = {
+    apiKey: config.apiKey,
+    documents: wixPayloadDocs
+  };
+
+  Logger.log(`🔄 Syncing ${wixPayloadDocs.length} documents to Wix...`);
+  return sendToWixWithRetry(config.endpoints.addDocumentsBatch, payload);
 }

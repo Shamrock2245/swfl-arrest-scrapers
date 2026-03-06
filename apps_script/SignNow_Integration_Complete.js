@@ -66,6 +66,50 @@ function SN_registerCompletionWebhook() {
 // 3. MAIN WORKFLOW: MULTI-SIGNER EMBEDDED LINKS
 // ============================================================================
 
+/**
+ * Orchestrates the complete SignNow workflow: Upload -> Add Fields -> Invite
+ * Used by backend integrations (e.g. Wix Portal)
+ */
+function SN_processCompleteWorkflow(params) {
+  try {
+    // 1. Upload Document
+    const uploadResult = SN_uploadDocument(params.pdfBase64, params.fileName);
+    if (!uploadResult.success) throw new Error('Upload failed: ' + uploadResult.error);
+    const documentId = uploadResult.documentId;
+
+    // 2. Add Fields (If field definitions provided)
+    // Note: This requires field definitions to be passed or calculated here.
+    // If Dashboard.html calculates them, they should be in params.fields
+    if (params.fields && params.fields.length > 0) {
+      SN_addFields(documentId, params.fields);
+    }
+    // If fields are NOT passed, we might be relying on templates or text tags?
+    // Dashboard.html usually calculates fields client-side. 
+    // If this function is called without fields, the doc will have no fields!
+    // We'll log a warning.
+    else {
+      SN_log('Workflow', 'No fields provided for document ' + documentId);
+    }
+
+    // 3. Generate Links / Invites
+    if (params.deliveryMethod === 'kiosk' || params.deliveryMethod === 'embedded') {
+      return SN_createAllSignerLinks(documentId, params.formData, options = {});
+    } else {
+      // Handle Email/SMS
+      const signers = buildSignersFromFormData(params.formData);
+      if (params.deliveryMethod === 'sms') {
+        SN_sendSmsInvite(documentId, signers);
+      } else {
+        SN_sendEmailInvite(documentId, signers);
+      }
+      return { success: true, documentId: documentId, signingLinks: [] };
+    }
+
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
 function SN_createAllSignerLinks(documentId, formData, options) {
   const config = SN_getConfig();
   const signers = buildSignersFromFormData(formData);
@@ -349,4 +393,32 @@ function SN_sendSmsInvite(documentId, signers, options) {
   const result = JSON.parse(response.getContentText());
   SN_log('SendSmsInvite', result);
   return result;
+}
+
+/**
+ * ROBUST CONNECTOR: fetchWithRetry
+ * Adds reliability to all external API calls.
+ */
+function fetchWithRetry(url, options, maxRetries = 3) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+      const code = response.getResponseCode();
+
+      // Success or Client Error (4xx - do not retry)
+      if (code < 500) return response;
+
+      // Server Error (5xx) - Retry
+      console.warn(`Server Error ${code} for ${url}. Retrying... (${attempt + 1}/${maxRetries})`);
+      Utilities.sleep(Math.pow(2, attempt) * 1000); // 1s, 2s, 4s
+      attempt++;
+
+    } catch (e) {
+      console.warn(`Network Error for ${url}: ${e.message}. Retrying... (${attempt + 1}/${maxRetries})`);
+      Utilities.sleep(Math.pow(2, attempt) * 1000);
+      attempt++;
+    }
+  }
+  throw new Error(`Request failed after ${maxRetries} attempts: ${url}`);
 }

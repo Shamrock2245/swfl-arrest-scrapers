@@ -60,18 +60,18 @@ export async function runDesotoIncremental() {
 
     // Find NEW bookings
     const newBookings = rosterData.filter(item => !baselineBookingNumbers.has(item.bookingNumber));
-    
+
     // On first run (no baseline), limit to 5 for testing, otherwise process all new
     const isFirstRun = baseline.length === 0;
     const bookingsToProcess = isFirstRun ? newBookings.slice(0, 5) : newBookings;
-    
+
     console.log(`🆕 New bookings found: ${newBookings.length}`);
     console.log(`📊 Baseline size: ${baseline.length}`);
-    
+
     if (isFirstRun) {
       console.log(`⚡ First run detected - limiting to ${bookingsToProcess.length} for testing`);
     }
-    
+
     if (bookingsToProcess.length === 0) {
       console.log('✅ No new bookings to process');
       await logIngestion('DESOTO', true, 0, startTime);
@@ -118,11 +118,11 @@ export async function runDesotoIncremental() {
     console.log(`⏱️  Total execution time: ${duration}s`);
     console.log('═══════════════════════════════════════\n');
 
-    return { 
-      success: true, 
-      count: records.length, 
+    return {
+      success: true,
+      count: records.length,
       newBookingsFound: newBookings.length,
-      newBookingsProcessed: bookingsToProcess.length 
+      newBookingsProcessed: bookingsToProcess.length
     };
 
   } catch (error) {
@@ -141,17 +141,17 @@ export async function runDesotoIncremental() {
 async function parseRosterWithBookingNumbers(page) {
   try {
     await page.waitForSelector('table#gvInmates_DXMainTable, a', { timeout: 10000 });
-    
+
     const rosterData = await page.$$eval('a[href*="inmate-details"]', elements =>
       elements.map(el => {
         // Try to extract booking number from link text or nearby elements
         const text = el.textContent.trim();
         const href = el.href;
-        
+
         // Extract booking number from URL if possible
         const match = href.match(/id=([^&]+)/);
         const bookingNumber = match ? match[1] : text;
-        
+
         return {
           bookingNumber: bookingNumber,
           name: text || 'Unknown',
@@ -167,7 +167,7 @@ async function parseRosterWithBookingNumbers(page) {
 
     console.log(`   Extracted ${uniqueData.length} unique booking numbers from roster`);
     return uniqueData;
-    
+
   } catch (error) {
     console.error('⚠️  Error parsing roster:', error.message);
     return [];
@@ -181,16 +181,16 @@ async function parseRosterWithBookingNumbers(page) {
 async function extractDetailPairs(page) {
   try {
     await page.waitForSelector('#tblDetails, table', { timeout: 5000 });
-    
+
     return await page.evaluate(() => {
       const data = {};
-      
+
       // Extract name from header
       const nameHeader = document.querySelector('#HeaderText, h3.header-text span');
       if (nameHeader) {
         data['Full Name'] = nameHeader.textContent.trim();
       }
-      
+
       // Extract personal info from the detail table
       const detailTable = document.querySelector('#tblDetails');
       if (detailTable) {
@@ -201,19 +201,19 @@ async function extractDetailPairs(page) {
             const label = cells[0].textContent.trim();
             const value = cells[1].textContent.trim();
             // Skip UI text and empty values
-            if (label && value && 
-                label !== 'Drag a column header here to group by that column' &&
-                !label.includes('Change Offset')) {
+            if (label && value &&
+              label !== 'Drag a column header here to group by that column' &&
+              !label.includes('Change Offset')) {
               data[label] = value;
             }
           }
         });
       }
-      
+
       // Extract charges from the ChargeGrid table
       const chargeRows = document.querySelectorAll('[id*="ChargeGrid_DXDataRow"]');
       const charges = [];
-      
+
       chargeRows.forEach(row => {
         const cells = row.querySelectorAll('td');
         if (cells.length > 0) {
@@ -221,7 +221,7 @@ async function extractDetailPairs(page) {
           const offenseDate = cells[1]?.textContent?.trim();
           const bond = cells[5]?.textContent?.trim();
           const bondType = cells[6]?.textContent?.trim();
-          
+
           if (chargeText && chargeText !== 'Drag a column header here to group by that column') {
             charges.push({
               charge: chargeText,
@@ -232,29 +232,29 @@ async function extractDetailPairs(page) {
           }
         }
       });
-      
+
       if (charges.length > 0) {
         data['Charges'] = charges.map(c => c.charge).join(' | ');
         data['Bond Amount'] = charges[0].bond;
         data['Bond Type'] = charges[0].bond_type;
         data['Offense Date'] = charges[0].offense_date;
       }
-      
+
       // Extract mugshot
       const mugshot = document.querySelector('img[src*="photo"], img[src*="mugshot"], img[id*="img"]');
       if (mugshot && mugshot.src && !mugshot.src.includes('data:image')) {
         data['Mugshot'] = mugshot.src;
       }
-      
+
       data['source_url'] = window.location.href;
-      
-      // Extract booking ID from URL parameter
+
+      // Extract booking ID from URL parameter (Internal ID only - do not overwrite if table found one)
       const urlParams = new URLSearchParams(window.location.search);
       const bidParam = urlParams.get('bid');
-      if (bidParam) {
+      if (bidParam && !data['Booking Number']) {
         data['Booking Number'] = decodeURIComponent(bidParam);
       }
-      
+
       return data;
     });
   } catch (error) {

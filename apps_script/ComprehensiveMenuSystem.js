@@ -134,7 +134,7 @@ function parseChargesFromSheet_(sheetData) {
     try {
       const parsed = JSON.parse(chargesField);
       if (Array.isArray(parsed)) return parsed;
-    } catch (e) {}
+    } catch (e) { }
 
     const chargesList = chargesField.split(/[;,\n]/).map(c => c.trim()).filter(Boolean);
     chargesList.forEach(charge => {
@@ -317,7 +317,7 @@ function updateCountyInCustodyStatus(sheet, countyName, fullWebCheck = false) {
       try {
         const inCustody = checkIfInCustody_(countyName, String(bookingNumber));
         inferredStatus = inCustody ? 'In Custody' : 'Released';
-      } catch (err) {}
+      } catch (err) { }
     }
 
     if (inferredStatus && inferredStatus !== currentStatus) {
@@ -374,7 +374,13 @@ function checkIfInCustody_(countyName, bookingNumber) {
 function processCourtEmails() { showToast_('📧 Processing court emails...', 'Court Emails'); }
 function processHistoricalEmails() { showToast_('📧 Processing historical emails...', 'Court Emails'); }
 function processDateRange() { SpreadsheetApp.getUi().alert('Date Range', 'Coming soon.', SpreadsheetApp.getUi().ButtonSet.OK); }
-function showSlackConfig() { SpreadsheetApp.getUi().alert('Slack Config', 'Coming soon.', SpreadsheetApp.getUi().ButtonSet.OK); }
+function showSlackConfig() {
+  if (typeof openConfigModal === 'function') {
+    openConfigModal();
+  } else {
+    SpreadsheetApp.getUi().alert('Config module not found. Deploy newest code version.');
+  }
+}
 function showProcessingLog() { SpreadsheetApp.getUi().alert('Processing Log', 'Coming soon.', SpreadsheetApp.getUi().ButtonSet.OK); }
 
 // ============================================================================
@@ -383,20 +389,45 @@ function showProcessingLog() { SpreadsheetApp.getUi().alert('Processing Log', 'C
 
 function installTriggers() {
   const ui = SpreadsheetApp.getUi();
-  const triggers = ScriptApp.getProjectTriggers();
 
-  if (triggers.length > 0) {
-    const response = ui.alert('Triggers Already Exist', `Found ${triggers.length} trigger(s). Delete and reinstall?`, ui.ButtonSet.YES_NO);
-    if (response === ui.Button.YES) disableTriggers();
-    else return;
+  // Confirm Intent
+  const response = ui.alert(
+    'Factory Reset Triggers',
+    'This will DELETE all existing triggers and re-install the standard automation suite:\n\n' +
+    '1. 🚓 Lee County Arrests (Hourly)\n' +
+    '2. 📧 Court Email Processor (Daily: 7am, 10am, 2pm, 5pm)\n' +
+    '3. 🔍 Custody Status Checks (Every 6 hours)\n\n' +
+    'Proceed?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  // 1. Clear All
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => ScriptApp.deleteTrigger(t));
+
+  // 2. Install Lee Scraper
+  if (typeof runLeeArrestsNow === 'function') {
+    ScriptApp.newTrigger('runLeeArrestsNow').timeBased().everyHours(1).create();
+  } else {
+    console.warn('runLeeArrestsNow not found. Skipping.');
   }
 
-  ScriptApp.newTrigger('checkForChanges')
-    .timeBased()
-    .everyHours(6)
-    .create();
+  // 3. Install Court Email Processor
+  if (typeof processCourtEmails === 'function') {
+    // 7am, 10am, 2pm (14), 5pm (17)
+    [7, 10, 14, 17].forEach(h => {
+      ScriptApp.newTrigger('processCourtEmails').timeBased().atHour(h).everyDays(1).create();
+    });
+  } else {
+    console.warn('processCourtEmails not found. Skipping.');
+  }
 
-  ui.alert('Triggers Installed', '✅ Status checks will run automatically every 6 hours.', ui.ButtonSet.OK);
+  // 4. Install Status Checker
+  ScriptApp.newTrigger('checkForChanges').timeBased().everyHours(6).create();
+
+  ui.alert('✅ Automation Factory Reset Complete.', 'All 6 triggers have been installed.', ui.ButtonSet.OK);
 }
 
 function viewTriggers() {

@@ -17,9 +17,8 @@
 
 const SCHEMA_VERSION = "3.1";
 const TOTAL_COLUMNS = 34;
-
-// 34-column header order (must match your sheets)
-const HEADERS = [
+// Use Centralized Schema if available, else fallback
+const HEADERS = (typeof Schema !== 'undefined') ? Schema.COLUMNS : [
   "Booking_Number", "Full_Name", "First_Name", "Last_Name", "DOB", "Sex", "Race",
   "Arrest_Date", "Arrest_Time", "Booking_Date", "Booking_Time", "Agency",
   "Address", "City", "State", "Zipcode", "Charges", "Charge_1", "Charge_1_Statute",
@@ -27,6 +26,10 @@ const HEADERS = [
   "Bond_Type", "Status", "Court_Date", "Case_Number", "Mugshot_URL", "County",
   "Court_Location", "Detail_URL", "Lead_Score", "Lead_Status"
 ];
+
+// Queue Configuration
+const TARGET_QUEUE_TAB_NAME = "Qualified_Schema_Queue";
+
 
 // County tabs to score
 const COUNTY_TABS = ["Lee", "Collier", "Hendry", "Charlotte", "Manatee", "DeSoto", "Sarasota", "Hillsborough", "Palm Beach"];
@@ -522,6 +525,13 @@ function scoreAndRouteCounty_(countyName, qualifiedSheet, existingKeys) {
         existingKeys.add(key);
         qualifiedRowsToAppend.push(row.slice(0, TOTAL_COLUMNS));
         routed++;
+
+        // --- SLACK NOTIFICATION ---
+        try {
+          notifyQualifiedLead_(record, result);
+        } catch (slackErr) {
+          console.error(`Slack Notify Fail: ${slackErr.message}`);
+        }
       }
     }
 
@@ -726,4 +736,286 @@ function buildQualifiedKeySet_(qualifiedSheet) {
     if (booking) keys.add(`${booking}||${county}`.toLowerCase());
   }
   return keys;
+}
+
+/**
+ * AUTO-SCORING HOOK (Called by Scrapers)
+ * Scores specific range of new rows immediately.
+ */
+function autoScoreNewArrests(startRow, endRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Lee"); // Defaulting to Lee for now as it's the main caller
+  if (!sheet) return;
+
+  ensureSheetSchema_(sheet);
+  const { headers, map } = getHeaderMap_(sheet);
+
+  // We need existing keys to prevent duplicate routing? 
+  // Maybe, but since these are NEW rows, they shouldn't be in Qualified yet.
+  // But to be safe/robust:
+  const targetSS = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  const qualifiedSheet = getOrCreateSheet_(targetSS, TARGET_QUALIFIED_TAB_NAME);
+  ensureSheetSchema_(qualifiedSheet);
+  const existingKeys = buildQualifiedKeySet_(qualifiedSheet);
+
+  const numRows = endRow - startRow + 1;
+  if (numRows < 1) return;
+
+  const range = sheet.getRange(startRow, 1, numRows, TOTAL_COLUMNS);
+  const values = range.getValues();
+
+  const leadScoreIdx = map["Lead_Score"];
+  const leadStatusIdx = map["Lead_Status"];
+  const countyName = "Lee";
+
+  const scoredUpdates = new Array(values.length);
+  const qualifiedRowsToAppend = [];
+  let routed = 0;
+
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    const record = rowToRecord_(headers, row);
+
+    // Ensure county
+    if (!record.County || record.County.toString().trim() === "") {
+      record.County = countyName;
+      row[map["County"]] = countyName;
+    }
+
+    const result = scoreArrestRecord(record);
+
+    row[leadScoreIdx] = result.score;
+    row[leadStatusIdx] = result.status;
+
+    // Route qualified
+    if (result.qualified) {
+      const key = makeQualifiedKey_(record);
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        qualifiedRowsToAppend.push(row.slice(0, TOTAL_COLUMNS));
+        routed++;
+
+        // --- SLACK NOTIFICATION ---
+        try {
+          notifyQualifiedLead_(record, result);
+        } catch (slackErr) {
+          console.error(`Slack Notify Fail: ${slackErr.message}`);
+        }
+      }
+    }
+    scoredUpdates[r] = row;
+  }
+
+  // Write back scores
+  range.setValues(scoredUpdates);
+
+  // Append qualified
+  if (qualifiedRowsToAppend.length) {
+    appendRows_(qualifiedSheet, qualifiedRowsToAppend);
+  }
+
+  console.log(`Auto-scoring complete for rows ${startRow}-${endRow}. Routed: ${routed}`);
+
+  // Try Queue Sync for Auto-Score too
+  try {
+    if (qualifiedRowsToAppend.length > 0) {
+      syncToSchemaQueue_(values, headers, map, countyName);
+    }
+  } catch (e) {
+    console.warn("Auto-score queue sync warning: " + e.message);
+  }
+}
+
+// ============================================================================
+// QUEUE LOGIC (Ported from QualifiedTabRouter)
+// ============================================================================
+
+function syncToSchemaQueue_(sourceValues, sourceHeaders, sourceMap, countyName) {
+  const targetSS = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  const queueSheet = getOrCreateQueueSheet_(targetSS);
+  const now = new Date();
+
+  // 1. Get existing keys to dedupe
+  // Key is in column 1 of the queue (router_dedupe_key)
+  // We assume the schema is settled: Schema.COLUMNS + Schema.QUEUE_META
+  const lastRow = queueSheet.getLastRow();
+  const existingKeys = new Set();
+
+  // Performance optimization: only fetch key column if data exists
+  if (lastRow > 1) {
+    const metaStartCol = Schema.COLUMNS.length + 1; // router_dedupe_key is first meta col?
+    // Actually let's use the explicit map
+    // Schema.COLUMNS are data. Schema.QUEUE_META are meta.
+    // The queue sheet structure is [ ...DATA_COLS... , ...META_COLS... ]
+
+    // Let's rely on column NAMES to be safe
+    const qHeaders = queueSheet.getRange(1, 1, 1, queueSheet.getLastColumn()).getValues()[0];
+    const qMap = {};
+    qHeaders.forEach((h, i) => qMap[h] = i + 1);
+
+    const keyCol = qMap['router_dedupe_key'];
+    if (keyCol) {
+      const kVals = queueSheet.getRange(2, keyCol, lastRow - 1, 1).getValues();
+      kVals.forEach(r => { if (r[0]) existingKeys.add(r[0].toString().trim()); });
+    }
+  }
+
+  const toAppend = [];
+
+  // 2. Iterate source rows
+  const scoreIdx = sourceMap['Lead_Score'];
+  const statusIdx = sourceMap['Lead_Status'];
+
+  for (let i = 0; i < sourceValues.length; i++) {
+    const row = sourceValues[i];
+    const score = row[scoreIdx];
+    const status = row[statusIdx];
+
+    // Only queue qualified/warm/hot
+    if (!score || score < PASS_THRESHOLD) continue;
+
+    // Released check again just in case (though usually pre-filtered)
+    // We already did this in the caller, but let's be safe.
+    // If it passed to "Qualified", it should go to Queue.
+
+    // Build Dedupe Key
+    const record = rowToRecord_(sourceHeaders, row);
+    // Ensure county
+    if (!record.County) record.County = countyName;
+
+    const key = makeQualifiedKey_(record); // same key logic
+
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key); // prevent dupe within same batch
+
+    // BUILD THE ROW
+    // [ ...Schema.COLUMNS... , ...Schema.QUEUE_META... ]
+
+    const newRow = [];
+
+    // Data Columns
+    Schema.COLUMNS.forEach(col => {
+      newRow.push(record[col] || "");
+    });
+
+    // Meta Columns: 
+    // 'router_dedupe_key', 'router_source_tab', 'router_synced_at', 'signnow_status', ...
+
+    newRow.push(key);                // router_dedupe_key
+    newRow.push(countyName);         // router_source_tab
+    newRow.push(now);                // router_synced_at
+    newRow.push("PENDING");          // signnow_status
+    newRow.push("");                 // signnow_last_attempt_at
+    newRow.push(0);                  // signnow_attempt_count
+    newRow.push("");                 // signnow_error
+    newRow.push("");                 // signnow_document_id
+
+    toAppend.push(newRow);
+  }
+
+  if (toAppend.length > 0) {
+    const startRow = queueSheet.getLastRow() + 1;
+    queueSheet.getRange(startRow, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
+    console.log(`Synced ${toAppend.length} rows to Queue for ${countyName}`);
+  }
+}
+
+function getOrCreateQueueSheet_(ss) {
+  let sh = ss.getSheetByName(TARGET_QUEUE_TAB_NAME);
+  if (sh) return sh;
+
+  sh = ss.insertSheet(TARGET_QUEUE_TAB_NAME);
+  const headers = Schema.COLUMNS.concat(Schema.QUEUE_META);
+
+  sh.getRange(1, 1, 1, headers.length)
+    .setValues([headers])
+    .setFontWeight("bold")
+    .setBackground("#EFEFEF");
+  sh.setFrozenRows(1);
+  return sh;
+}
+
+// ============================================================================
+// SLACK NOTIFICATIONS
+// ============================================================================
+
+/**
+ * Sends a rich notification to Slack using the existing postToSlack helper.
+ * 
+ * @param {Object} record - The arrest record object
+ * @param {Object} result - The scoring result {score, reasons, status}
+ */
+/**
+ * Sends a rich notification to Slack using the existing postToSlack helper.
+ * 
+ * @param {Object} record - The arrest record object
+ * @param {Object} result - The scoring result {score, reasons, status}
+ */
+function notifyQualifiedLead_(record, result) {
+  if (typeof NotificationService === 'undefined') {
+    console.warn('NotificationService not found, skipping Slack alert.');
+    return;
+  }
+
+  const isHot = result.status === 'Hot';
+  const emoji = isHot ? '🔥' : '⚠️';
+
+  // Format currency
+  const bond = record.Bond_Amount ? '$' + Number(record.Bond_Amount).toLocaleString() : 'N/A';
+
+  // Construct rich message using Block Kit
+  const blocks = [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": `${emoji} New ${result.status} Lead: ${record.Full_Name}`,
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": `*County:*\n${record.County}` },
+        { "type": "mrkdwn", "text": `*Score:*\n${result.score}/100` },
+        { "type": "mrkdwn", "text": `*Total Bond:*\n${bond}` },
+        { "type": "mrkdwn", "text": `*Status:*\n${record.Status}` }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": `*Charges:*\n${record.Charges || 'No charges listed'}`
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        { "type": "mrkdwn", "text": `*Qualifying Reasons:* ${result.reasons.join(', ')}` }
+      ]
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View Details on Sheriff Site", "emoji": true },
+          "url": record.Detail_URL || 'https://www.google.com',
+          "style": isHot ? "danger" : "primary"
+        }
+      ]
+    }
+  ];
+
+  if (record.Mugshot_URL && record.Mugshot_URL.startsWith('http')) {
+    blocks[1].accessory = {
+      "type": "image",
+      "image_url": record.Mugshot_URL,
+      "alt_text": record.Full_Name
+    };
+  }
+
+  // Send to "New Cases" channel via key
+  NotificationService.notifySlack('SLACK_WEBHOOK_NEW_CASES', { blocks: blocks });
 }

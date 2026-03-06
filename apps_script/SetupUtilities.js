@@ -20,7 +20,7 @@ function runSystemDiagnostics() {
   ui.log('🔍 SHAMROCK BAIL BONDS - SYSTEM DIAGNOSTICS (v3.5.1)');
   ui.log('⏱️ Time: ' + new Date().toISOString());
   ui.log('='.repeat(60));
-  
+
   const props = PropertiesService.getScriptProperties().getProperties();
   let errors = [];
   let warnings = [];
@@ -46,7 +46,7 @@ function runSystemDiagnostics() {
 
   // --- CHECK 2: GOOGLE DRIVE ACCESS ---
   ui.log('\n[2/4] Verifying Google Drive Access...');
-  
+
   // Check Output Folder
   const outputId = props['GOOGLE_DRIVE_OUTPUT_FOLDER_ID'];
   if (outputId) {
@@ -117,7 +117,7 @@ function runSystemDiagnostics() {
 function setupScriptProperties() {
   const props = PropertiesService.getScriptProperties();
   const existing = props.getProperties();
-  
+
   console.log('📝 Configuring Script Properties...');
 
   // 1. Set Defaults for commonly constant values if missing
@@ -166,12 +166,52 @@ function setWebhookUrl(url) {
 }
 
 /**
+ * Configure Slack Webhook Secrets
+ * Run this function manually (or via menu) to set your webhook URLs.
+ * 
+ * Usage:
+ * setupSlackSecrets({
+ *   newCases: 'https://hooks.slack.com/...',
+ *   courtDates: 'https://hooks.slack.com/...',
+ *   forfeitures: 'https://hooks.slack.com/...',
+ *   discharges: 'https://hooks.slack.com/...',
+ *   general: 'https://hooks.slack.com/...'
+ * });
+ */
+function setupSlackSecrets(config) {
+  if (!config) {
+    console.error('❌ No config provided. Pass an object with keys: newCases, courtDates, forfeitures, discharges, general');
+    return;
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const map = {
+    newCases: 'SLACK_WEBHOOK_NEW_CASES',
+    courtDates: 'SLACK_WEBHOOK_COURT_DATES',
+    forfeitures: 'SLACK_WEBHOOK_FORFEITURES',
+    discharges: 'SLACK_WEBHOOK_DISCHARGES',
+    general: 'SLACK_WEBHOOK_GENERAL'
+  };
+
+  let updated = 0;
+  Object.entries(config).forEach(([key, url]) => {
+    if (map[key] && url) {
+      props.setProperty(map[key], url);
+      console.log(`✅ Set ${map[key]}`);
+      updated++;
+    }
+  });
+
+  console.log(`✨ Updated ${updated} Slack secrets.`);
+}
+
+/**
  * Creates or retrieves the 'Shamrock Completed Bonds' folder and saves ID.
  */
 function getOrCreateOutputFolder() {
   const folderName = 'Shamrock Completed Bonds';
   const props = PropertiesService.getScriptProperties();
-  
+
   // Check if we already have it configured
   const existingId = props.getProperty('GOOGLE_DRIVE_OUTPUT_FOLDER_ID');
   if (existingId) {
@@ -201,15 +241,92 @@ function getOrCreateOutputFolder() {
 }
 
 /**
+ * Creates or retrieves the 'Shamrock Security Audit Logs' sheet and saves ID.
+ */
+/**
+ * Creates or retrieves the 'Shamrock Security Audit Logs' sheet and saves ID.
+ * Configures all required tabs (SecurityEvents, AccessEvents, ProcessingEvents, ConsentLog).
+ */
+function setupAuditLogSheet() {
+  const sheetName = 'Shamrock Security Audit Logs';
+  const props = PropertiesService.getScriptProperties();
+
+  let ss;
+  const existingId = props.getProperty('AUDIT_LOG_SHEET_ID');
+
+  if (existingId) {
+    try {
+      ss = SpreadsheetApp.openById(existingId);
+      console.log(`✅ Audit Sheet configured: "${ss.getName()}" (ID: ${existingId})`);
+    } catch (e) {
+      console.log(`⚠️ Configured Audit Sheet ID invalid (${existingId}). Creating new one...`);
+    }
+  }
+
+  if (!ss) {
+    ss = SpreadsheetApp.create(sheetName);
+    console.log(`Created new Spreadsheet: ${sheetName}`);
+  }
+
+  // 1. Ensure SECURITY Tabs exist (SecurityEvents, ProcessingEvents, AccessEvents)
+  ensureTabExists(ss, 'SecurityEvents', ['Timestamp', 'Type', 'User', 'Details']);
+  ensureTabExists(ss, 'ProcessingEvents', ['Timestamp', 'Type', 'Details']);
+  ensureTabExists(ss, 'AccessEvents', ['Timestamp', 'User', 'Resource', 'Action', 'Details']);
+
+  // 2. Ensure CONSENT Tab exists (ConsentLog)
+  ensureTabExists(ss, 'ConsentLog', ['Timestamp', 'PersonID', 'Type', 'Given', 'Recorder']);
+
+  // 3. Save Properties
+  const id = ss.getId();
+  props.setProperty('AUDIT_LOG_SHEET_ID', id);
+  props.setProperty('CONSENT_LOG_SHEET_ID', id); // Shared sheet
+
+  console.log(`💾 Saved Properties: AUDIT_LOG_SHEET_ID & CONSENT_LOG_SHEET_ID = ${id}`);
+  console.log(`👉 OPEN SHEET: ${ss.getUrl()}`);
+  return id;
+}
+
+function ensureTabExists(ss, name, headers) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+    sheet.setFrozenRows(1);
+    console.log(`  + Created Tab: ${name}`);
+  }
+}
+
+/**
+ * Creates or retrieves the 'Bookings' sheet for persistent data storage.
+ * Matches logic in Code.gs saveBookingData().
+ */
+function setupBookingsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Bookings');
+
+  if (sheet) {
+    console.log(`✅ Bookings Sheet already exists.`);
+  } else {
+    sheet = ss.insertSheet('Bookings');
+    // Align headers with Code.js saveBookingData
+    sheet.appendRow(['Timestamp', 'Receipt #', 'Defendant', 'Bond Amount', 'Charges', 'Status', 'Indemnitor', 'Email', 'Phone']);
+    sheet.setFrozenRows(1);
+    console.log(`Created new 'Bookings' sheet.`);
+  }
+  console.log(`👉 OPEN SHEET: ${ss.getUrl()}`);
+  return sheet.getName();
+}
+
+/**
  * Generates a secure random key for Wix Integration.
  * Use this key in Wix Secrets Manager as well.
  */
 function generateMyWixApiKey() {
   const key = Utilities.getUuid(); // Simple UUID is sufficient for this purpose
   const props = PropertiesService.getScriptProperties();
-  
+
   props.setProperty('WIX_API_KEY', key);
-  
+
   console.log('🔑 WIX API KEY GENERATED & SAVED LOCALLY');
   console.log('------------------------------------------------');
   console.log(`Key: ${key}`);
@@ -218,7 +335,7 @@ function generateMyWixApiKey() {
   console.log('1. Go to your Wix Dashboard > Settings > Secrets Manager');
   console.log('2. Create a new Secret named "GAS_API_KEY" (or logic updates)');
   console.log('3. Paste this key value.');
-  
+
   return key;
 }
 
@@ -233,7 +350,7 @@ function testSignNowConnection(token) {
       headers: { 'Authorization': `Bearer ${token}` },
       muteHttpExceptions: true
     });
-    
+
     if (response.getResponseCode() === 200) {
       const user = JSON.parse(response.getContentText());
       console.log(`✅ SignNow Connected: ${user.email} (ID: ${user.id})`);
@@ -251,22 +368,22 @@ function testSignNowConnection(token) {
 function testWixHealth(apiKey) {
   // Try to hit the health endpoint
   // Note: Adjust URL if using a different site/environment
-  const baseUrl = 'https://www.shamrockbailbonds.biz/_functions'; 
-  
+  const baseUrl = 'https://www.shamrockbailbonds.biz/_functions';
+
   try {
     const response = UrlFetchApp.fetch(`${baseUrl}/health`, {
       method: 'GET',
       headers: { 'X-API-Key': apiKey }, // Passing key just in case, though health might be public
       muteHttpExceptions: true
     });
-    
+
     const code = response.getResponseCode();
     if (code === 200) {
       console.log(`✅ Wix Portal Healthy: ${response.getContentText()}`);
       return true;
     } else {
       console.warn(`⚠️ Wix Health Check returned ${code} (This might be normal if /health isn't exposed yet)`);
-      return false; 
+      return false;
     }
   } catch (e) {
     console.warn(`⚠️ Wix Unavailable: ${e.message}`);

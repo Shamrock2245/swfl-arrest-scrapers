@@ -295,7 +295,7 @@ cp .env.example .env
 ```
 Email: bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com
 Permission: Editor
-Spreadsheet: 1jq1-N7sCbwSiYPLAdI2ZnxhLzym1QsOSuHPy-Gw07Qc
+Spreadsheet: 121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
 ```
 
 ### 3. Test Run
@@ -353,7 +353,7 @@ In GitHub repository settings → Secrets and variables → Actions:
 
 | Secret Name | Value |
 |-------------|-------|
-| `GOOGLE_SHEETS_ID` | `1jq1-N7sCbwSiYPLAdI2ZnxhLzym1QsOSuHPy-Gw07Qc` |
+| `GOOGLE_SHEETS_ID` | `121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E` |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `bail-suite-sa@shamrock-bail-suite.iam.gserviceaccount.com` |
 | `GOOGLE_SA_KEY_JSON` | Full JSON content of service account key |
 | `SLACK_WEBHOOK_URL` | (Optional) Slack webhook URL |

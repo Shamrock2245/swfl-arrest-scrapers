@@ -2432,7 +2432,7 @@
            CONFIGURATION
            ========================================================= */
         const CONFIG = {
-            gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbzvYxPLTpP-nUv7M25i55D58c8LPv5b142Jsijd5tS0lirB0mjmKehaS9LGaSZrdLECcg/exec', // UPDATE WITH YOUR DEPLOYED URL
+            gasWebAppUrl: 'https://script.google.com/a/macros/shamrockbailbonds.biz/s/AKfycbxZ3_3xcLQyCpVZy3CYvJyygzfkt-P6d0EY-P_6fDejDiUg21tQC9cmkS_PjfdclnAFEw/exec', // UPDATE WITH YOUR DEPLOYED URL
             signNowApiBase: 'https://api.signnow.com',
             // signNowToken moved to Script Properties for security
 
@@ -2466,7 +2466,7 @@
                 'disclosure-form',       // 7. Signatures by all parties
                 'surety-terms',          // 8. Signatures by all parties
                 'master-waiver',         // 9. Signatures by all parties
-                'ssa-release',           // 10. Signatures by all parties
+                'ssa-release',           // 10. Signatures by all parties 
                 'collateral-receipt',    // 11. Collateral and premium receipt
                 'payment-plan'           // 12. Only if payment plan is used
             ],
@@ -3838,21 +3838,49 @@
             let pageOffset = 0;
 
             for (const doc of selectedDocs) {
-                const docFields = CONFIG.signatureFields[doc.key] || [];
+                // Get fields from config, handling aliases (e.g. ssa-release-indemnitor uses ssa-release fields)
+                let templateKey = doc.templateKey || doc.key;
 
-                // Add each field with adjusted page number for the merged PDF
+                // Special case for SSA Release copies - always map to base template logic
+                if (doc.key.includes('ssa-release-indemnitor')) {
+                    templateKey = 'ssa-release';
+                }
+
+                const docFields = CONFIG.signatureFields[templateKey] || [];
+
+                // Filter fields if necessary (logic to not add if not needed?)
+                // For now add all defined fields for the document
+
                 docFields.forEach((field, idx) => {
-                    allFields.push({
-                        type: field.type,
-                        required: true,
-                        role: field.role,
-                        name: `${doc.key}-${field.type}-${idx}`,
-                        page_number: pageOffset + field.page_number,
-                        x: field.x,
-                        y: field.y,
-                        width: field.width,
-                        height: field.height
-                    });
+                    if (field.role && ['Defendant', 'Indemnitor', 'Bail Agent'].includes(field.role)) {
+
+                        // Handle dynamic role reassignment for copy documents (e.g. SSA Release for Indemnitor)
+                        let role = field.role;
+                        const docKey = doc.key;
+
+                        if (docKey.includes('ssa-release-indemnitor')) {
+                            // For verified indemnitor copies, switch Defendant role to Indemnitor
+                            if (role === 'Defendant') role = 'Indemnitor';
+                        }
+
+                        // Determine the SignNow role for the tag
+                        // NOTE: SignNow API expects roles like "Defendant", "Indemnitor", "Bail Agent"
+                        // These must match the roles defined in the Invite step
+
+                        const signatureField = {
+                            x: field.x,
+                            y: field.y,
+                            width: field.width,
+                            height: field.height,
+                            page_number: pageOffset + field.page_number,
+                            role: role,
+                            required: true,
+                            type: field.type === 'initials' ? 'initials' : 'signature',
+                            name: `${docKey}_${role}_${field.type}` // Unique name for the field
+                        };
+
+                        allFields.push(signatureField);
+                    }
                 });
 
                 // Get page count for this document (we'll need to track this)
@@ -4446,31 +4474,29 @@
         }
 
         /**
-         * Fetch PDFs from Google Drive via GAS backend
-         * Uses google.script.run for reliable server-side execution (avoids CORS)
-         */
-        /**
          * Fetch PDFs from Google Drive with Batching & Caching
          * Optimized to prevent "Exceeded Maximum Execution Time" and "Java Runtime" errors
          */
         async function fetchPDFsFromDrive(documents) {
+            console.log('Fetching PDFs for:', documents);
             const results = [];
-            const missingDocs = [];
             const CACHE_PREFIX = 'PDF_CACHE_v1_';
 
             // 1. Check Session Storage Cache
             console.log('🔍 Checking PDF Cache...');
+            const missingDocs = [];
             for (const doc of documents) {
                 try {
-                    const cached = sessionStorage.getItem(CACHE_PREFIX + doc.key);
+                    const templateKey = doc.templateKey || doc.key; // Use templateKey for caching
+                    const cached = sessionStorage.getItem(CACHE_PREFIX + templateKey);
                     if (cached) {
                         const binaryString = atob(cached);
                         const bytes = new Uint8Array(binaryString.length);
                         for (let i = 0; i < binaryString.length; i++) {
                             bytes[i] = binaryString.charCodeAt(i);
                         }
-                        results.push({ key: doc.key, name: doc.name, bytes: bytes });
-                        console.log(`✅ Loaded ${doc.key} from cache`);
+                        results.push({ key: doc.key, name: doc.name, bytes: bytes, templateKey: templateKey, indices: doc.indices });
+                        console.log(`✅ Loaded ${templateKey} from cache`);
                     } else {
                         missingDocs.push(doc);
                     }
@@ -4484,107 +4510,71 @@
             if (missingDocs.length > 0) {
                 console.log(`📥 Fetching ${missingDocs.length} documents from server (Batch Mode)...`);
 
-                // Prepare keys for batch request
-                const templateIds = missingDocs.map(d => d.key);
+                // Identify unique template keys needed from missingDocs
+                const uniqueMissingKeys = [...new Set(missingDocs.map(d => d.templateKey || d.key))];
 
-                try {
-                    // Call the BATCH endpoint instead of loop
-                    const response = await callGAS('getMultipleTemplates', { templateIds: templateIds });
+                // BATCH REQUEST TO GAS
+                // We fetch all needed templates in one go to minimize execution time
+                const BATCH_SIZE = 5; // Fetch 5 at a time to prevent timeouts
+                for (let i = 0; i < uniqueMissingKeys.length; i += BATCH_SIZE) {
+                    const batch = uniqueMissingKeys.slice(i, i + BATCH_SIZE);
+                    try {
+                        const response = await callGAS('getPDFTemplates', { templateIds: batch });
 
-                    if (!response.success) {
-                        throw new Error(response.error || 'Batch fetch failed');
-                    }
-
-                    // Process results
-                    for (const doc of missingDocs) {
-                        const templateData = response.templates[doc.key];
-
-                        if (templateData && templateData.success && templateData.pdfBase64) {
-                            // Decode
-                            const binaryString = atob(templateData.pdfBase64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) {
-                                bytes[i] = binaryString.charCodeAt(i);
-                            }
-
-                            // Add to results
-                            results.push({ key: doc.key, name: doc.name, bytes: bytes });
-
-                            // Save to Cache (Try/Catch for Quota Exceeded)
-                            try {
-                                sessionStorage.setItem(CACHE_PREFIX + doc.key, templateData.pdfBase64);
-                            } catch (quotaErr) {
-                                console.warn('⚠️ Cache Quota Exceeded. PDF not saved to cache.');
-                            }
-
-                            console.log(`✓ Fetched & Cached: ${doc.key}`);
-                        } else {
-                            console.error(`❌ Failed to fetch ${doc.key}:`, templateData?.error);
-                            throw new Error(`Failed to load template: ${doc.name}`);
+                        if (!response || !response.success || !response.templates) {
+                            throw new Error(response?.error || 'Failed to fetch templates');
                         }
+
+                        // Process batch results
+                        batch.forEach(key => {
+                            const templateData = response.templates[key];
+                            if (templateData && templateData.success && templateData.pdfBase64) {
+                                // Decode
+                                const binaryString = atob(templateData.pdfBase64);
+                                const bytes = new Uint8Array(binaryString.length);
+                                for (let j = 0; j < binaryString.length; j++) {
+                                    bytes[j] = binaryString.charCodeAt(j);
+                                }
+
+                                // Save to session storage for caching
+                                try {
+                                    sessionStorage.setItem(CACHE_PREFIX + key, templateData.pdfBase64);
+                                } catch (quotaErr) {
+                                    console.warn('⚠️ Cache Quota Exceeded. PDF not saved to cache.');
+                                }
+
+                            } else {
+                                console.error(`❌ Failed to fetch ${key}:`, templateData?.error);
+                            }
+                        });
+
+                    } catch (err) {
+                        console.error('Batch Fetch Error:', err);
+                        throw err;
                     }
-
-                } catch (err) {
-                    console.error('Batch Fetch Error:', err);
-                    throw err; // Propagate to stop the process
                 }
-            }
 
-            // 3. Sort results to match original order
-            const orderedResults = [];
-            for (const doc of documents) {
-                const found = results.find(r => r.key === doc.key);
-                if (found) orderedResults.push(found);
-            }
+                // Now that all unique missing templates are fetched and cached,
+                // add the actual requested documents (which might be duplicates of templates) to results
+                for (const doc of missingDocs) {
+                    const templateKey = doc.templateKey || doc.key;
+                    const cachedBase64 = sessionStorage.getItem(CACHE_PREFIX + templateKey);
 
-            return orderedResults;
-        }
-
-        /**
-         * Map field names to form data values
-         */
-        function mapFieldToData(fieldName, formData) {
-            const mappings = {
-                'defendant-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
-                'defendant-full-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
-                'name': `${formData['defendant-first-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim(),
-                'first-name': formData['defendant-first-name'],
-                'last-name': formData['defendant-last-name'],
-                'dob': formData['defendant-dob'],
-                'ssn': formData['defendant-ssn'],
-                'dl': formData['defendant-dl'],
-                'address': formData['defendant-address'],
-                'city': formData['defendant-city'],
-                'state': formData['defendant-state'] || 'FL',
-                'zip': formData['defendant-zip'],
-                'phone': formData['defendant-phone'],
-                'email': formData['defendant-email'],
-                'bond-amount': calculateTotalBondAmount(formData),
-                'total-bond': calculateTotalBondAmount(formData),
-                'premium-amount': calculatePremiumAmount(formData),
-                'premium': calculatePremiumAmount(formData),
-                'receipt-number': currentReceiptNumber.toString(),
-                'collateral-receipt-number': `C-${currentReceiptNumber}`,
-                'date': new Date().toLocaleDateString('en-US'),
-                'today': new Date().toLocaleDateString('en-US'),
-                'current-date': new Date().toISOString().split('T')[0]
-            };
-
-            if (fieldName.includes('charge') && formData.charges && formData.charges.length > 0) {
-                const chargeMatch = fieldName.match(/charge-?(\d+)?-?(.*)?/);
-                if (chargeMatch) {
-                    const chargeIndex = parseInt(chargeMatch[1] || '1') - 1;
-                    const chargeField = chargeMatch[2] || 'desc';
-                    if (formData.charges[chargeIndex]) {
-                        const charge = formData.charges[chargeIndex];
-                        if (chargeField === 'desc' || chargeField === 'description') return charge.desc;
-                        if (chargeField === 'case' || chargeField === 'case-number') return charge.caseNumber;
-                        if (chargeField === 'power' || chargeField === 'power-number') return charge.powerNumber;
-                        if (chargeField === 'bond' || chargeField === 'bond-amount') return charge.bondAmount;
+                    if (cachedBase64) {
+                        const binaryString = atob(cachedBase64);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        results.push({ key: doc.key, name: doc.name, bytes: bytes, templateKey: templateKey, indices: doc.indices });
+                    } else {
+                        console.error(`Missing template data for ${doc.key} (template: ${templateKey})`);
+                        throw new Error(`Failed to load template: ${doc.name}`);
                     }
                 }
             }
-            return mappings[fieldName] || null;
+
+            return results;
         }
 
         function calculateTotalBondAmount(formData) {
@@ -4622,13 +4612,373 @@
         }
 
         /**
-         * Fill PDFs with form data using pdf-lib
+ * Helper: Get indemnitor field value by index and field name
+ */
+        function getIndemnitorField(formData, index, field) {
+            if (!formData.indemnitors || !formData.indemnitors[index]) return null;
+            const ind = formData.indemnitors[index];
+
+            if (field === 'fullName' || field === 'full-name') {
+                return `${ind.firstName || ''} ${ind.middleName || ''} ${ind.lastName || ''}`.trim().replace(/\s+/g, ' ');
+            }
+            if (field === 'name') {
+                return `${ind.firstName || ''} ${ind.lastName || ''}`.trim();
+            }
+
+            const fieldMap = {
+                'firstName': ind.firstName,
+                'first-name': ind.firstName,
+                'lastName': ind.lastName,
+                'last-name': ind.lastName,
+                'middleName': ind.middleName,
+                'middle-name': ind.middleName,
+                'dob': ind.dob,
+                'ssn': ind.ssn,
+                'dl': ind.dl,
+                'dlState': ind.dlState,
+                'dl-state': ind.dlState,
+                'address': ind.address,
+                'street-address': ind.address,
+                'city': ind.city,
+                'state': 'FL', // Default to FL
+                'zip': ind.zip,
+                'zipcode': ind.zip,
+                'phone': ind.phone,
+                'email': ind.email,
+                'employer': ind.employer,
+                'employerPhone': ind.employerPhone,
+                'employer-phone': ind.employerPhone,
+                'relationship': ind.relationship
+            };
+
+            return fieldMap[field] || null;
+        }
+
+        /**
+         * Map field names to form data values - FIXED VERSION
+         */
+        function mapFieldToData(fieldName, formData) {
+            // Basic mappings for defendant and system fields
+            const mappings = {
+                'defendant-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
+                'defendant-full-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
+                'name': `${formData['defendant-first-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim(),
+                'first-name': formData['defendant-first-name'],
+                'last-name': formData['defendant-last-name'],
+                'middle-name': formData['defendant-middle-name'],
+                'dob': formData['defendant-dob'],
+                'ssn': formData['defendant-ssn'],
+                'dl': formData['defendant-dl'],
+                'address': formData['defendant-address'],
+                'street-address': formData['defendant-address'],
+                'city': formData['defendant-city'],
+                'state': formData['defendant-state'] || 'FL',
+                'zip': formData['defendant-zip'],
+                'zipcode': formData['defendant-zip'],
+                'phone': formData['defendant-phone'],
+                'email': formData['defendant-email'],
+                'bond-amount': calculateTotalBondAmount(formData),
+                'total-bond': calculateTotalBondAmount(formData),
+                'premium-amount': calculatePremiumAmount(formData),
+                'premium': calculatePremiumAmount(formData),
+                'receipt-number': currentReceiptNumber.toString(),
+                'collateral-receipt-number': `C-${currentReceiptNumber}`,
+                'date': new Date().toLocaleDateString('en-US'),
+                'today': new Date().toLocaleDateString('en-US'),
+                'current-date': new Date().toISOString().split('T')[0],
+                // Case number mappings
+                'case-number': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : '',
+                'case-num': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : '',
+                'casenumber': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : ''
+            };
+
+            // PRIMARY INDEMNITOR MAPPINGS (indemnitor-1 or just "indemnitor")
+            const indemnitorMappings = {
+                'indemnitor-name': getIndemnitorField(formData, 0, 'fullName'),
+                'indemnitor-full-name': getIndemnitorField(formData, 0, 'fullName'),
+                'indemnitor-first-name': getIndemnitorField(formData, 0, 'firstName'),
+                'indemnitor-last-name': getIndemnitorField(formData, 0, 'lastName'),
+                'indemnitor-middle-name': getIndemnitorField(formData, 0, 'middleName'),
+                'indemnitor-dob': getIndemnitorField(formData, 0, 'dob'),
+                'indemnitor-ssn': getIndemnitorField(formData, 0, 'ssn'),
+                'indemnitor-dl': getIndemnitorField(formData, 0, 'dl'),
+                'indemnitor-dl-state': getIndemnitorField(formData, 0, 'dlState'),
+                'indemnitor-address': getIndemnitorField(formData, 0, 'address'),
+                'indemnitor-street-address': getIndemnitorField(formData, 0, 'address'),
+                'indemnitor-city': getIndemnitorField(formData, 0, 'city'),
+                'indemnitor-state': 'FL',
+                'indemnitor-zip': getIndemnitorField(formData, 0, 'zip'),
+                'indemnitor-zipcode': getIndemnitorField(formData, 0, 'zip'),
+                'indemnitor-phone': getIndemnitorField(formData, 0, 'phone'),
+                'indemnitor-email': getIndemnitorField(formData, 0, 'email'),
+                'indemnitor-employer': getIndemnitorField(formData, 0, 'employer'),
+                'indemnitor-employer-phone': getIndemnitorField(formData, 0, 'employerPhone'),
+                'indemnitor-relationship': getIndemnitorField(formData, 0, 'relationship'),
+                // Also support "indemnitors" plural
+                'indemnitors': formData.indemnitors && formData.indemnitors.length > 0
+                    ? formData.indemnitors.map(ind => `${ind.firstName || ''} ${ind.lastName || ''}`).join(', ').trim()
+                    : ''
+            };
+
+            // Merge all mappings
+            const allMappings = { ...mappings, ...indemnitorMappings };
+
+            // Check direct mappings first
+            if (allMappings[fieldName] !== undefined) {
+                return allMappings[fieldName];
+            }
+
+            // Handle numbered indemnitors (indemnitor-1-first-name, indemnitor-2-last-name, etc.)
+            if (fieldName.match(/^indemnitor-\d+-/)) {
+                const match = fieldName.match(/^indemnitor-(\d+)-(.*)/);
+                if (match) {
+                    const index = parseInt(match[1]) - 1; // Convert 1-based to 0-based
+                    const field = match[2];
+                    return getIndemnitorField(formData, index, field);
+                }
+            }
+
+            // Handle charge fields
+            if (fieldName.includes('charge') && formData.charges && formData.charges.length > 0) {
+                const chargeMatch = fieldName.match(/charge-?(\d+)?-?(.*)?/);
+                if (chargeMatch) {
+                    const chargeIndex = parseInt(chargeMatch[1] || '1') - 1;
+                    const chargeField = chargeMatch[2] || 'desc';
+                    if (formData.charges[chargeIndex]) {
+                        const charge = formData.charges[chargeIndex];
+                        if (chargeField === 'desc' || chargeField === 'description') return charge.desc;
+                        if (chargeField === 'case' || chargeField === 'case-number' || chargeField === 'casenumber') return charge.caseNumber;
+                        if (chargeField === 'power' || chargeField === 'power-number') return charge.powerNumber;
+                        if (chargeField === 'bond' || chargeField === 'bond-amount') return charge.bondAmount;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Improved field name normalization - handles camelCase
+         */
+        function normalizeFieldName(fieldName) {
+            return fieldName
+                .replace(/([A-Z])/g, '-$1') // Convert camelCase to dash-case
+                .toLowerCase()
+                .replace(/[_\s]/g, '-')
+                .replace(/^-/, '') // Remove leading dash
+                .replace(/-+/g, '-'); // Remove duplicate dashes
+        }
+
+        /**
+         * Helper: Get indemnitor field value by index and field name
+         */
+        function getIndemnitorField(formData, index, field) {
+            if (!formData.indemnitors || !formData.indemnitors[index]) return null;
+            const ind = formData.indemnitors[index];
+
+            if (field === 'fullName' || field === 'full-name') {
+                return `${ind.firstName || ''} ${ind.middleName || ''} ${ind.lastName || ''}`.trim().replace(/\s+/g, ' ');
+            }
+            if (field === 'name') {
+                return `${ind.firstName || ''} ${ind.lastName || ''}`.trim();
+            }
+
+            const fieldMap = {
+                'firstName': ind.firstName,
+                'first-name': ind.firstName,
+                'lastName': ind.lastName,
+                'last-name': ind.lastName,
+                'middleName': ind.middleName,
+                'middle-name': ind.middleName,
+                'dob': ind.dob,
+                'ssn': ind.ssn,
+                'dl': ind.dl,
+                'dlState': ind.dlState,
+                'dl-state': ind.dlState,
+                'address': ind.address,
+                'street-address': ind.address,
+                'city': ind.city,
+                'state': 'FL', // Default to FL
+                'zip': ind.zip,
+                'zipcode': ind.zip,
+                'phone': ind.phone,
+                'email': ind.email,
+                'employer': ind.employer,
+                'employerPhone': ind.employerPhone,
+                'employer-phone': ind.employerPhone,
+                'relationship': ind.relationship
+            };
+
+            return fieldMap[field] || null;
+        }
+
+        /**
+         * Map field names to form data values - FIXED VERSION
+         */
+        function mapFieldToData(fieldName, formData) {
+            // Basic mappings for defendant and system fields
+            const mappings = {
+                'defendant-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
+                'defendant-full-name': `${formData['defendant-first-name'] || ''} ${formData['defendant-middle-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim().replace(/\s+/g, ' '),
+                'name': `${formData['defendant-first-name'] || ''} ${formData['defendant-last-name'] || ''}`.trim(),
+                'first-name': formData['defendant-first-name'],
+                'last-name': formData['defendant-last-name'],
+                'middle-name': formData['defendant-middle-name'],
+                'dob': formData['defendant-dob'],
+                'ssn': formData['defendant-ssn'],
+                'dl': formData['defendant-dl'],
+                'address': formData['defendant-address'],
+                'street-address': formData['defendant-address'],
+                'city': formData['defendant-city'],
+                'state': formData['defendant-state'] || 'FL',
+                'zip': formData['defendant-zip'],
+                'zipcode': formData['defendant-zip'],
+                'phone': formData['defendant-phone'],
+                'email': formData['defendant-email'],
+                'bond-amount': calculateTotalBondAmount(formData),
+                'total-bond': calculateTotalBondAmount(formData),
+                'premium-amount': calculatePremiumAmount(formData),
+                'premium': calculatePremiumAmount(formData),
+                'receipt-number': currentReceiptNumber.toString(),
+                'collateral-receipt-number': `C-${currentReceiptNumber}`,
+                'date': new Date().toLocaleDateString('en-US'),
+                'today': new Date().toLocaleDateString('en-US'),
+                'current-date': new Date().toISOString().split('T')[0],
+                // Case number mappings
+                'case-number': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : '',
+                'case-num': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : '',
+                'casenumber': formData.charges && formData.charges[0] ? formData.charges[0].caseNumber : ''
+            };
+
+            // PRIMARY INDEMNITOR MAPPINGS (indemnitor-1 or just "indemnitor")
+            const indemnitorMappings = {
+                'indemnitor-name': getIndemnitorField(formData, 0, 'fullName'),
+                'indemnitor-full-name': getIndemnitorField(formData, 0, 'fullName'),
+                'indemnitor-first-name': getIndemnitorField(formData, 0, 'firstName'),
+                'indemnitor-last-name': getIndemnitorField(formData, 0, 'lastName'),
+                'indemnitor-middle-name': getIndemnitorField(formData, 0, 'middleName'),
+                'indemnitor-dob': getIndemnitorField(formData, 0, 'dob'),
+                'indemnitor-ssn': getIndemnitorField(formData, 0, 'ssn'),
+                'indemnitor-dl': getIndemnitorField(formData, 0, 'dl'),
+                'indemnitor-dl-state': getIndemnitorField(formData, 0, 'dlState'),
+                'indemnitor-address': getIndemnitorField(formData, 0, 'address'),
+                'indemnitor-street-address': getIndemnitorField(formData, 0, 'address'),
+                'indemnitor-city': getIndemnitorField(formData, 0, 'city'),
+                'indemnitor-state': 'FL',
+                'indemnitor-zip': getIndemnitorField(formData, 0, 'zip'),
+                'indemnitor-zipcode': getIndemnitorField(formData, 0, 'zip'),
+                'indemnitor-phone': getIndemnitorField(formData, 0, 'phone'),
+                'indemnitor-email': getIndemnitorField(formData, 0, 'email'),
+                'indemnitor-employer': getIndemnitorField(formData, 0, 'employer'),
+                'indemnitor-employer-phone': getIndemnitorField(formData, 0, 'employerPhone'),
+                'indemnitor-relationship': getIndemnitorField(formData, 0, 'relationship'),
+                // Also support "indemnitors" plural
+                'indemnitors': formData.indemnitors && formData.indemnitors.length > 0
+                    ? formData.indemnitors.map(ind => `${ind.firstName || ''} ${ind.lastName || ''}`).join(', ').trim()
+                    : ''
+            };
+
+            // Merge all mappings
+            const allMappings = { ...mappings, ...indemnitorMappings };
+
+            // Check direct mappings first
+            if (allMappings[fieldName] !== undefined) {
+                return allMappings[fieldName];
+            }
+
+            // Handle numbered indemnitors (indemnitor-1-first-name, indemnitor-2-last-name, etc.)
+            if (fieldName.match(/^indemnitor-\d+-/)) {
+                const match = fieldName.match(/^indemnitor-(\d+)-(.*)/);
+                if (match) {
+                    const index = parseInt(match[1]) - 1; // Convert 1-based to 0-based
+                    const field = match[2];
+                    return getIndemnitorField(formData, index, field);
+                }
+            }
+
+            // Handle charge fields
+            if (fieldName.includes('charge') && formData.charges && formData.charges.length > 0) {
+                const chargeMatch = fieldName.match(/charge-?(\d+)?-?(.*)?/);
+                if (chargeMatch) {
+                    const chargeIndex = parseInt(chargeMatch[1] || '1') - 1;
+                    const chargeField = chargeMatch[2] || 'desc';
+                    if (formData.charges[chargeIndex]) {
+                        const charge = formData.charges[chargeIndex];
+                        if (chargeField === 'desc' || chargeField === 'description') return charge.desc;
+                        if (chargeField === 'case' || chargeField === 'case-number' || chargeField === 'casenumber') return charge.caseNumber;
+                        if (chargeField === 'power' || chargeField === 'power-number') return charge.powerNumber;
+                        if (chargeField === 'bond' || chargeField === 'bond-amount') return charge.bondAmount;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Get list of selected documents with robust expansion for copies (e.g. SSA Release)
+         */
+        function getSelectedDocuments(includeCopies = true) {
+            const selected = [];
+            document.querySelectorAll('.doc-item input[type="checkbox"]:checked').forEach(cb => {
+                const templateKey = cb.dataset.template;
+                if (!templateKey) return;
+
+                const docName = cb.closest('.doc-item').querySelector('.doc-name').textContent;
+
+                // Add main document
+                selected.push({ key: templateKey, name: docName });
+
+                // Expansion Logic for SSA Release
+                // If SSA Release is selected, we want one for Defendant (added above) 
+                // AND one for each Indemnitor.
+                if (includeCopies && templateKey === 'ssa-release') {
+                    // Check for indemnitors
+                    // We can use the DOM or collectFormData. using DOM for speed/simplicity here as this is UI logic
+                    const indemnitors = document.querySelectorAll('.entity-card.indemnitor');
+                    if (indemnitors.length > 0) {
+                        console.log(`Adding SSA Release copies for ${indemnitors.length} indemnitors`);
+                        indemnitors.forEach((ind, index) => {
+                            // Use a unique key for the file, but alias it to the same template
+                            // Indices are 0-based for array access
+                            selected.push({
+                                key: `ssa-release-indemnitor-${index + 1}`,
+                                name: `SSA Release (Indemnitor ${index + 1})`,
+                                templateKey: 'ssa-release', // Instructs fetcher to use base template
+                                indices: { indemnitorIndex: index } // Metadata for filler
+                            });
+                        });
+                    }
+                }
+            });
+            return selected;
+        }
+
+        /**
+         * Improved field name normalization - handles camelCase
+         */
+        function normalizeFieldName(fieldName) {
+            return fieldName
+                .replace(/([A-Z])/g, '-$1') // Convert camelCase to dash-case
+                .toLowerCase()
+                .replace(/[_\s]/g, '-')
+                .replace(/^-/, '') // Remove leading dash
+                .replace(/-+/g, '-'); // Remove duplicate dashes
+        }
+
+        /**
+         * Fill PDFs with form data using pdf-lib - IMPROVED VERSION
          */
         async function fillPDFsWithData(pdfDocs, formData) {
             const { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown } = PDFLib;
             const filledPdfs = [];
 
             console.log(`Starting to fill ${pdfDocs.length} documents...`);
+            console.log('Form data structure:', {
+                defendantName: formData['defendant-first-name'],
+                indemnitorCount: formData.indemnitors ? formData.indemnitors.length : 0,
+                chargesCount: formData.charges ? formData.charges.length : 0
+            });
 
             for (const doc of pdfDocs) {
                 try {
@@ -4636,39 +4986,79 @@
                     const pdfDoc = await PDFDocument.load(doc.bytes);
                     const form = pdfDoc.getForm();
                     const fields = form.getFields();
-                    let fieldCount = 0;
-
                     for (const field of fields) {
                         const fieldName = field.getName();
-                        const fieldNameLower = fieldName.toLowerCase().replace(/[_\s]/g, '-');
+                        const fieldNameNormalized = normalizeFieldName(fieldName);
 
-                        let value = formData[fieldNameLower] || formData[`defendant-${fieldNameLower}`] || mapFieldToData(fieldNameLower, formData);
+                        let value = null;
+
+                        // DATA MAPPING STRATEGY WITH CONTEXT AWARENESS
+                        // If we are filling a specific indemnitor copy (e.g. ssa-release-indemnitor-1),
+                        // we prioritize their data over the defendant's data.
+
+                        if (doc.indices && typeof doc.indices.indemnitorIndex !== 'undefined') {
+                            const idx = doc.indices.indemnitorIndex;
+                            // Try to match basic fields to this indemnitor
+                            const directMap = getIndemnitorField(formData, idx, fieldNameNormalized);
+                            if (directMap) {
+                                value = directMap;
+                            } else {
+                                // Handle fallback for generic names like "name", "address", "signature"
+                                if (['name', 'full-name', 'defendant-name', 'defendant-full-name', 'signature'].includes(fieldNameNormalized)) {
+                                    value = getIndemnitorField(formData, idx, 'fullName');
+                                } else if (['address', 'street-address', 'defendant-address'].includes(fieldNameNormalized)) {
+                                    value = getIndemnitorField(formData, idx, 'address');
+                                } else if (['city', 'defendant-city'].includes(fieldNameNormalized)) {
+                                    value = getIndemnitorField(formData, idx, 'city');
+                                } else if (['zip', 'zipcode', 'defendant-zip'].includes(fieldNameNormalized)) {
+                                    value = getIndemnitorField(formData, idx, 'zip');
+                                } else if (['ssn', 'social-security', 'defendant-ssn'].includes(fieldNameNormalized)) {
+                                    value = getIndemnitorField(formData, idx, 'ssn');
+                                }
+                            }
+                        }
+
+                        // Fallback to standard mapping if no value found yet
+                        if (!value) {
+                            value = formData[fieldNameNormalized]
+                                || formData[`defendant-${fieldNameNormalized}`]
+                                || mapFieldToData(fieldNameNormalized, formData);
+                        }
 
                         if (value !== null && value !== undefined && value !== '') {
                             try {
                                 if (field instanceof PDFTextField) {
                                     field.setText(String(value));
                                     fieldCount++;
+                                    console.log(`  ✓ Filled: ${fieldName} = ${String(value).substring(0, 50)}`);
                                 } else if (field instanceof PDFCheckBox) {
                                     if (value === true || value === 'true' || value === 'yes' || value === '1') {
                                         field.check();
                                         fieldCount++;
+                                        console.log(`  ✓ Checked: ${fieldName}`);
                                     }
                                 } else if (field instanceof PDFDropdown) {
                                     field.select(String(value));
                                     fieldCount++;
+                                    console.log(`  ✓ Selected: ${fieldName} = ${value}`);
                                 }
                             } catch (fieldErr) {
-                                console.warn(`Could not set field ${fieldName} in ${doc.key}:`, fieldErr);
+                                console.warn(`  ⚠️ Could not set field ${fieldName}:`, fieldErr.message);
                             }
+                        } else {
+                            skippedFields.push(fieldName);
                         }
+                    }
+
+                    if (skippedFields.length > 0) {
+                        console.log(`  ⚠️ Skipped ${skippedFields.length} empty fields:`, skippedFields.slice(0, 10));
                     }
 
                     const filledBytes = await pdfDoc.save();
                     filledPdfs.push({ key: doc.key, name: doc.name, bytes: filledBytes });
-                    console.log(`✓ Successfully filled ${doc.key} (${fieldCount} fields)`);
+                    console.log(`✓ Successfully filled ${doc.key} (${fieldCount} fields filled, ${skippedFields.length} skipped)`);
                 } catch (err) {
-                    console.error(`Error filling ${doc.key}:`, err);
+                    console.error(`❌ Error filling ${doc.key}:`, err);
                     filledPdfs.push(doc); // Fall back to empty doc
                 }
             }
@@ -5150,74 +5540,31 @@
          * @returns {Promise<Object>} Result of the save operation
          */
         async function saveSigningLinkToWixPortal(params) {
-            if (!WIX_PORTAL_CONFIG.enabled) {
-                console.log('Wix Portal integration disabled');
-                return { success: false, reason: 'disabled' };
-            }
-
-            try {
-                const payload = {
-                    signerEmail: params.signerEmail,
-                    signerName: params.signerName,
-                    signerPhone: params.signerPhone,
-                    signerRole: params.signerRole,
-                    signingLink: params.signingLink,
-                    documentId: params.documentId,
-                    defendantName: params.defendantName,
-                    caseNumber: params.caseNumber || '',
-                    documentName: params.documentName || 'Bail Bond Packet',
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-                };
-
-                const response = await fetch(WIX_PORTAL_CONFIG.siteUrl + WIX_PORTAL_CONFIG.endpoints.addDocument, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    console.log('Signing link saved to Wix portal:', result.documentId);
-                } else {
-                    console.error('Failed to save to Wix portal:', result.error);
-                }
-
-                return result;
-
-            } catch (error) {
-                console.error('Error saving to Wix portal:', error);
-                return { success: false, error: error.message };
-            }
+            if (!WIX_PORTAL_CONFIG.enabled) return { success: false, reason: 'disabled' };
+            // Wrap single item as batch
+            const doc = {
+                signerEmail: params.signerEmail,
+                signerName: params.signerName,
+                signerPhone: params.signerPhone,
+                signerRole: params.signerRole,
+                signingLink: params.signingLink,
+                documentId: params.documentId,
+                defendantName: params.defendantName,
+                caseNumber: params.caseNumber || '',
+                documentName: params.documentName || 'Bail Bond Packet',
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            };
+            return batchSaveToWixPortal([doc]);
         }
 
-        /**
-         * Save multiple signing links to Wix portal at once
-         * 
-         * @param {Array<Object>} documents - Array of document objects (same structure as saveSigningLinkToWixPortal params)
-         * @returns {Promise<Object>} Result with counts of successful/failed saves
-         */
         async function batchSaveToWixPortal(documents) {
-            if (!WIX_PORTAL_CONFIG.enabled) {
-                console.log('Wix Portal integration disabled');
-                return { success: false, reason: 'disabled' };
-            }
+            if (!WIX_PORTAL_CONFIG.enabled) return { success: false, reason: 'disabled' };
 
+            // Call Server-Side Logic (Secure)
             try {
-                const response = await fetch(WIX_PORTAL_CONFIG.siteUrl + WIX_PORTAL_CONFIG.endpoints.batchAdd, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ documents })
-                });
-
-                const result = await response.json();
-                console.log('Batch save to Wix portal:', result);
+                const result = await callGAS('batchSaveToWixPortal', { documents: documents });
+                console.log('Batch save to Wix portal (via GAS):', result);
                 return result;
-
             } catch (error) {
                 console.error('Error batch saving to Wix portal:', error);
                 return { success: false, error: error.message };
@@ -5492,7 +5839,8 @@
         // =========================================================
 
         // Uncomment the line below to automatically use the Wix portal version
-        // window.generateAndSend = generateAndSendWithWixPortal;
+        // Uncomment the line below to automatically use the Wix portal version
+        window.generateAndSend = generateAndSendWithWixPortal;
 
         console.log('Wix Portal Integration module loaded');
     </script>
