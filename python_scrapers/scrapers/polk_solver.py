@@ -110,9 +110,17 @@ def parse_detail_page(driver, booking_number: str) -> dict:
             record['Weight'] = weight_match.group(1)
         
         # Booking Date
-        booking_date_match = re.search(r'Booking\s*Date:\s*(\d{1,2}/\d{1,2}/\d{4})', text_content, re.I)
         if booking_date_match:
             record['Booking_Date'] = booking_date_match.group(1)
+            
+        # Court Date
+        court_match = re.search(r'(?:Next\s*)?Court\s*Date:\s*(\d{1,2}/\d{1,2}/\d{4})', text_content, re.I)
+        if court_match:
+            record['Court_Date'] = court_match.group(1)
+        # Also check for Time
+        court_time_match = re.search(r'Court\s*Time:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)', text_content, re.I)
+        if court_time_match:
+            record['Court_Time'] = court_time_match.group(1)
         
         # Location / Facility
         location_match = re.search(r'Location:\s*([A-Z]+)', text_content, re.I)
@@ -171,16 +179,22 @@ def parse_detail_page(driver, booking_number: str) -> dict:
         
         # Fallback: look for charge patterns in full text
         if not charges:
-            charge_patterns = re.findall(
-                r'(\d{3}\.\d+[^|$]*)',  # Florida statute numbers
-                text_content
-            )
-            for cp in charge_patterns[:10]:
-                clean = cp.strip()
-                if len(clean) > 5 and len(clean) < 200:
-                    charges.append(clean)
-        
-        record['Charges'] = ' | '.join(charges[:10]) if charges else ''
+            # Broader search for statutes or charge descriptions
+            # Look for lines that look like charges (all caps, or statute numbers)
+            lines = text_content.split('\n')
+            potential_charges = []
+            for line in lines:
+                clean = line.strip()
+                # Statute pattern or typical charge words
+                if re.search(r'\b\d{3}\.\d+\b', clean) or \
+                   any(w in clean.upper() for w in ['BATTERY', 'THEFT', 'DRUG', 'POSS', 'DUI', 'VIOL', 'CONTEMPT']):
+                    if len(clean) > 5 and len(clean) < 150 and 'Arrest Date' not in clean:
+                        potential_charges.append(clean)
+            
+            if potential_charges:
+                charges = potential_charges[:10]  # Limit to avoid capturing garbage
+
+        record['Charges'] = ' | '.join(charges) if charges else ''
         
         # === BOND SECTION ===
         # Look for total bond

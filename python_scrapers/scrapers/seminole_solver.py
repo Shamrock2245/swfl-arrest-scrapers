@@ -20,6 +20,7 @@ import re
 import time
 import html
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 try:
     from selenium import webdriver
@@ -149,44 +150,60 @@ def fetch_detail_page(driver, person_id):
         driver.get(detail_url)
         time.sleep(2)
         
-        page_source = driver.page_source
         details['Detail_URL'] = detail_url
-        
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+        # Helper to find value by label
+        def get_val(label_text):
+            # Look for <td>Label</td> <td>Value</td>
+            label = soup.find('td', string=re.compile(label_text, re.I))
+            if label:
+                val = label.find_next_sibling('td')
+                if val: return val.get_text(strip=True)
+            return None
+
         # Booking Number
-        booking_match = re.search(r'Booking\s*-\s*(\d+)', page_source)
-        if booking_match:
-            details['Booking_Number'] = booking_match.group(1)
+        bn = get_val('Booking Number') or get_val('Booking #')
+        if bn: details['Booking_Number'] = bn
         
         # Booking Date
-        date_match = re.search(r'Booking Date</td>\s*<td[^>]*>(\d{2}/\d{2}/\d{4})', page_source)
-        if date_match:
-            details['Booking_Date'] = date_match.group(1)
+        bd = get_val('Booking Date')
+        if bd: details['Booking_Date'] = bd
         
+        # Arrest Date (often same as booking, but check specific label)
+        ad = get_val('Arrest Date')
+        if ad: details['Arrest_Date'] = ad
+
         # Arresting Agency
-        agency_match = re.search(r'Arresting Agency</td>\s*<td[^>]*>([^<]+)', page_source)
-        if agency_match:
-            details['Arrest_Agency'] = agency_match.group(1).strip()
+        aa = get_val('Arresting Agency')
+        if aa: details['Arrest_Agency'] = aa
         
         # Total Bond
-        bond_match = re.search(r'Total Bond</td>\s*<td[^>]*>\$([0-9,]+\.?\d*)', page_source)
-        if bond_match:
-            details['Bond_Amount'] = bond_match.group(1).replace(',', '')
+        tb = get_val('Total Bond')
+        if tb: 
+            details['Bond_Amount'] = tb.replace('$', '').replace(',', '')
         
         # Status
-        status_match = re.search(r'<td[^>]*>Status</td>\s*<td[^>]*>([^<]+)', page_source)
-        if status_match:
-            details['Status'] = status_match.group(1).strip()
+        st = get_val('Status')
+        if st: details['Status'] = st
         
-        # Extract charges
+        # Charges - Look for the Charges table
+        # Attempt to find table with header "Offense" or "Statute"
         charges = []
-        charge_rows = re.findall(
-            r'<tr[^>]*>\s*<td[^>]*>([^<]+)</td>\s*<td[^>]*>(Felony|Misdemeanor)</td>',
-            page_source, re.IGNORECASE
-        )
-        for charge_desc, severity in charge_rows:
-            charge_desc = charge_desc.strip()
-            if charge_desc and charge_desc.lower() not in ['charge', 'class', '']:
-                charges.append(f"{charge_desc} ({severity})")
+        tables = soup.find_all('table')
+        for table in tables:
+            headers = [th.get_text(strip=True).lower() for th in table.find_all('th')]
+            if any(x in headers for x in ['offense', 'statute', 'charge']):
+                # This is likely the charges table
+                rows = table.find_all('tr')[1:] # Skip header
+                for row in rows:
+                    cells = row.find_all('td')
+                    if len(cells) >= 2:
+                        # Extract text from all cells to form charge string
+                        # Usually: counts, statute, description, degree, etc.
+                        charge_parts = [c.get_text(strip=True) for c in cells if c.get_text(strip=True)]
+                        if charge_parts:
+                            charges.append(" ".join(charge_parts))
         
         if charges:
             details['Charges'] = ' | '.join(charges)

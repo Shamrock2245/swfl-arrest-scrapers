@@ -16,6 +16,7 @@ import sys
 import os
 import json
 import subprocess
+import argparse
 from datetime import datetime
 from typing import List
 
@@ -90,7 +91,10 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 
 def main():
     """Main execution function."""
-    
+    parser = argparse.ArgumentParser(description='Run Pinellas County scraper')
+    parser.add_argument('days_back', nargs='?', type=int, default=7, help='Number of days back to scrape (default: 7)')
+    args = parser.parse_args()
+
     print(f"\n{'='*80}")
     print(f"🔵 Pinellas County Scraper - Production Runner")
     print(f"{'='*80}\n")
@@ -118,9 +122,9 @@ def main():
         # Parse JSON output
         try:
             raw_records = json.loads(result.stdout)
-            print(f"✅ Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-                raise
+            print(f"❌ Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+            return
             
         print(f"✅ Solver extracted {len(raw_records)} raw records")
         

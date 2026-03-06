@@ -16,6 +16,7 @@ import sys
 import os
 import json
 import subprocess
+import argparse
 from datetime import datetime
 from typing import List
 
@@ -83,7 +84,11 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 
 def main():
     """Main execution function."""
-    
+    parser = argparse.ArgumentParser(description='Run Charlotte County scraper')
+    parser.add_argument('--days-back', type=int, default=21, help='Days back to scrape')
+    parser.add_argument('--max-pages', type=int, default=10, help='Max pages to scrape')
+    args = parser.parse_args()
+
     print(f"\n{'='*80}")
     print(f"🚦 Charlotte County Scraper - Production Runner")
     print(f"{'='*80}\n")
@@ -93,12 +98,11 @@ def main():
     solver_path = os.path.join(script_dir, 'charlotte_solver.py')
     
     # Run the solver
-    # Run the solver
-    print("📡 Running Charlotte solver...")
+    print(f"📡 Running Charlotte solver (days_back={args.days_back}, max_pages={args.max_pages})...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
-            ['python3', solver_path] + sys.argv[1:],
+            ['python3', solver_path, str(args.days_back), str(args.max_pages)],
             stdout=subprocess.PIPE,
             stderr=sys.stderr,  # Stream logs directly to console
             text=True,

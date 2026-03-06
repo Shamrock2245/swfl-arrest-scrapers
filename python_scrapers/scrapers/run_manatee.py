@@ -17,6 +17,7 @@ import os
 import json
 import subprocess
 import argparse
+from datetime import datetime
 from typing import List
 
 # Add parent directory to path
@@ -116,17 +117,14 @@ def main():
         
         # Parse JSON output
         try:
-            raw_records = json.loads(stdout_clean)
+            raw_records = json.loads(result.stdout)
         except:
              # Try to find array brackets - handle case where unrelated text is in stdout
              try:
-                 # Look for the last occurrence of ']'
-                 end_idx = stdout_clean.rfind(']')
+                 stdout_str = result.stdout
+                 end_idx = stdout_str.rfind(']')
                  if end_idx != -1:
-                     # Look for the matching '[' before it
-                     # This is heuristic; assuming the largest JSON array at the end is our data
-                     # A safer way is to find the last '[' that starts a valid JSON array ending at end_idx
-                     subset = stdout_clean[:end_idx+1]
+                     subset = stdout_str[:end_idx+1]
                      start_idx = subset.rfind('[')
                      if start_idx != -1:
                         candidate = subset[start_idx:]

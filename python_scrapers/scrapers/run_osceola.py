@@ -118,9 +118,9 @@ def main():
         # Parse JSON output
         try:
             raw_records = json.loads(result.stdout)
-            print(f"✅ Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-                raise
+            print(f"❌ Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+            return
             
         print(f"✅ Solver extracted {len(raw_records)} raw records")
         

@@ -2,19 +2,8 @@ name: Scrape Manatee County
 
 on:
   schedule:
-    - cron: '15 7,13,19,1 * * *'
+    - cron: '35 7,13,19,1 * * *'
   workflow_dispatch:
-    inputs:
-      days_back:
-        description: 'Days back to scrape'
-        required: false
-        default: '21'
-        type: string
-      max_pages:
-        description: 'Max pages to scrape'
-        required: false
-        default: '10'
-        type: string
 
 jobs:
   scrape:
@@ -48,10 +37,8 @@ jobs:
 
       - name: Run scraper
         run: |
-          DAYS="${{ github.event.inputs.days_back || '21' }}"
-          PAGES="${{ github.event.inputs.max_pages || '10' }}"
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            python3 python_scrapers/scrapers/run_manatee.py --days-back $DAYS --max-pages $PAGES
+            python3 python_scrapers/scrapers/run_manatee.py --days-back 21
 
       - name: Notify on failure
         if: failure()
@@ -60,4 +47,4 @@ jobs:
         run: |
           curl -s -X POST "$SLACK_WEBHOOK_URL" \
             -H 'Content-type: application/json' \
-            -d '{"text":"\u274c *Manatee* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
+            -d '{"text":"❌ *Manatee* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'

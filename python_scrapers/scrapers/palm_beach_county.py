@@ -9,18 +9,19 @@ def scrape_palm_beach(days_back=1):
     records = []
     
     # 1. Initialize Browser
+    import platform
+    import os
     co = ChromiumOptions()
     co.auto_port()
     co.headless(True)  # Run headless for GitHub Actions
     
-    # Add Linux-specific options for GitHub Actions
-    co.set_argument('--no-sandbox')
-    co.set_argument('--disable-dev-shm-usage')
-    co.set_argument('--disable-gpu')
-    co.set_argument('--disable-software-rasterizer')
-    co.set_argument('--disable-extensions')
-    
-    # Optional: set user agent or other headers if needed
+    if platform.system() != "Darwin":
+        # Add Linux-specific options for GitHub Actions
+        co.set_argument('--no-sandbox')
+        co.set_argument('--disable-dev-shm-usage')
+        co.set_argument('--disable-gpu')
+        co.set_argument('--disable-software-rasterizer')
+        co.set_argument('--disable-extensions')
     
     page = ChromiumPage(co)
     

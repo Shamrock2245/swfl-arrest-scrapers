@@ -106,6 +106,7 @@ def parse_results_table(soup):
                     # Look for charges in nested table
                     charges = []
                     case_numbers = []
+                    total_bond = 0.0
                     if i + 3 < len(all_rows):
                         charge_row = all_rows[i + 3]
                         nested_table = charge_row.find('table')
@@ -117,12 +118,26 @@ def parse_results_table(soup):
                                     charge_desc = charge_cells[1].get_text(strip=True)
                                     if charge_desc and 'Charge Type' not in charge_desc:
                                         charges.append(charge_desc)
+                                    
+                                    # Bond Amount Extraction (Index 4 usually)
+                                    if len(charge_cells) >= 5:
+                                        bond_text = charge_cells[4].get_text(strip=True)
+                                        # Parse "$1,000.00"
+                                        if '$' in bond_text or bond_text.replace(',','').replace('.','').isdigit():
+                                            try:
+                                                amt = float(bond_text.replace('$', '').replace(',', ''))
+                                                total_bond += amt
+                                            except: pass
+
                                     if len(charge_cells) >= 4:
                                         case_num = charge_cells[3].get_text(strip=True)
                                         if case_num and '-' in case_num and case_num not in case_numbers:
                                             case_numbers.append(case_num)
                     
                     record['Charges'] = ' | '.join(charges) if charges else ''
+                    # Calculate total bond from amounts found
+                    record['Bond_Amount'] = str(total_bond) if total_bond > 0 else '0'
+                    
                     if case_numbers:
                         record['Case_Number'] = case_numbers[0]
                     

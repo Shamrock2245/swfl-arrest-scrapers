@@ -234,8 +234,8 @@ def scrape_pinellas(days_back: int = 7, fetch_details: bool = True) -> List[Dict
             
             detail_count = 0
             for key, inmate in all_inmates.items():
-                if detail_count >= 50:  # Limit detail fetches
-                    print(f"   Limiting to 50 detail fetches")
+                if detail_count >= 500:  # Increased limit from 50 to 500
+                    print(f"   Limiting to 500 detail fetches")
                     break
                 
                 if inmate.get('detail_url'):
@@ -246,14 +246,25 @@ def scrape_pinellas(days_back: int = 7, fetch_details: bool = True) -> List[Dict
                         page_source = driver.page_source
                         
                         # Look for bond amount
-                        bond_match = re.search(r'Bond[:\s]*\$?([\d,]+\.?\d*)', page_source, re.IGNORECASE)
+                        # Pattern 1: Table cell with "Bond Amount" label
+                        bond_match = re.search(r'Bond\s*(?:Amount)?[:\s]*\$?([\d,]+\.?\d*)', page_source, re.IGNORECASE)
                         if bond_match:
                             inmate['bond_amount'] = bond_match.group(1).replace(',', '')
                         
-                        # Look for docket number
-                        docket_match = re.search(r'Docket[:\s#]*(\d+)', page_source, re.IGNORECASE)
+                        # Look for docket number / case number
+                        docket_match = re.search(r'(?:Docket|Case)\s*[:#]\s*([A-Z0-9-]+)', page_source, re.IGNORECASE)
                         if docket_match:
-                            inmate['booking_number'] = docket_match.group(1)
+                            inmate['case_number'] = docket_match.group(1)
+                            
+                        # Look for Address
+                        addr_match = re.search(r'Address:\s*</td>\s*<td>([^<]+)', page_source, re.IGNORECASE)
+                        if addr_match:
+                            inmate['address'] = addr_match.group(1).strip()
+                            
+                        # Look for Court Date
+                        court_match = re.search(r'Court\s*Date:\s*</td>\s*<td>(\d{1,2}/\d{1,2}/\d{2,4}[^<]*)', page_source, re.IGNORECASE)
+                        if court_match:
+                            inmate['court_date'] = court_match.group(1).strip()
                         
                         detail_count += 1
                         if detail_count % 10 == 0:
