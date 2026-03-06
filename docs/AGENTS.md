@@ -8,33 +8,30 @@
     * **Node.js/Puppeteer:** Legacy & simple scrapers (`/scrapers`).
     * **Python/DrissionPage:** Modern, anti-detection scrapers (`/python_scrapers`).
 * **Data Source of Truth:** The [Master Google Sheet](https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit).
-* **Schema:** Strict **34-column** format defined in `config/schema.json` and `docs/SCHEMA.md`.
+* **Schema:** Dynamic. We capture *all* data a county provides. We maintain a baseline structure but expand columns freely to ensure no data is lost.
 
 ---
 
-## 🛡️ Prime Directives
+## 🤖 The Digital Team: Roles & Relationships
 
-1.  **Schema Sanctity:**
-    * **NEVER** alter the column order or names in the Google Sheet output without explicit authorization.
-    * All scrapers must normalize data to `ArrestRecord` (Python) or `normalizeRecord` (JS) specifications before writing.
-    * **Lead_Score** and **Lead_Status** are mandatory calculated fields.
+### "The Clerk" (Runtime Agent)
+*   **Role:** The automated data-entry specialist operating this repository.
+*   **Responsibility:** Booking scraper, OCR specialist, and county jail roster monitor.
+*   **Goal:** Zero manual data entry. Instant, accurate case file creation in the Master Sheet.
 
-2.  **Idempotency:**
-    * All writers must check for existing records using the composite key: `County` + `Booking_Number`.
-    * Duplicates must be **updated** or **skipped**, never inserted as new rows.
-
-3.  **Stealth First:**
-    * Scrapers must assume hostile environments (Cloudflare, CAPTCHA).
-    * Use `DrissionPage` (Python) or `puppeteer-extra-plugin-stealth` (Node) by default.
-    * Implement random delays and user-agent rotation.
-
-4.  **Credential Safety:**
-    * **NEVER** output, log, or commit `GOOGLE_SA_KEY_JSON`, `SLACK_WEBHOOK_URL`, or `SIGNNOW_TOKEN`.
-    * Always refer to credentials via environment variables.
+### The Coding Assistant (Developer Agent)
+*   **Role:** The AI software engineer (like me!) assisting the human Owner with building, scaling, and debugging the repo.
+*   **Relationship to The Clerk:** We *build* the tools and environments that "The Clerk" runs in. The Clerk is our output. We do not *act* as The Clerk; we *program* The Clerk.
 
 ---
 
-## 🤖 Interaction & Budgeting
+## 🛡️ Prime Directives & Rules
+For strict constraints on data governance, credential safety, sheet idempotency, and stealth operations (anti-bot workarounds), you **MUST** consult:
+👉 **`docs/RULES.md`**
+
+---
+
+## ⚙️ Interaction & Budgeting
 
 ### Complexity Tiers
 * **Tier 1 (Routine):** Typo fixes, comment updates, markdown formatting. *Action: Execute immediately.*
@@ -65,11 +62,12 @@
 
 ---
 
-## 🚨 Error Handling Strategy
+## 🚨 Error Handling & Operational Memory
 
-1.  **Import Errors:** Check `package.json` or `requirements.txt` first. Suggest installation commands.
-2.  **Selector Failures:** Request a fresh HTML fixture (save page as HTML) to debug offline.
-3.  **Cloudflare Blocks:** Suggest increasing delays or switching to "headful" mode locally. Do not brute force.
+1.  **Platform Quirks & Overrides:** Before debugging a scraper that is suddenly failing (especially due to Cloudflare), check **`docs/MEMORY.md`**.
+2.  **Import Errors:** Check `package.json` or `requirements.txt` first.
+3.  **Selector Failures:** Request a fresh HTML fixture (save page as HTML) to debug offline.
+4.  **Cloudflare Blocks:** Do not brute force. Consult `MEMORY.md` and default to `DrissionPage`.
 
 ---
 *Maintained by: Admin & AI Agents*
