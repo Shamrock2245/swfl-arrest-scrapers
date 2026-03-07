@@ -19,15 +19,11 @@ except ImportError:
 
 def main():
     print("================================================================================")
-    print(f"🍊 Running Orange County Scraper Runner at {datetime.now()}")
+    print(f"🏖️ Running Sarasota County Scraper Runner at {datetime.now()}")
     print("================================================================================")
 
     # 1. Run the Solver
-    # We call the solver script as a subprocess to keep it isolated or direct import
-    # Direct import is cleaner if in same package.
-    
-    # Using subprocess to match pattern of others and capture stdout
-    solver_path = os.path.join(os.path.dirname(__file__), 'scrapers', 'orange_solver.py')
+    solver_path = os.path.join(os.path.dirname(__file__), 'scrapers', 'sarasota_solver.py')
     
     try:
         result = subprocess.run(
@@ -52,19 +48,13 @@ def main():
     
     for raw in raw_data:
         try:
-            # Map raw fields to ArrestRecord model
-            # Our solver already creates a dict that matches Schema effectively
-            # But we should ensure type safety with the Model
-            
-            # Create ArrestRecord (handles normalization)
-            # Use PascalCase to match Dataclass fields or use from_dict helper
             record = ArrestRecord(
                 Booking_Number=raw.get('Booking_Number'),
                 Booking_Date=raw.get('Booking_Date'),
                 Full_Name=raw.get('Full_Name'),
                 First_Name=raw.get('First_Name', ''),
                 Last_Name=raw.get('Last_Name', ''),
-                County='Orange',
+                County='Sarasota',
                 Booking_Time=raw.get('Booking_Time', ''),
                 Status=raw.get('Status', 'Active'),
                 Charges=raw.get('Charges', ''),
@@ -73,17 +63,12 @@ def main():
                 Address=raw.get('Address', ''),
                 City=raw.get('City', ''),
                 State=raw.get('State', 'FL'),
-                ZIP=raw.get('ZIP', ''),
+                ZIP=raw.get('Zipcode', raw.get('ZIP', '')),
                 Race=raw.get('Race', ''),
                 Sex=raw.get('Sex', ''),
                 Case_Number=raw.get('Case_Number', ''),
-                Detail_URL=raw.get('Detail_URL', '')
+                Detail_URL=raw.get('URL', '')
             )
-            
-            # Fallback for fields not in constructor explicit args but in model
-            # The model __init__ might not take all args, so we set them manually if needed
-            # Checking ArrestRecord definition... usually it takes a dict or kwargs
-            # Assuming standard structure from other runners
             
             # Score
             score_result = scorer.score_and_update(record)
@@ -97,10 +82,8 @@ def main():
     print(f"📊 Processed {len(processed_records)} valid records")
 
     # 3. Write to Sheets
-    # Get credentials from environment or use defaults
     sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
     
-    # Check standard credential locations
     possible_creds = [
         os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
         os.path.join(os.path.dirname(__file__), '../credentials/shamrock-bail-suite-fd1834493ea7.json'),
@@ -121,11 +104,9 @@ def main():
             credentials_path=creds_path
         )
         
-        # Write to "Orange" tab
-        # Ensure tab exists? Writer usually handles or throws
         stats = writer.write_records(
             records=processed_records,
-            county='Orange',
+            county='Sarasota',
             deduplicate=True
         )
         

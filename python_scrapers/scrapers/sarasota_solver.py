@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Sarasota County Arrest Scraper using DrissionPage
+Sarasota County Arrest Scraper using Scrapling and BeautifulSoup
 Targets: https://cms.revize.com/revize/apps/sarasota/
-Approach: DrissionPage browser → date search form → detail pages → JSON output
+Approach: Scrapling → date search form → detail pages → BeautifulSoup → JSON output
 """
 
 import sys
@@ -10,7 +10,9 @@ import json
 import time
 import re
 import datetime
-from DrissionPage import ChromiumPage, ChromiumOptions
+import urllib.parse
+from scrapling import Fetcher
+from bs4 import BeautifulSoup
 
 
 def clean_text(text):
@@ -35,194 +37,94 @@ def clean_charge_text(raw_charge):
     return text.strip()
 
 
-def setup_browser():
-    """Configure and launch DrissionPage browser."""
-    co = ChromiumOptions()
-    co.auto_port()
-    co.headless(False)
-    co.set_argument('--no-sandbox')
-    co.set_argument('--disable-dev-shm-usage')
-    co.set_argument('--disable-blink-features=AutomationControlled')
-    co.set_argument('--window-size=1920,1080')
-    co.set_user_agent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/120.0.0.0 Safari/537.36'
-    )
-    return ChromiumPage(addr_or_opts=co)
+def extract_detail(html_content, url):
+    """Parse detailed info from viewInmate.php OR booking.php"""
+    data = {"Source": "Sarasota", "Scrape_Date": datetime.date.today().isoformat()}
 
-
-def wait_for_cloudflare(page, max_wait=20):
-    """Wait for Cloudflare challenge to clear, if present."""
-    waited = 0
-    while waited < max_wait:
-        title = page.title.lower() if page.title else ''
-        if 'just a moment' not in title:
-            return True
-        sys.stderr.write(f"   ⏳ Cloudflare challenge... ({waited}/{max_wait}s)\n")
-        time.sleep(1)
-        waited += 1
-    return False
-
-
-def collect_inmates_by_date(page, arrest_date):
-    """
-    Submit the Sarasota date search form and collect detail URLs.
-    Returns list of (inmate_id, detail_url) tuples.
-    """
-    base_url = "https://cms.revize.com/revize/apps/sarasota"
-    search_url = f"{base_url}/personSearch.php"
-    date_str = arrest_date.strftime('%Y-%m-%d')
-
-    sys.stderr.write(f"\n🔍 Searching date: {date_str}\n")
-
-    page.get(search_url)
-    time.sleep(2)
-
-    if not wait_for_cloudflare(page):
-        sys.stderr.write("   ⚠️ Cloudflare blocked search page\n")
-        return []
-
-    # Fill in the date search form via JS
-    found_links = page.run_js(f"""
-        // Set the search type and date, then submit
-        const form = document.querySelector('form');
-        if (!form) return [];
-
-        // Find date input and type selector
-        const dateInput = document.querySelector('input[name="date"], input[type="date"]');
-        const typeSelect = document.querySelector('select[name="type"]');
-
-        if (typeSelect) {{
-            for (let opt of typeSelect.options) {{
-                if (opt.value === 'date') {{ opt.selected = true; break; }}
-            }}
-            typeSelect.dispatchEvent(new Event('change'));
-        }}
-
-        if (dateInput) {{
-            dateInput.value = '{date_str}';
-            dateInput.dispatchEvent(new Event('change'));
-        }}
-
-        // Submit form
-        form.submit();
-        return 'submitted';
-    """)
-
-    time.sleep(3)
-
-    if not wait_for_cloudflare(page):
-        sys.stderr.write("   ⚠️ Cloudflare blocked search results\n")
-        return []
-
-    # Extract links from search results
-    links = page.run_js("""
-        const results = [];
-        document.querySelectorAll('a[href*="viewInmate.php"]').forEach(a => {
-            const href = a.href || a.getAttribute('href');
-            const text = a.textContent.trim();
-            if (href) results.push({href: href, text: text});
-        });
-        return results;
-    """)
-
-    detail_urls = []
-    if links:
-        for link in links:
-            href = link.get('href', '')
-            if not href.startswith('http'):
-                href = f"{base_url}/{href}"
-            # Extract ID from URL
-            import urllib.parse
-            parsed = urllib.parse.urlparse(href)
-            qs = urllib.parse.parse_qs(parsed.query)
-            inmate_id = qs.get('id', [''])[0]
-            detail_urls.append((inmate_id, href))
-
-    sys.stderr.write(f"   📋 Found {len(detail_urls)} inmates for {date_str}\n")
-    return detail_urls
-
-
-def extract_detail(page, inmate_id, detail_url):
-    """
-    Extract structured data from a Sarasota detail page using JavaScript.
-    """
-    data = {
-        'Detail_URL': detail_url,
-        'County': 'Sarasota',
-        'State': 'FL',
-        'Scrape_Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    }
+    if url:
+        data['URL'] = url
+    data['County'] = 'Sarasota'
+    data['State'] = 'FL'
+    data['Scrape_Timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
-        page.get(detail_url)
-        time.sleep(2)
+        soup = BeautifulSoup(html_content, 'html.parser')
+        js_data = {}
 
-        if not wait_for_cloudflare(page):
-            sys.stderr.write("   ⚠️ Cloudflare on detail page\n")
-            return data
+        # 1. Name from h1.page-title
+        h1 = soup.select_one('h1.page-title')
+        if h1:
+            name = h1.text.replace('Print', '').strip()
+            js_data['Full_Name'] = name
 
-        # Extract all data via JavaScript
-        js_data = page.run_js("""
-            const result = {};
+        # 2. Personal info from div.text-right label → sibling div value
+        for div in soup.select('div.text-right'):
+            key = div.text.replace(':', '').strip()
+            val_div = div.find_next_sibling('div')
+            if val_div and key:
+                val = val_div.text.strip()
+                if val or key not in js_data:
+                    js_data[key] = val
 
-            // 1. Name from h1.page-title
-            const h1 = document.querySelector('h1.page-title');
-            if (h1) {
-                let name = h1.textContent.trim();
-                // Remove "Print" button text if present
-                name = name.replace(/Print.*$/i, '').trim();
-                result['Full_Name'] = name;
-            }
+        # 3. Also check label → input pairs
+        for label in soup.select('label'):
+            key = label.text.replace(':', '').strip()
+            parent = label.parent
+            if parent:
+                input_field = parent.select_one('input')
+                if input_field and input_field.get('value'):
+                    val = input_field['value'].strip()
+                    if val or key not in js_data:
+                        js_data[key] = val
 
-            // 2. Personal info from div.text-right label → sibling div value
-            document.querySelectorAll('div.text-right').forEach(div => {
-                const key = div.textContent.replace(':', '').trim();
-                const valDiv = div.nextElementSibling;
-                if (valDiv) {
-                    const val = valDiv.textContent.trim();
-                    if (key && val) result[key] = val;
-                }
-            });
+        # 4. Charges from #data-table (viewInmate layout) OR div.offense (booking.php layout)
+        charges = []
+        table = soup.select_one('#data-table')
+        if table:
+            for row in table.select('tbody tr, tr'):
+                cells = row.select('td')
+                if len(cells) > 4:
+                    charges.append({
+                        'booking_num': cells[0].text.strip(),
+                        'offense': cells[1].text.strip(),
+                        'desc': cells[2].text.strip() if len(cells) > 2 else '',
+                        'bond': cells[4].text.strip(),
+                        'intake': cells[6].text.strip() if len(cells) > 6 else ''
+                    })
+        else:
+            # booking.php layout
+            for off_div in soup.select('div.offense'):
+                charge_dict = {}
+                for row in off_div.select('div.row'):
+                    label_div = row.select_one('div.text-right')
+                    val_div = label_div.find_next_sibling('div') if label_div else None
+                    if label_div and val_div:
+                        lbl = label_div.text.replace(':', '').strip()
+                        val = val_div.text.strip()
+                        charge_dict[lbl] = val
+                
+                intake_date = charge_dict.get('Arrest Date', '') or charge_dict.get('Date Arrested', '') or charge_dict.get('Booking Date', '') or charge_dict.get('Intake Date', '')
+                charges.append({
+                    'booking_num': js_data.get('Booking Number', ''),
+                    'offense': charge_dict.get('Charge Description', ''),
+                    'desc': '',
+                    'bond': charge_dict.get('Bond Amount', ''),
+                    'intake': intake_date
+                })
+                
+        js_data['__CHARGES'] = charges
 
-            // 3. Also check label → input pairs
-            document.querySelectorAll('label').forEach(label => {
-                const key = label.textContent.replace(':', '').trim();
-                const input = label.parentElement ? label.parentElement.querySelector('input') : null;
-                if (input && input.value) result[key] = input.value.trim();
-            });
-
-            // 4. Charges from #data-table
-            const charges = [];
-            const table = document.querySelector('#data-table');
-            if (table) {
-                table.querySelectorAll('tbody tr, tr').forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    if (cells.length > 4) {
-                        charges.push({
-                            booking_num: cells[0].textContent.trim(),
-                            offense: cells[1].textContent.trim(),
-                            desc: cells.length > 2 ? cells[2].textContent.trim() : '',
-                            bond: cells[4].textContent.trim(),
-                            intake: cells.length > 6 ? cells[6].textContent.trim() : ''
-                        });
-                    }
-                });
-            }
-            result['__CHARGES'] = charges;
-
-            // 5. Mugshot
-            const mugImg = document.querySelector('.mug img, img.mugshot, img[alt*="mugshot"]');
-            if (mugImg && mugImg.src) result['__Mugshot'] = mugImg.src;
-
-            return result;
-        """)
-
-        if not js_data:
-            return data
-
-        # Map JS fields → schema fields
+        # 5. Mugshot
+        mug = soup.select_one('.mug img, img.mugshot, img[alt*="mugshot"]')
+        if mug and mug.get('src'):
+            js_data['__Mugshot'] = mug['src']
+            
+        sys.stderr.write(f"   🐛 DEBUG js_data keys: {list(js_data.keys())}\n")
+        for dk in ['Booking Date', 'Date Arrested', 'Arrest Date', 'Arrested', 'Intake Date', 'Intake']:
+            if dk in js_data:
+                sys.stderr.write(f"   🐛 DEBUG {dk}: {js_data[dk]}\n")
+            
+        # ----------- Map JS fields → schema fields -----------
         field_map = {
             'DOB': 'DOB',
             'Date of Birth': 'DOB',
@@ -250,8 +152,8 @@ def extract_detail(page, inmate_id, detail_url):
                 data['First_Name'] = parts[1].strip()
 
         # Arrest/Intake date from label fields
-        for date_key in ['Arrest Date', 'Arrested', 'Date Arrested', 'Intake Date']:
-            if date_key in js_data:
+        for date_key in ['Booking Date', 'Date Arrested', 'Arrest Date', 'Arrested', 'Intake Date']:
+            if date_key in js_data and clean_text(js_data[date_key]):
                 data['Booking_Date'] = clean_text(js_data[date_key])
                 break
 
@@ -299,75 +201,150 @@ def extract_detail(page, inmate_id, detail_url):
 
 def scrape_sarasota(days_back=7):
     """Main scraper: iterate dates → collect links → visit details → output JSON."""
-    sys.stderr.write(f"🏖️ Sarasota County Scraper (DrissionPage)\n")
+    sys.stderr.write(f"🏖️ Sarasota County Scraper (Scrapling)\n")
     sys.stderr.write(f"📅 Days back: {days_back}\n")
 
     start_date = datetime.datetime.now() - datetime.timedelta(days=days_back)
     end_date = datetime.datetime.now()
-    page = setup_browser()
+    
+    # Configure Scrapling fetcher
+    fetcher = Fetcher()
 
     try:
-        # Phase 1: Collect all inmate links across date range
-        all_links = []
+        # Phase 1: Collect PINs and associated dates
+        pin_to_dates = {}
         current_date = start_date
         while current_date <= end_date:
-            links = collect_inmates_by_date(page, current_date)
-            all_links.extend(links)
+            date_str = current_date.strftime('%m/%d/%Y')
+            sys.stderr.write(f"\n🔍 Searching date: {date_str}\n")
+            
+            page_num = 1
+            while True:
+                try:
+                    search_url = f'https://cms.revize.com/revize/apps/sarasota/personSearch.php?type=date&date={date_str}'
+                    if page_num > 1:
+                        search_url += f'&page={page_num}'
+                        
+                    response = fetcher.get(search_url)
+                    time.sleep(1)
+                    
+                    if response.status == 200:
+                        soup = BeautifulSoup(response.html_content, 'html.parser')
+                        pin_links = soup.select('a[href*="pinSearch.php"]')
+                        
+                        if not pin_links:
+                            if page_num == 1:
+                                sys.stderr.write(f"   📋 Found 0 inmates for {date_str}\n")
+                            break
+                            
+                        # Extract PINs
+                        new_pins = 0
+                        for link in pin_links:
+                            href = link.get('href', '')
+                            if href and 'pin=' in href:
+                                pin = href.split('pin=')[1].split('&')[0].strip().replace('%20', '')
+                                if pin:
+                                    if pin not in pin_to_dates:
+                                        pin_to_dates[pin] = set()
+                                        new_pins += 1
+                                    pin_to_dates[pin].add(date_str)
+                                    
+                        sys.stderr.write(f"   📄 Page {page_num}: Found {new_pins} new PINs\n")
+                        
+                        # Check if there is a 'Next' pagination link
+                        next_link = soup.select_one('a:-soup-contains("Next")')
+                        if next_link and 'page=' in next_link.get('href', ''):
+                            page_num += 1
+                        else:
+                            # Also check if any link exactly matches the next page number
+                            page_links = soup.select(f'a[href*="&page={page_num + 1}"]')
+                            if page_links:
+                                page_num += 1
+                            else:
+                                break
+                    else:
+                        sys.stderr.write(f"   ⚠️ Bad status for {date_str} page {page_num}: {response.status}\n")
+                        break
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc(file=sys.stderr)
+                    sys.stderr.write(f"   ⚠️ Request failed for {date_str} page {page_num}: {e}\n")
+                    break
+
             current_date += datetime.timedelta(days=1)
             time.sleep(1)
 
-        # Deduplicate by URL
-        seen = set()
-        unique_links = []
-        for iid, url in all_links:
-            if url not in seen:
-                seen.add(url)
-                unique_links.append((iid, url))
+        sys.stderr.write(f"\n📊 Total unique PINs across {days_back} days: {len(pin_to_dates)}\n")
 
-        sys.stderr.write(f"\n📊 Total unique inmates across {days_back} days: {len(unique_links)}\n")
-
-        if not unique_links:
+        if not pin_to_dates:
             sys.stderr.write("⚠️ No inmate links found.\n")
             return []
 
-        # Phase 2: Visit each detail page
-        arrests = []
-        for idx, (iid, detail_url) in enumerate(unique_links, 1):
-            sys.stderr.write(f"\n🔍 [{idx}/{len(unique_links)}] {iid or 'unknown'}\n")
-
+        # Phase 2: Resolve bookings for each PIN
+        booking_urls = []
+        for idx, (pin, target_dates) in enumerate(pin_to_dates.items()):
+            sys.stderr.write(f"📝 [{idx+1}/{len(pin_to_dates)}] Resolving bookings for PIN: {pin}\n")
             try:
-                record = extract_detail(page, iid, detail_url)
-
-                # Skip records without booking date
-                if not record.get('Booking_Date'):
-                    sys.stderr.write("   ⚠️ Missing Booking_Date, skipping\n")
-                    continue
-
-                if record.get('Full_Name') or record.get('Booking_Number'):
+                pin_url = f"https://cms.revize.com/revize/apps/sarasota/pinSearch.php?pin={pin}"
+                pin_resp = fetcher.get(pin_url)
+                soup = BeautifulSoup(pin_resp.html_content, 'html.parser')
+                
+                # Check for bookings matching target dates
+                for row in soup.select('tr.search-row'):
+                    cells = row.select('td')
+                    if len(cells) >= 3:
+                        arrest_date = cells[0].text.strip()
+                        if arrest_date in target_dates:
+                            a_tag = cells[2].select_one('a')
+                            if a_tag and a_tag.get('href'):
+                                href = a_tag['href'].replace('%20', '').strip()
+                                booking_urls.append(href)
+                time.sleep(1)
+            except Exception as e:
+                sys.stderr.write(f"   ⚠️ Failed resolving PIN {pin}: {e}\n")
+                
+        # Remove duplicate booking urls if any
+        booking_urls = list(set(booking_urls))
+        base_url = "https://cms.revize.com/revize/apps/sarasota/"
+        arrests = []
+        # [PHASE 3] Fetch details for each booking URL
+        print(f"\n📊 Total bookings to scrape: {len(booking_urls)}", file=sys.stderr)
+        
+        for idx, bkg_href in enumerate(booking_urls):
+            detail_url = base_url + bkg_href
+            sys.stderr.write(f"🔍 [{idx+1}/{len(booking_urls)}] {bkg_href.split('=')[1]}\n")
+            try:
+                # Use standard get for the final detail page
+                res = fetcher.get(detail_url)
+                
+                # Check for rate limiting
+                if res.status == 429:
+                    sys.stderr.write("   ⚠️ Rate limited. Sleeping 60s...\n")
+                    time.sleep(60)
+                    res = fetcher.get(detail_url)
+                
+                # Parse detail page
+                record = extract_detail(res.html_content, detail_url)
+                if record:
+                    # In booking.php, the booking number is often passed in the URL 
+                    if not record.get('Booking_Number') and '=' in bkg_href:
+                        record['Booking_Number'] = bkg_href.split('=')[1].strip()
+                        
                     arrests.append(record)
                     sys.stderr.write(f"   ✅ {record.get('Full_Name', 'Unknown')}\n")
-                else:
-                    sys.stderr.write("   ⚠️ No name or booking number, skipping\n")
-
             except Exception as e:
-                sys.stderr.write(f"   ⚠️ Error: {e}\n")
-                continue
-
+                sys.stderr.write(f"   ⚠️ Failed {detail_url}\n")
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                sys.stderr.write(f"   ⚠️ Failed scraping detail: {e}\n")
+                
             time.sleep(1)
 
-        sys.stderr.write(f"\n📊 Total records: {len(arrests)}\n")
         return arrests
 
     except Exception as e:
-        sys.stderr.write(f"❌ Fatal error: {e}\n")
+        sys.stderr.write(f"❌ Scraper error: {e}\n")
         return []
-
-    finally:
-        try:
-            page.quit()
-        except:
-            pass
-
 
 def main():
     days_back = 1
