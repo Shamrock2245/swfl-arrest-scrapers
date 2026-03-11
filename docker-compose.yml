@@ -1,0 +1,67 @@
+# =============================================================================
+# SWFL Arrest Scrapers - Docker Compose
+# Shamrock Bail Bonds - "The Clerk" Infrastructure
+# =============================================================================
+#
+# Usage:
+#   docker compose up -d                     # Start all services
+#   docker compose up python-scrapers -d     # Start Python scrapers only
+#   docker compose logs -f                   # Follow all logs
+#   docker compose run node-scrapers node index.js collier  # One-off run
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Python Scrapers (Scheduler - runs 24/7)
+  # Charlotte, Collier, Hendry, Sarasota, Manatee + Central FL counties
+  # ---------------------------------------------------------------------------
+  python-scrapers:
+    build:
+      context: ./python_scrapers
+      dockerfile: Dockerfile
+    container_name: shamrock-python-scrapers
+    env_file: .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/creds/service-account-key.json
+    volumes:
+      # Google service account (read-only, never baked into image)
+      - ./creds:/app/creds:ro
+      # Persistent progress files (survive container restarts)
+      - scraper-progress:/app/progress
+    # 2GB shared memory for headless Chrome stability
+    shm_size: '2gb'
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # Node.js Scrapers (On-demand or cron)
+  # Collier, Charlotte, Sarasota, Hendry, DeSoto, Manatee (JS versions)
+  # ---------------------------------------------------------------------------
+  node-scrapers:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shamrock-node-scrapers
+    env_file: .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/creds/service-account-key.json
+    volumes:
+      - ./creds:/app/creds:ro
+    shm_size: '2gb'
+    # Does NOT auto-start — use `docker compose run` for one-off scrapes
+    profiles:
+      - manual
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  scraper-progress:
+    driver: local

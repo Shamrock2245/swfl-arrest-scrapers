@@ -1,0 +1,55 @@
+# Dependencies (rebuilt inside container)
+node_modules/
+python_scrapers/venv*/
+python_scrapers/.patchright-browsers/
+python_scrapers/.playwright-browsers/
+
+# Git
+.git/
+.gitignore
+
+# Temp browser profiles
+tmp_userdata_mac*
+python_scrapers/tmp_userdata_mac*
+python_scrapers/scrapers/chrome_tmp/
+
+# Debug / sample HTML files
+*.html
+!python_scrapers/scrapers/**/*.py
+
+# Progress files (mounted as volume instead)
+*.jsonl
+*.jsonl.bak
+
+# Debug images
+*.png
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Docs (not needed at runtime)
+*.md
+!python_scrapers/README.md
+
+# Credentials (mounted as volume, never baked in)
+creds/
+credentials/
+python_scrapers/.env
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Fixtures / tests
+fixtures/
+tests/
+python_scrapers/examples/
+
+# Misc
+*.csv
+*.txt
+apps_script/
+docs/
