@@ -1,0 +1,22 @@
+# Collier County Config
+name: Collier
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: nodejs
+  url: "https://www.colliersheriff.org/how-do-i/search-inmates"
+  days_back: 30
+  headless: true
+
+output:
+  sheet_tab: "Collier"
+
+schedule:
+  cron: "*/30 * * * *"
+  github_action: true
+
+notes: |
+  Node.js Puppeteer scraper. Custom sheriff site.
+  Also has a GAS-based scraper as backup.

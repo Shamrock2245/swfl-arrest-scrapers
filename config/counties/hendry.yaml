@@ -1,0 +1,25 @@
+# Hendry County Config
+name: Hendry
+state: FL
+enabled: true
+
+scraper:
+  platform: custom_wix
+  stack: python
+  url: "https://www.hendrysheriff.org/inmateSearch"
+  days_back: 30
+  max_pages: 50
+  headless: true
+  browser: playwright
+
+output:
+  sheet_tab: "Hendry"
+
+schedule:
+  cron: "0 */2 * * *"
+  github_action: true
+
+notes: |
+  Custom Wix-based site. Uses Playwright (not DrissionPage!) for
+  API response interception. Parses paginatedBlog JSON responses.
+  Has resume support via hendry_progress.jsonl.

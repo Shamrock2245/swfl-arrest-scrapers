@@ -1,0 +1,23 @@
+# Manatee County Config
+name: Manatee
+state: FL
+enabled: true
+
+scraper:
+  platform: revize
+  stack: python
+  url: "https://manatee-sheriff.revize.com/bookings"
+  days_back: 21
+  max_pages: 10
+  headless: false
+
+output:
+  sheet_tab: "Manatee"
+
+schedule:
+  cron: "*/30 * * * *"
+  github_action: true
+
+notes: |
+  Revize CMS platform (same as Charlotte). Uses DrissionPage.
+  Headless=false required — Cloudflare blocks headless mode.

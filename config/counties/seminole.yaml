@@ -1,0 +1,22 @@
+# Seminole County Config
+name: Seminole
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.seminolesheriff.org/inmates"
+  days_back: 14
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Seminole"
+
+schedule:
+  cron: "0 */3 * * *"
+  github_action: true
+
+notes: |
+  DrissionPage scraper. Seminole County Sheriff's Office.

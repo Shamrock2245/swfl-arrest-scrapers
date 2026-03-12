@@ -1,0 +1,11 @@
+# County Defaults — inherited by all counties unless overridden in {county}.yaml
+
+enabled: true
+stack: python                          # python | node
+days_back: 3
+max_pages: 10
+headless: true
+schedule_cron: "0 7,13,19,1 * * *"     # 4x/day default (7am, 1pm, 7pm, 1am ET)
+cloudflare_protected: false
+has_api: false
+pagination_type: links                 # links | form_submit | date_iteration | roster | querystring | api

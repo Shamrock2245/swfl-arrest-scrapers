@@ -1,0 +1,23 @@
+# Charlotte County Config
+name: Charlotte
+state: FL
+enabled: true
+
+scraper:
+  platform: revize
+  stack: python
+  url: "https://www.charlottecountyfl.gov/departments/sheriff-s-office/jail/who-s-in-jail"
+  days_back: 30
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Charlotte"
+
+schedule:
+  cron: "*/30 * * * *"
+  github_action: true
+
+notes: |
+  Revize CMS platform. Uses DrissionPage for Cloudflare bypass.
+  Same engine as Manatee — potential for shared RevizeSolver base class.

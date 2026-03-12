@@ -1,122 +1,136 @@
-# SWFL Arrest Scrapers
+# 🍀 SWFL Arrest Scrapers
 
-**A production-grade arrest data ingestion and lead management suite built for Shamrock Bail Bonds.**
+> **Multi-county Florida jail roster scraping pipeline — Shamrock Bail Bonds**
 
-This system leverages a **Dual-Stack** architecture (Python/DrissionPage + Node.js/Puppeteer) to scrape arrest data from across Florida, normalize it into a unified 34-column schema, and manage the lead lifecycle via Google Sheets and SignNow.
-
----
-
-## 🗺️ Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Counties Covered](#counties-covered)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Lead Scoring](#lead-scoring)
-- [Deployment](#deployment)
-- [Security](#security)
+Automated arrest data ingestion across 67 Florida counties. Scrapers collect, normalize, score, and deliver booking records to Google Sheets, MongoDB Atlas, and Slack — powering real-time lead generation for the agency.
 
 ---
 
-## 🎯 Overview
+## ⚡ Quick Start
 
-The SWFL Bail Suite provides real-time visibility into new arrests:
-- **High-Stealth Scraping:** Bypasses Cloudflare/CAPTCHA via DrissionPage.
-- **Unified Data:** All 8+ counties map to the same **34-column schema**.
-- **Algorithmic Qualification:** Leads are automatically scored and prioritized.
-- **Dashboard Integration:** Qualified leads (Score ≥ 70) mirror to a centralized dashboard.
-- **SignNow Automation:** Field-prefilled bond paperwork via Email, SMS, or Embedded links.
-
----
-
-## 🏗️ Architecture
-
-The system follows a modular "Sync-Normalize-Notify" pattern:
-
-1.  **Ingestion:** Python/DrissionPage (Primary) and Node.js (Legacy) scrapers collect raw data.
-2.  **Normalization:** Data is mapped to the `ArrestRecord` model and the 34-column master schema.
-3.  **Storage:** The [Master Google Sheet](https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit) acts as the primary database.
-4.  **Automation:** Apps Script triggers lead scoring, Slack alerts, and SignNow workflows.
-
----
-
-## 🌎 Counties Covered
-
-| County | Stack | Status |
-| :--- | :--- | :--- |
-| **Orange** | Python / PDF | ✅ Stable |
-| **Hillsborough** | Python / DrissionPage | ✅ Stable |
-| **Manatee** | Python / DrissionPage | ✅ Stable |
-| **Sarasota** | Python / DrissionPage | ✅ Stable |
-| **Charlotte** | Python / DrissionPage | ✅ Stable |
-| **Hendry** | Python / DrissionPage | ✅ Stable |
-| **Palm Beach** | Python / DrissionPage | ⚠️ Beta |
-| **Lee / Collier** | Apps Script | ✅ Stable |
-| **DeSoto** | Node.js | ⚠️ Legacy |
-
----
-
-## ⚙️ Quick Start
-
-### 1. Prerequisites
-- Python 3.10+ & Node.js 20+
-- Google Cloud Service Account with Editor access to the Master Sheet.
-
-### 2. Installation
 ```bash
-git clone https://github.com/shamrock2245/swfl-arrest-scrapers.git
-cd swfl-arrest-scrapers
+# Install Python dependencies
+pip install -e .
 
-# Python Environment
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r python_scrapers/requirements.txt
+# Run a single county
+python scripts/run_county.py charlotte --days-back 7
 
-# Node Environment
+# Run all enabled counties
+python scripts/run_all.py
+
+# Node.js counties (Collier, DeSoto, Lee)
 npm install
+node counties/collier/solver.js
 ```
 
-### 3. Configuration
-Create a `.env` file in the root:
-```env
-GOOGLE_SHEETS_ID=121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E
-GOOGLE_SA_KEY_JSON={"your_key": "here"}
-SLACK_WEBHOOK_URL=https://hooks.slack.com/...
-```
+### Required Environment Variables
 
----
-
-## 🚀 Usage
-
-### Run a Single County (Python)
 ```bash
-python3 python_scrapers/run_orange.py
-python3 python_scrapers/run_hillsborough.py
+GOOGLE_SHEETS_ID=your_sheet_id
+GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'   # or Base64
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-### Run All Counties (Orchestrated)
+See `.env.example` for full list.
+
+---
+
+## 🏛️ County Status
+
+| County | Stack | Status | Schedule | Notes |
+|--------|-------|--------|----------|-------|
+| **Charlotte** | Python/DrissionPage | ✅ Active | */30 * * * * | Revize CMS |
+| **Collier** | Node.js/Puppeteer | ✅ Active | */30 * * * * | Custom site |
+| **DeSoto** | Node.js/Puppeteer | ✅ Active | 0 */2 * * * | SmartCOP, incremental mode |
+| **Hendry** | Python/Playwright | ✅ Active | 0 */2 * * * | Wix API interception |
+| **Hillsborough** | Python/DrissionPage | ✅ Active | */20 * * * * | Login required |
+| **Lee** | GAS Internal | ✅ Active | */30 * * * * | Home county |
+| **Manatee** | Python/DrissionPage | ✅ Active | */30 * * * * | Revize CMS |
+| **Orange** | Python/DrissionPage | ✅ Active | 0 */3 * * * | High volume |
+| **Osceola** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Custom portal |
+| **Palm Beach** | Python/DrissionPage | ✅ Active | 0 */3 * * * | High volume |
+| **Pinellas** | Python/DrissionPage | ✅ Active | 0 */3 * * * | PCSO |
+| **Polk** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Central FL |
+| **Sarasota** | Python/DrissionPage | 🔄 In Progress | 0 */3 * * * | Date-iteration logic |
+| **Seminole** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Sheriff's Office |
+
+**Goal:** 67 Florida counties (all remaining use `counties/_template/` scaffold).
+
+---
+
+## 📁 Repository Structure
+
+```
+counties/         → One folder per county (solver.py + runner.py)
+core/             → Shared Python modules (browser, normalizer, writers)
+config/           → Global + per-county YAML configs
+scripts/          → CLI entry points (run_county.py, run_all.py)
+.agent/           → AI agent instruction files (12 docs)
+docs/             → Human documentation
+.github/workflows → GitHub Actions CI/CD
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design and data flow diagrams.
+
+---
+
+## 🔄 Data Pipeline
+
+```
+County Website → Scraper (DrissionPage/Puppeteer)
+    → Normalize (39-column schema)
+    → Deduplicate (County + Booking_Number)
+    → Score (0-100 lead score)
+    → Write to Google Sheets (newest at row 2)
+    → Cross-post qualified leads (score ≥ 70)
+    → Slack alert → #new-arrests-{county}
+```
+
+**Key behavior:** New records are inserted at **row 2** — the header stays in row 1, and the most recent arrests are always at the top of each county's sheet tab.
+
+---
+
+## 🤖 Adding a New County
+
 ```bash
-npm run scrape:all
+# 1. Copy template
+cp -r counties/_template counties/your_county
+
+# 2. Create config
+cp config/counties/_defaults.yaml config/counties/your_county.yaml
+
+# 3. Edit solver.py with county-specific scraping logic
+
+# 4. Test
+python scripts/run_county.py your_county --dry-run
+
+# 5. Document quirks
+echo "Site uses SmartCOP, no Cloudflare" > counties/your_county/quirks.md
 ```
 
----
-
-## 🧮 Lead Scoring
-Leads are evaluated on a 0-100 scale:
-*   **HOT (≥ 70):** Triggers immediate Slack alert.
-*   **WARM (≥ 40):** Priority follow-up.
-*   **COLD (< 40):** Standard archival.
-
-*See `docs/SCHEMA.md` for the full scoring rubric.*
+Full guide: [.agent/ADDING_A_COUNTY.md](.agent/ADDING_A_COUNTY.md)
 
 ---
 
-## 📦 Deployment
-The system is optimized for **GitHub Actions**. Staggered workflows ensure we remain under rate limits and avoid IP blocks.
+## 📚 Documentation
 
-*   **Workflow Path:** `.github/workflows/scrape_*.yml`
-*   **Manual Trigger:** Available via the "Actions" tab in GitHub.
+| Doc | For | Contents |
+|-----|-----|----------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Engineers | System design, data flows, interface contracts |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Ops | Docker, GitHub Actions, credentials |
+| [SCHEMA.md](docs/SCHEMA.md) | Data | 39-column schema reference |
+| [.agent/RULES.md](.agent/RULES.md) | AI Agents | Do's, don'ts, modification rules |
+| [.agent/DEBUGGING_SCRAPERS.md](.agent/DEBUGGING_SCRAPERS.md) | AI/Engineers | Troubleshooting playbook |
 
 ---
-*Maintained by: Shamrock Engineering Team*
+
+## 🔐 Security
+
+- **Secrets** → `.env` (local), GitHub Secrets (CI), GAS Script Properties
+- **Service Account** → `GOOGLE_SERVICE_ACCOUNT_JSON` env var (raw or Base64)
+- **Never** commit `.env`, `*_key.json`, or credentials to git
+- See [.agent/SECRETS_AND_CONFIG.md](.agent/SECRETS_AND_CONFIG.md)
+
+---
+
+*Maintained by Shamrock Engineering & AI Agents · March 2026*

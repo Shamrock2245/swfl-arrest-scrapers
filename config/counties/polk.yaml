@@ -1,0 +1,22 @@
+# Polk County Config
+name: Polk
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.polksheriff.org/inmates"
+  days_back: 14
+  max_pages: 30
+  headless: true
+
+output:
+  sheet_tab: "Polk"
+
+schedule:
+  cron: "0 */3 * * *"
+  github_action: true
+
+notes: |
+  DrissionPage scraper. Large county in Central Florida.

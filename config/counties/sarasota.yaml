@@ -1,0 +1,26 @@
+# Sarasota County Config
+name: Sarasota
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://jail.sarasotasheriff.org"
+  days_back: 7
+  max_pages: 30
+  headless: true
+  date_iteration: true
+
+output:
+  sheet_tab: "Sarasota"
+
+schedule:
+  cron: "0 */3 * * *"
+  github_action: true
+
+notes: |
+  DrissionPage scraper with date-iteration logic.
+  Iterates through date range day-by-day to capture all bookings.
+  Status: In Progress — date iteration needs verification.
+  7th SWFL county to complete geographic coverage.

@@ -3,22 +3,25 @@ node_modules/
 
 # Python virtual environment
 .venv/
+venv/
+*.egg-info/
 
-# Package lock files (optional if you prefer to commit them)
+# Package lock files
 package-lock.json
 
-# Environment files & secrets
+# Environment files & secrets — NEVER COMMIT
 .env
+.env.*
 .creds/
 creds/
 *.key
 *.pem
 *.json.key
+service-account*.json
 
-# Logs and temporary files
+# Runtime output (generated at runtime, not tracked)
+output/
 logs/
-*.log
-npm-debug.log*
 
 # OS generated files
 .DS_Store
@@ -30,34 +33,51 @@ Thumbs.db
 *.swp
 *.swo
 
-# Puppeteer / Playwright caches
+# Puppeteer / Playwright / DrissionPage caches
 .cache/
+tmp_userdata*/
 
 # Python caches
 __pycache__/
 *.pyc
+*.pyo
 
-# Test and coverage artifacts (optional)
+# Test and coverage artifacts
 .coverage
 coverage/
 .pytest_cache/
+htmlcov/
 
 # Build artifacts
 build/
+dist/
 .dist/
 .tmp/
 
-# Miscellaneous
-data/
-*.jsonl
-
-# Scraper Debug Results
+# Scraper debug artifacts
 *results_debug.html
 *results_debug.png
-/tmp/polk_results_debug.html
-/tmp/debug_polk_full.py
-/tmp/debug_polk.py
-/tmp/test_polk.py
-/tmp/hcso_results_debug.html
-/tmp/hcso_results_debug.png
-tmp_userdata*/
+*.jsonl
+
+# Stale git directories (cleanup remnants)
+.git 2/
+.git 3/
+
+# Old directories — superseded by counties/ and core/
+# (Safe to remove after running scripts/cleanup_old_dirs.sh)
+apps_script/
+wix_integration/
+normalizers/
+shared/
+writers/
+fixtures/
+
+# Old python virtualenvs
+python_scrapers/venv*/
+python_scrapers/.patchright-browsers/
+python_scrapers/.playwright-browsers/
+
+# Debug artifacts
+debug_*.html
+debug_*.png
+browser_server.py

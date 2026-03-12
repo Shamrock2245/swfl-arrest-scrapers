@@ -1,0 +1,22 @@
+# Lee County Config
+name: Lee
+state: FL
+enabled: true
+
+scraper:
+  platform: gas_internal
+  stack: nodejs
+  url: "https://www.leeso.us/inmates.aspx"
+  days_back: 30
+
+output:
+  sheet_tab: "Lee"
+
+schedule:
+  cron: "*/30 * * * *"
+  github_action: false
+
+notes: |
+  Lee uses a GAS-based internal scraper (trigger script).
+  solver.js is a trigger/coordinator — actual scraping happens in GAS.
+  Home county — highest priority.

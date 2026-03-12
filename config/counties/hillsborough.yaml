@@ -1,0 +1,31 @@
+# Hillsborough County Config
+name: Hillsborough
+state: FL
+enabled: true
+
+scraper:
+  platform: hcso_custom
+  stack: python
+  url: "https://www.hcso.tampa.fl.us/PublicInquiry/ArrestInquiry/ArrestSearch"
+  days_back: 7
+  max_pages: 50
+  headless: true
+  requires_login: true
+
+auth:
+  env_email: HCSO_EMAIL
+  env_password: HCSO_PASSWORD
+  method: remote_debugging_port
+
+output:
+  sheet_tab: "Hillsborough"
+
+schedule:
+  cron: "*/20 * * * *"
+  github_action: true
+
+notes: |
+  HCSO has its own custom portal requiring authentication.
+  Uses Chrome remote debugging port (pre-authenticated session).
+  Credentials via HCSO_EMAIL / HCSO_PASSWORD env vars.
+  Parses results with BeautifulSoup after DrissionPage loads.

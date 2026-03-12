@@ -1,0 +1,23 @@
+# Palm Beach County Config
+name: Palm Beach
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.pbso.org/inmates"
+  days_back: 14
+  max_pages: 30
+  headless: true
+
+output:
+  sheet_tab: "Palm_Beach"
+
+schedule:
+  cron: "0 */3 * * *"
+  github_action: true
+
+notes: |
+  DrissionPage scraper. Large metro county — high volume.
+  Directory name uses underscore: counties/palm_beach/

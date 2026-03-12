@@ -1,0 +1,33 @@
+# Global Scraper Settings — swfl-arrest-scrapers
+# These are system-wide defaults. Per-county overrides go in config/counties/{name}.yaml
+
+scraping:
+  default_days_back: 3
+  default_max_pages: 10
+  request_timeout_seconds: 30
+  page_load_timeout_seconds: 60
+  retry_max_attempts: 3
+  retry_backoff_seconds: 2.0
+  rate_limit_delay_seconds: 1.0
+
+browser:
+  headless: true
+  window_size: "1920x1080"
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+output:
+  raw_dir: "output/raw"
+  normalized_dir: "output/normalized"
+  failed_dir: "output/failed"
+  screenshots_dir: "output/screenshots"
+  diffs_dir: "output/diffs"
+  logs_dir: "logs"
+
+writers:
+  sheets_enabled: true
+  mongo_enabled: false
+  slack_enabled: true
+  json_local_enabled: true
+
+scoring:
+  min_qualified_score: 50

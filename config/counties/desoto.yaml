@@ -1,0 +1,22 @@
+# DeSoto County Config
+name: DeSoto
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: nodejs
+  url: "https://www.desotosheriff.com/roster"
+  days_back: 30
+  headless: true
+
+output:
+  sheet_tab: "DeSoto"
+
+schedule:
+  cron: "0 */2 * * *"
+  github_action: true
+
+notes: |
+  Node.js Puppeteer scraper. Has both full and incremental modes.
+  solver_incremental.js for frequent quick checks.

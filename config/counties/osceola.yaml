@@ -1,0 +1,22 @@
+# Osceola County Config
+name: Osceola
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://apps.osceola.org/apps/bookings"
+  days_back: 14
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Osceola"
+
+schedule:
+  cron: "0 */3 * * *"
+  github_action: true
+
+notes: |
+  DrissionPage scraper. Custom Osceola apps portal.
