@@ -6,6 +6,7 @@ Usage:
     page = create_browser(config)
 """
 
+import os
 import sys
 from DrissionPage import ChromiumPage, ChromiumOptions
 
@@ -13,6 +14,8 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 def create_browser(config: dict = None) -> ChromiumPage:
     """
     Create and configure a DrissionPage browser session.
+
+    Auto-detects Docker environment via CHROME_PATH env var.
 
     Args:
         config: Merged county config dict. Uses browser settings from it.
@@ -35,9 +38,20 @@ def create_browser(config: dict = None) -> ChromiumPage:
 
     co = ChromiumOptions()
     co.auto_port()
-    co.headless(headless)
+
+    # Docker: set Chromium binary path from env
+    chrome_path = os.getenv("CHROME_PATH")
+    if chrome_path:
+        co.set_browser_path(chrome_path)
+
+    # Headless mode — use --headless=new for modern headless
+    if headless:
+        co.headless(True)
+        co.set_argument("--headless=new")
+
     co.set_argument("--no-sandbox")
     co.set_argument("--disable-dev-shm-usage")
+    co.set_argument("--disable-gpu")
     co.set_argument("--disable-blink-features=AutomationControlled")
     co.set_argument(f"--window-size={window_size.replace('x', ',')}")
     co.set_user_agent(user_agent)
@@ -48,7 +62,7 @@ def create_browser(config: dict = None) -> ChromiumPage:
         co.set_argument(f"--proxy-server={proxy_url}")
 
     sys.stderr.write(
-        f"🌐 Browser: headless={headless}, size={window_size}\n"
+        f"🌐 Browser: headless={headless}, chrome_path={chrome_path or 'default'}, size={window_size}\n"
     )
 
     return ChromiumPage(addr_or_opts=co)
