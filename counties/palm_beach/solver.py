@@ -1,453 +1,541 @@
+#!/usr/bin/env python3
+"""
+Palm Beach County Arrest Scraper — solver.py
+Target: https://www3.pbso.org/blotter/index.cfm
+
+Two-phase approach:
+  Phase 1: Search by date → paginate through ALL results → collect booking links
+  Phase 2: Visit each booking detail page → scrape full record
+"""
+
 import sys
 import json
 import time
 import re
+import platform
+import os
 from datetime import datetime, timedelta
 from DrissionPage import ChromiumPage, ChromiumOptions
 
-def scrape_palm_beach(days_back=1):
-    records = []
-    
-    # 1. Initialize Browser
-    import platform
-    import os
-    co = ChromiumOptions()
-    co.auto_port()
-    co.headless(True)  # Run headless for GitHub Actions
-    
-    if platform.system() != "Darwin":
-        # Add Linux-specific options for GitHub Actions
-        co.set_argument('--no-sandbox')
-        co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--disable-gpu')
-        co.set_argument('--disable-software-rasterizer')
-        co.set_argument('--disable-extensions')
-    
-    page = ChromiumPage(co)
-    
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def clean_text(text):
+    """Clean and normalize whitespace."""
+    if not text:
+        return ""
+    return " ".join(text.strip().split())
+
+
+def parse_name(full_name):
+    """Parse 'LAST, FIRST MIDDLE' format into components."""
+    first, middle, last = "", "", ""
+    if not full_name:
+        return first, middle, last
+    if ',' in full_name:
+        parts = full_name.split(',', 1)
+        last = parts[0].strip()
+        remainder = parts[1].strip()
+        if ' ' in remainder:
+            r_parts = remainder.split(' ', 1)
+            first = r_parts[0].strip()
+            middle = r_parts[1].strip()
+        else:
+            first = remainder
+    else:
+        last = full_name
+    return first, middle, last
+
+
+def parse_bond(text):
+    """Extract total bond amount from text containing $X,XXX.XX patterns."""
+    amounts = re.findall(r'\$([0-9,]+(?:\.\d{2})?)', text)
+    total = 0.0
+    for amt in amounts:
+        try:
+            total += float(amt.replace(',', ''))
+        except ValueError:
+            pass
+    return total
+
+
+def setup_browser():
+    """Configure and launch DrissionPage browser using shared core config."""
+    from core.browser import create_browser
+    return create_browser({"headless": True})
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 — Search & Paginate to collect all summary data from list view
+# ---------------------------------------------------------------------------
+
+def search_and_collect(page, target_date, max_pages=50):
+    """
+    Search for a single date and paginate through ALL results.
+    Returns list of dicts with summary-level data + booking number links.
+
+    The list view already gives us: Name, Facility, Arresting Agency,
+    Jacket Number, Race, Gender, OBTS Number, Booking Date/Time,
+    Release Date, Holds, Booking Number (link), Charges, Bond amounts.
+    """
+    sys.stderr.write(f"\n--- Searching for {target_date} ---\n")
+
+    # Navigate to search form
+    page.get('https://www3.pbso.org/blotter/index.cfm')
+    time.sleep(2)
+
+    # Handle hCaptcha if present
     try:
-        # Initial navigation to check for captcha
-        sys.stderr.write("Navigating to PBSO Blotter for initial check...\n")
-        page.get('https://www3.pbso.org/blotter/index.cfm')
-        
-        # 2. Handle Entry & Captcha
-        if not page.wait.ele_displayed('tag:body', timeout=15):
-             sys.stderr.write("Error: Page did not load.\n")
-             return []
-
-        # Check for hCaptcha
         if page.ele('tag:iframe[src*="hcaptcha.com"]'):
-            sys.stderr.write("⚠️  hCaptcha detected. Please solve it manually in the browser window.\n")
-            sys.stderr.write("Waiting 30 seconds for manual solution...\n")
-            # We wait for the user to solve it. 
-            # Usually solving it enables the form or submits it?
-            # Let's wait until the 'Search' button is interactable or the iframe is gone?
+            sys.stderr.write("⚠️  hCaptcha detected. Waiting 30s for manual solve...\n")
             time.sleep(30)
-            
-        
-        # Loop for backfill (Oldest to Newest)
-        # range(days_back) gives 0..4 (if 5). 0 is today, 4 is 4 days ago.
-        # We want to start at 4 days ago (oldest) and go to 0 (today).
-        for i in range(days_back - 1, -1, -1):
+    except:
+        pass
+
+    # Fill search form
+    if not page.wait.ele_displayed('#start_date', timeout=10):
+        sys.stderr.write("❌ Search form did not load.\n")
+        return []
+
+    # Set both start and end date to the same day for single-day search
+    start_input = page.ele('#start_date')
+    end_input = page.ele('#end_date')
+
+    start_input.clear()
+    start_input.input(target_date)
+
+    if end_input:
+        end_input.clear()
+        end_input.input(target_date)
+
+    # Submit
+    submit_btn = page.ele('#process') or page.ele('css:input[type=submit]')
+    if not submit_btn:
+        sys.stderr.write("❌ Submit button not found.\n")
+        return []
+
+    sys.stderr.write(f"Submitting search for {target_date}...\n")
+    submit_btn.click()
+    time.sleep(5)
+
+    # Collect records from all pages
+    all_summaries = []
+    current_page = 1
+
+    while current_page <= max_pages:
+        sys.stderr.write(f"📄 Scraping page {current_page}...\n")
+
+        # Wait for results
+        if not page.wait.ele_displayed('css:div[id^="allresults_"]', timeout=10):
+            # Could be "No records found" or page didn't load
+            page_text = page.text or ""
+            if "0 matches" in page_text or "no results" in page_text.lower():
+                sys.stderr.write(f"   No results for {target_date}.\n")
+            else:
+                sys.stderr.write(f"   Results container not found on page {current_page}.\n")
+            break
+
+        # Parse total count from "X matches retrieved" text
+        if current_page == 1:
             try:
-                # Calculate date: Today minus i days
-                target_date_obj = datetime.now() - timedelta(days=i)
-                target_date = target_date_obj.strftime('%m/%d/%Y')
-                
-                sys.stderr.write(f"\n--- Starting Search for {target_date} (Day {i+1}/{days_back}) ---\n")
-                
-                # Navigate specifically to search page each time to reset
-                # Only if we aren't already there? 
-                # Better to just go there to be safe.
-                if i > 0 or page.url != 'https://www3.pbso.org/blotter/index.cfm':
-                    page.get('https://www3.pbso.org/blotter/index.cfm')
-                    time.sleep(2)
+                match_text = page.ele('xpath://*[contains(text(), "matches retrieved")]')
+                if match_text:
+                    sys.stderr.write(f"   {clean_text(match_text.text)}\n")
+            except:
+                pass
 
-                # 3. Perform Search
-                sys.stderr.write(f"Setting search date: {target_date}\n")
-                
-                # Wait for inputs
-                if page.wait.ele_displayed('#start_date', timeout=10):
-                    # Clear and input
-                    page.ele('#start_date').clear()
-                    page.ele('#start_date').input(target_date)
-                    
-                    # page.ele('#end_date').input(target_date) # Assuming end date defaults correctly or is single day
-                    
-                    # Click Submit
-                    # The actual submit button is input#process (type=submit)
-                    submit_btn = page.ele('#process')
-                    if not submit_btn:
-                        submit_btn = page.ele('css:input[type=submit]')
-                    if not submit_btn:
-                        # Fallback: search for any button with submit/search text
-                        btns = page.eles('tag:button')
-                        for b in btns:
-                            if any(w in b.text.lower() for w in ['submit', 'search']):
-                                submit_btn = b
-                                break
-                    
-                    if submit_btn:
-                        sys.stderr.write("Clicking Submit...\n")
-                        submit_btn.click()
-                        
-                        # Wait for results to load
-                        time.sleep(5)
-                        
-            
-                # Loop for pagination
-                page_num = 1
-                while True:
-                    sys.stderr.write(f"Scraping {target_date} - Page {page_num}\n")
-                    
-                    # 4. Parse Results List
-                    # Logic: Extract everything from the list items without visiting details
-                    
-                    # Wait for results to be visible
-                    if not page.wait.ele_displayed('css:div[id^="allresults_"]', timeout=10):
-                        sys.stderr.write(f"No results found for {target_date} (Page {page_num}).\n")
-                        break # Stop pagination for this date
+        # Parse each result card
+        results = page.eles('css:div[id^="allresults_"]')
+        sys.stderr.write(f"   Found {len(results)} records on page {current_page}.\n")
 
-                    results = page.eles('css:div[id^="allresults_"]')
-                    sys.stderr.write(f"Found {len(results)} records on Page {page_num}.\n")
-                    
-                    for row in results:
-                        try:
-                            # Helper to get value from strong label relative to this row
-                            def get_row_val(r_ele, label):
-                                try:
-                                    # Use relative xpath from the row element
-                                    # .//strong[contains(text(), "Label")]
-                                    strong = r_ele.ele(f'xpath:.//strong[contains(text(), "{label}")]')
-                                    if strong:
-                                        parent = strong.parent()
-                                        # Text is "Label: Value"
-                                        # Remove label and strong text
-                                        val = parent.text.replace(label, '').replace(strong.text, '').strip()
-                                        return val
-                                except:
-                                    pass
-                                return ''
-
-                            # Extract Fields
-                            full_name = get_row_val(row, "Name:")
-                            race = get_row_val(row, "Race:")
-                            sex = get_row_val(row, "Gender:")
-                            facility = get_row_val(row, "Facility:")
-                            jacket_num = get_row_val(row, "Jacket Number:")
-                            booking_dt_str = get_row_val(row, "Booking Date/Time:")
-                            release_date_str = get_row_val(row, "Release Date:")
-                            
-                            # Booking Number is usually a link
-                            booking_num = ""
-                            link_ele = row.ele('css:a[onclick^="loaddetail"]')
-                            if link_ele:
-                                booking_num = link_ele.text.strip()
-                            else:
-                                # Fallback
-                                booking_num = get_row_val(row, "Booking Number:")
-                            
-                            # Mugshot
-                            mug_url = ""
-                            img = row.ele('css:img.img-zoom')
-                            if img:
-                                mug_url = img.attr('src')
-                                
-                            # Parsing Name
-                            first_name, middle_name, last_name = "", "", ""
-                            if full_name:
-                                if ',' in full_name:
-                                    parts = full_name.split(',', 1)
-                                    last_name = parts[0].strip()
-                                    remainder = parts[1].strip()
-                                    if ' ' in remainder:
-                                         r_parts = remainder.split(' ', 1)
-                                         first_name = r_parts[0].strip()
-                                         middle_name = r_parts[1].strip()
-                                    else:
-                                         first_name = remainder
-                                else:
-                                    last_name = full_name
-                                    
-                            # Parsing Dates
-                            booking_date, booking_time = "", ""
-                            if booking_dt_str:
-                                try:
-                                    dt = datetime.strptime(booking_dt_str, '%m/%d/%Y %H:%M')
-                                    booking_date = dt.strftime('%Y-%m-%d')
-                                    booking_time = dt.strftime('%H:%M:00')
-                                except:
-                                    booking_date = booking_dt_str
-                                    
-                            status = "In Custody"
-                            if release_date_str and "N/A" not in release_date_str and release_date_str.strip() != "":
-                                status = "Released"
-                                
-                            # Address - Not usually on list view? 
-                            # Screenshot doesn't show address. Leave empty.
-                            
-                            # Charges & Bond
-                            charges = []
-                            total_bond = 0.0
-                            
-                            # Charges are often in a sub-table or rows below the main info
-                            # Within 'row', look for the charge rows.
-                            # Based on HTML structure, there's usually a container "blotterdetails"? 
-                            # No, "blotterdetails" ID is likely unique or repeated? 
-                            # Actually IDs must be unique. The detailed view injects #blotterdetails.
-                            # The LIST view might have different structure.
-                            # Screenshot shows: "Charges" header, then rows.
-                            # Let's simple-parse text lines that look like statutes?
-                            # Or look for the structure "Statute (Level) ... Description ... Bond"
-                            
-                            # iterate div.row inside this result
-                            inner_rows = row.eles('css:div.row')
-                            for ir in inner_rows:
-                                txt = ir.text.strip().replace('\n', ' ')
-                                # Check for charge pattern (Statute number)
-                                if re.search(r'\d+\.\d+', txt) and "Booking" not in txt:
-                                    # Clean up Charge String
-                                    cleaned = txt
-                                    
-                                    # 1. Remove Bond Info
-                                    # Split on "Original Bond", "Current Bond", "Bond Information", or pipe
-                                    splitters = ["Original Bond", "Current Bond", "Bond Information", "|"]
-                                    for s in splitters:
-                                        if s in cleaned:
-                                            cleaned = cleaned.split(s)[0]
-                                            
-                                    cleaned = cleaned.strip()
-                                    
-                                    # 2. Remove Statute Number (e.g. "843.15 ")
-                                    cleaned = re.sub(r'^\d+(\.\d+)?\s+', '', cleaned)
-                                    
-                                    # 3. Remove Degree/Level (e.g. "1B (MF)", "1 (MS)", "(F)")
-                                    # Matches: Optional Alphanumeric prefix + (Letters)
-                                    cleaned = re.sub(r'^([0-9A-Za-z]+\s+)?\([A-Za-z]+\)\s+', '', cleaned)
-                                    
-                                    # 4. Remove secondary numeric codes (e.g. "8888" in "888.8888 8888")
-                                    cleaned = re.sub(r'^\d+\s+', '', cleaned)
-                                    
-                                    # 5. Remove trailing dash/hyphen
-                                    cleaned = cleaned.strip(' -')
-                                    
-                                    if cleaned:
-                                        charges.append(cleaned)
-                                    
-                            # Bond
-                            # Look for text "Current Bond: $..." or "Bond Amount: $..."
-                            row_text = row.text
-                            bond_matches = re.findall(r'(?:Current Bond|Bond Amount|Bond):\s*\$([\d,\.]+)', row_text)
-                            for amt in bond_matches:
-                                try:
-                                    total_bond += float(amt.replace(',', ''))
-                                except: pass
-                                
-                            if total_bond == 0.0:
-                                bond_amount_str = "0"
-                            else:
-                                bond_amount_str = f"{total_bond:.2f}"
-                                
-                            # URL - use the page URL as fallback since we aren't visiting details
-                            detail_url = page.url 
-
-                            # Construct Record (39-column schema)
-                            # Keys MUST match HEADER_ROW in core/writers/sheets_writer.py
-                            record = {
-                                "Scrape_Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "County": "Palm Beach",
-                                "Booking_Number": booking_num,
-                                "Person_ID": jacket_num,
-                                "Full_Name": full_name,
-                                "First_Name": first_name,
-                                "Middle_Name": middle_name,
-                                "Last_Name": last_name,
-                                "DOB": "",
-                                "Arrest_Date": booking_date,
-                                "Arrest_Time": booking_time,
-                                "Booking_Date": booking_date,
-                                "Booking_Time": booking_time,
-                                "Status": status,
-                                "Facility": facility,
-                                "Agency": "PBSO",
-                                "Race": race,
-                                "Sex": sex,
-                                "Height": "",
-                                "Weight": "",
-                                "Address": "",
-                                "City": "",
-                                "State": "",
-                                "ZIP": "",
-                                "Mugshot_URL": mug_url,
-                                "Charges": " | ".join(charges),
-                                "Bond_Amount": bond_amount_str,
-                                "Bond_Paid": "NO",
-                                "Bond_Type": "",
-                                "Court_Type": "",
-                                "Case_Number": "",
-                                "Court_Date": "",
-                                "Court_Time": "",
-                                "Court_Location": "",
-                                "Detail_URL": detail_url,
-                                "Lead_Score": "0",
-                                "Lead_Status": "Cold",
-                                "LastChecked": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "LastCheckedMode": "scrape"
-                            }
-                            
-                            records.append(record)
-                            # print(f"Parsed {booking_num}") # Debug
-                            
-                        except Exception as e:
-                            sys.stderr.write(f"Error parsing row: {e}\n")
-                            continue
-                            
-                    # Pagination Check
-                    # Look for "Next" button?
-                    # Common paginators: "Next >>" or just ">>"
-                    # Screenshot showed: "Page 1 of 14 1 2 3 4 ... Last >>"
-                    # We want the 'Next' link specifically, or the page_num + 1
-                    
-                    # Try to find link with text "Next" or "Next >"
-                    # Often it's an 'a' tag.
-                    next_btn = None
-                    
-                    # Strategy 1: 'Next' text or variations
-                    next_selectors = [
-                        'xpath://a[contains(text(), "Next")]',
-                        'xpath://a[contains(text(), "next")]',
-                        'xpath://a[contains(text(), ">>")]',
-                        'xpath://a[contains(text(), "»")]',
-                        'xpath://a[contains(text(), ">")]' 
-                    ]
-                    
-                    for sel in next_selectors:
-                        try:
-                            btn = page.ele(sel)
-                            if btn and btn.ele_displayed:
-                                # Start with a check: is it the "Last" button?
-                                if "last" in btn.text.lower():
-                                    continue
-                                
-                                next_btn = btn
-                                sys.stderr.write(f"Found Next button via selector: {sel}\n")
-                                break
-                        except: pass
-                    
-                    # Strategy 2: Click the Page Number directly (e.g. "2", "3")
-                    if not next_btn:
-                        next_page_num = page_num + 1
-                        try:
-                            # Look for 'a' tag with exact text equal to next_page_num
-                            # using xpath for exact match or close to it
-                            # //a[text()="2"] or //a[contains(text(), " 2 ")]
-                            
-                            # DrissionPage css: a@@text=2 ?
-                            # Let's try xpath
-                            page_link = page.ele(f'xpath://a[normalize-space(text())="{next_page_num}"]')
-                            if page_link and page_link.ele_displayed:
-                                next_btn = page_link
-                                sys.stderr.write(f"Found specific page link: {next_page_num}\n")
-                        except: pass
-                        
-                    # Strategy 3: Relative to "Last" button
-                    if not next_btn:
-                        try:
-                            # Find "Last" link
-                            # usually text "Last" or "Last >>"
-                            last_btn = page.ele('xpath://a[contains(text(), "Last")]')
-                            if last_btn:
-                                # Get the preceding sibling 'a' tag
-                                # xpath: preceding-sibling::a[1]
-                                # But we need to be careful if there are spacers.
-                                # Let's try getting the parent and finding the index of Last
-                                parent = last_btn.parent()
-                                links = parent.eles('tag:a')
-                                # Find index of last_btn
-                                last_idx = -1
-                                for idx, l in enumerate(links):
-                                    if l.html == last_btn.html: # basic comparison
-                                        last_idx = idx
-                                        break
-                                
-                                if last_idx > 0:
-                                    potential_next = links[last_idx - 1]
-                                    
-                                    # Logic: The Next button is strictly between the page numbers and "Last".
-                                    # It might be an arrow character (>) or an icon (empty text).
-                                    # It should NOT be a number (which would be a page link).
-                                    
-                                    txt = potential_next.text.strip()
-                                    
-                                    # Check if it's likely the Next button
-                                    # 1. Matches arrow symbols
-                                    # 2. Or is empty/short and NOT a digit (to avoid clicking page "5" when we want ">")
-                                    is_next_candidate = False
-                                    
-                                    
-                                    if any(x in txt for x in [">", "»", "Next"]):
-                                        is_next_candidate = True
-                                    elif not txt.isdigit(): 
-                                        # If it's not a digit (page number), it's likely the navigation control
-                                        is_next_candidate = True
-                                        
-                                    if is_next_candidate:
-                                         next_btn = potential_next
-                                         sys.stderr.write(f"Found likely Next button (text='{txt}') before Last button.\n")
-                        except: pass
-                    
-                    # Debug: Print all links in pagination for user visibility
-                    try:
-                        sys.stderr.write("DEBUG: Scanning pagination links to help identify 'Next' button...\n")
-                        
-                        # Try standard bootstrap pagination
-                        pagination_container = page.ele('css:ul.pagination')
-                        if not pagination_container:
-                             pagination_container = page.ele('css:div.pagination')
-                        if not pagination_container:
-                             pagination_container = page.ele('css:.pagination')
-                             
-                        # Fallback to finding "Page 1 of..." text parent
-                        if not pagination_container:
-                            try:
-                                page_info = page.ele('xpath://*[contains(text(), "Page 1 of")]') # or similar
-                                if page_info:
-                                    pagination_container = page_info.parent()
-                            except: pass
-
-                        if pagination_container:
-                            dlinks = pagination_container.eles('tag:a')
-                            link_texts = [f"'{l.text.strip()}'" for l in dlinks]
-                            sys.stderr.write(f"DEBUG LINKS FOUND: {', '.join(link_texts)}\n")
-                        else:
-                            sys.stderr.write("DEBUG: Could not locate pagination container.\n")
-                            
-                    except Exception as e:
-                        sys.stderr.write(f"DEBUG Error: {e}\n")
-
-                    if next_btn:
-                        sys.stderr.write(f"Clicking Next Page (Target: {page_num + 1})...\n")
-                        next_btn.click()
-                        page_num += 1
-                        time.sleep(3) # Wait for reload
-                        continue
-                    else:
-                        sys.stderr.write("No Next button or next page link found. End of results for this date.\n")
-                        break
-            
+        for row in results:
+            try:
+                summary = _parse_list_row(row, page.url)
+                if summary and summary.get('Booking_Number'):
+                    all_summaries.append(summary)
             except Exception as e:
-                   sys.stderr.write(f"Error scraping date {target_date}: {e}\n")
-                   continue # Continue to next day
-                
-        page.quit()
-        return records
+                sys.stderr.write(f"   ⚠️ Error parsing row: {e}\n")
+                continue
+
+        # --- Pagination ---
+        if not _click_next_page(page):
+            sys.stderr.write(f"   ✅ End of results (scraped {current_page} page(s)).\n")
+            break
+
+        current_page += 1
+        time.sleep(3)
+
+    sys.stderr.write(f"📊 Collected {len(all_summaries)} records for {target_date}.\n")
+    return all_summaries
+
+
+def _parse_list_row(row, page_url):
+    """Parse a single result card from the list view into a summary dict."""
+
+    def get_val(label):
+        """Extract value for a label like 'Name:', 'Race:', etc."""
+        try:
+            strong = row.ele(f'xpath:.//strong[contains(text(), "{label}")]')
+            if strong:
+                parent = strong.parent()
+                text = parent.text
+                # Remove the label text to get the value
+                val = text.split(label, 1)[-1].strip()
+                # Clean up any "Label2: value2" that got appended
+                return clean_text(val)
+        except:
+            pass
+        return ''
+
+    full_name = get_val("Name:")
+    race = get_val("Race:")
+    sex = get_val("Gender:")
+    facility = get_val("Facility:")
+    agency = get_val("Arresting Agency:")
+    jacket_num = get_val("Jacket Number:")
+    obts_num = get_val("OBTS Number:")
+    booking_dt_str = get_val("Booking Date/Time:")
+    release_date_str = get_val("Release Date:")
+    holds_str = get_val("Holds For Other Agencies:")
+
+    # Booking Number — usually a link with onclick="loaddetail(...)"
+    booking_num = ""
+    detail_onclick = ""
+    try:
+        link_ele = row.ele('css:a[onclick*="loaddetail"]')
+        if link_ele:
+            booking_num = clean_text(link_ele.text)
+            detail_onclick = link_ele.attr('onclick') or ""
+        else:
+            # Fallback: any link in booking number area
+            link_ele = row.ele('xpath:.//a[contains(@href, "booking")]')
+            if link_ele:
+                booking_num = clean_text(link_ele.text)
+    except:
+        booking_num = get_val("Booking Number:")
+
+    # Mugshot
+    mug_url = ""
+    try:
+        img = row.ele('css:img')
+        if img:
+            src = img.attr('src') or ""
+            if src and 'noimage' not in src.lower():
+                if not src.startswith('http'):
+                    src = f"https://www3.pbso.org{src}"
+                mug_url = src
+    except:
+        pass
+
+    # Parse name
+    first_name, middle_name, last_name = parse_name(full_name)
+
+    # Parse booking date/time
+    booking_date, booking_time = "", ""
+    if booking_dt_str:
+        try:
+            dt = datetime.strptime(booking_dt_str.strip(), '%m/%d/%Y %H:%M')
+            booking_date = dt.strftime('%Y-%m-%d')
+            booking_time = dt.strftime('%H:%M:00')
+        except:
+            booking_date = booking_dt_str.strip()
+
+    # Status
+    status = "In Custody"
+    if release_date_str and "N/A" not in release_date_str and release_date_str.strip():
+        status = "Released"
+
+    # Charges & Bond from list view
+    charges = []
+    total_bond = 0.0
+    try:
+        inner_rows = row.eles('css:div.row')
+        for ir in inner_rows:
+            txt = ir.text.strip().replace('\n', ' ')
+            # Skip non-charge rows (they have statute numbers like 843.15)
+            if re.search(r'\d+\.\d+', txt) and "Booking" not in txt and "OBTS" not in txt:
+                # Extract the charge description
+                # Pattern: "statute_num degree (level) CHARGE_DESCRIPTION Original Bond: ... Current Bond: ..."
+                charge_part = txt
+                # Remove bond info
+                for splitter in ["Original Bond", "Current Bond", "Bond Information"]:
+                    if splitter in charge_part:
+                        charge_part = charge_part.split(splitter)[0]
+
+                charge_part = charge_part.strip()
+                if charge_part:
+                    charges.append(charge_part)
+
+        # Bond amounts
+        row_text = row.text or ""
+        bond_matches = re.findall(r'Current Bond:\s*\$([0-9,]+(?:\.\d{2})?)', row_text)
+        for amt in bond_matches:
+            try:
+                total_bond += float(amt.replace(',', ''))
+            except:
+                pass
+    except:
+        pass
+
+    bond_amount_str = f"{total_bond:.2f}" if total_bond > 0 else "0"
+
+    return {
+        "Scrape_Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "County": "Palm Beach",
+        "Booking_Number": booking_num,
+        "Person_ID": jacket_num,
+        "Full_Name": full_name,
+        "First_Name": first_name,
+        "Middle_Name": middle_name,
+        "Last_Name": last_name,
+        "DOB": "",
+        "Arrest_Date": booking_date,
+        "Arrest_Time": booking_time,
+        "Booking_Date": booking_date,
+        "Booking_Time": booking_time,
+        "Status": status,
+        "Facility": facility,
+        "Agency": agency or "PBSO",
+        "Race": race,
+        "Sex": sex,
+        "Height": "",
+        "Weight": "",
+        "Address": "",
+        "City": "",
+        "State": "",
+        "ZIP": "",
+        "Mugshot_URL": mug_url,
+        "Charges": " | ".join(charges),
+        "Bond_Amount": bond_amount_str,
+        "Bond_Paid": "NO",
+        "Bond_Type": "",
+        "Court_Type": "",
+        "Case_Number": "",
+        "Court_Date": "",
+        "Court_Time": "",
+        "Court_Location": "",
+        "Detail_URL": "",
+        "Lead_Score": "0",
+        "Lead_Status": "Cold",
+        "LastChecked": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "LastCheckedMode": "scrape",
+        # Internal: used for Phase 2 detail scraping
+        "_detail_onclick": detail_onclick,
+        "_obts": obts_num,
+        "_holds": holds_str,
+    }
+
+
+def _click_next_page(page):
+    """
+    Click the '»' (next page) pagination link.
+    Returns True if next page was found and clicked, False if at end.
+
+    Pagination structure: Page 1 of 25 | 1 2 3 4 5 » Last »
+    We want '»' (single right-arrow), NOT 'Last »'.
+    """
+    try:
+        # Find all pagination links
+        pagination_links = page.eles('xpath://a')
+        for link in pagination_links:
+            text = link.text.strip()
+            # We want exactly '»' or '>' but NOT 'Last »' or 'Last >'
+            if text in ('»', '>', '>>') and 'last' not in (link.text.lower()):
+                link.click()
+                return True
+
+        # Fallback: look for numbered next page
+        # Parse current page from "Page X of Y"
+        try:
+            page_info = page.ele('xpath://*[contains(text(), "Page ")]')
+            if page_info:
+                match = re.search(r'Page\s+(\d+)\s+of\s+(\d+)', page_info.text)
+                if match:
+                    current = int(match.group(1))
+                    total = int(match.group(2))
+                    if current >= total:
+                        return False
+                    # Try clicking the next page number
+                    next_num = str(current + 1)
+                    next_link = page.ele(f'xpath://a[normalize-space(text())="{next_num}"]')
+                    if next_link:
+                        next_link.click()
+                        return True
+        except:
+            pass
 
     except Exception as e:
-        sys.stderr.write(f"Fatal error: {e}\n")
+        sys.stderr.write(f"   Pagination error: {e}\n")
+
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Visit detail pages for extra fields (optional enhancement)
+# ---------------------------------------------------------------------------
+
+def enrich_with_detail(page, record):
+    """
+    Click into a booking detail page to get additional fields not on list view.
+    Adds: DOB, Height, Weight, Address, City, State, ZIP, etc.
+    
+    The PBSO blotter uses loaddetail() JS to inject detail HTML into the page.
+    This means we look for the #blotterdetails div content.
+    """
+    booking_num = record.get("Booking_Number", "")
+    if not booking_num:
+        return record
+
+    try:
+        # Click the booking number link
+        link = page.ele(f'xpath://a[normalize-space(text())="{booking_num}"]')
+        if not link:
+            link = page.ele(f'css:a[onclick*="{booking_num}"]')
+        if not link:
+            return record
+
+        link.click()
+        time.sleep(2)
+
+        # Wait for detail div to load
+        detail_div = page.ele('css:#blotterdetails')
+        if not detail_div:
+            time.sleep(2)
+            detail_div = page.ele('css:#blotterdetails')
+
+        if not detail_div:
+            # Try the whole page text as fallback
+            detail_div = page
+
+        detail_text = detail_div.text or ""
+
+        # Extract fields from detail page
+        def get_detail_val(label):
+            pattern = rf'{label}\s*:?\s*(.+?)(?:\n|$)'
+            m = re.search(pattern, detail_text, re.IGNORECASE)
+            if m:
+                return clean_text(m.group(1))
+            return ""
+
+        # DOB
+        dob = get_detail_val("Date of Birth|DOB")
+        if dob:
+            record["DOB"] = dob
+
+        # Height
+        height = get_detail_val("Height")
+        if height:
+            record["Height"] = height
+
+        # Weight
+        weight = get_detail_val("Weight")
+        if weight:
+            record["Weight"] = weight
+
+        # Address fields
+        address = get_detail_val("Address|Street")
+        if address:
+            record["Address"] = address
+
+        city = get_detail_val("City")
+        if city:
+            record["City"] = city
+
+        state = get_detail_val("State")
+        if state and len(state) <= 2:
+            record["State"] = state
+
+        zipcode = get_detail_val("Zip|ZIP")
+        if zipcode:
+            record["ZIP"] = zipcode
+
+        # Set Detail URL
+        record["Detail_URL"] = page.url
+
+        # Go back to results list
+        page.back()
+        time.sleep(2)
+
+    except Exception as e:
+        sys.stderr.write(f"   ⚠️ Detail page error for {booking_num}: {e}\n")
+        # Try to go back
+        try:
+            page.back()
+            time.sleep(2)
+        except:
+            pass
+
+    return record
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def scrape_palm_beach(days_back=1, max_pages=50):
+    """
+    Main scraper function.
+    
+    Args:
+        days_back: Number of days to search (default 1 = today only)
+        max_pages: Max pagination pages per date search
+    
+    Returns:
+        List of record dicts matching the 39-column schema.
+    """
+    sys.stderr.write(f"🌴 Palm Beach County Scraper (PBSO Blotter)\n")
+    sys.stderr.write(f"📅 Days back: {days_back}  |  📄 Max pages: {max_pages}\n")
+
+    page = setup_browser()
+    all_records = []
+
+    try:
+        # Loop oldest → newest
+        for i in range(days_back - 1, -1, -1):
+            target_date_obj = datetime.now() - timedelta(days=i)
+            target_date = target_date_obj.strftime('%m/%d/%Y')
+
+            # Phase 1: Search & collect from list view
+            summaries = search_and_collect(page, target_date, max_pages)
+
+            if not summaries:
+                continue
+
+            # Phase 2: Optionally visit detail pages for enrichment
+            # (PBSO detail pages may use AJAX injection — loaddetail())
+            # We attempt it but don't fail if it doesn't work
+            for idx, record in enumerate(summaries, 1):
+                sys.stderr.write(
+                    f"   🔍 [{idx}/{len(summaries)}] {record.get('Booking_Number', '?')} "
+                    f"- {record.get('Full_Name', 'Unknown')}\n"
+                )
+                try:
+                    enrich_with_detail(page, record)
+                except Exception as e:
+                    sys.stderr.write(f"   ⚠️ Enrichment failed: {e}\n")
+
+                # Clean up internal fields before output
+                record.pop('_detail_onclick', None)
+                record.pop('_obts', None)
+                record.pop('_holds', None)
+
+            all_records.extend(summaries)
+
+        sys.stderr.write(f"\n📊 Grand total: {len(all_records)} records across {days_back} day(s).\n")
+        return all_records
+
+    except Exception as e:
+        sys.stderr.write(f"❌ Fatal error: {e}\n")
+        return all_records  # Return whatever we got
+
+    finally:
         try:
             page.quit()
-        except: pass
-        return []
+        except:
+            pass
+
 
 if __name__ == "__main__":
     days = 1
@@ -456,6 +544,6 @@ if __name__ == "__main__":
             days = int(sys.argv[1])
         except:
             pass
-    
+
     results = scrape_palm_beach(days_back=days)
     print(json.dumps(results, indent=2))
