@@ -21,9 +21,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from core.config_loader import load_config
 from core.dedup import deduplicate
-from core.logging_config import setup_logging
-from core.writers.json_writer import write_json_output
-from core.writers.slack_notifier import notify_slack
+from core.logging_config import get_logger
+from core.writers.json_writer import write_json
+from core.writers.slack_notifier import notify_completion, notify_error
 
 
 def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None, dry_run: bool = False):
@@ -39,7 +39,7 @@ def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None,
     7. Notify Slack
     """
     config = load_config(county_name)
-    logger = setup_logging(county_name)
+    logger = get_logger(county_name)
 
     # Override config with CLI args
     if days_back is not None:
@@ -87,11 +87,7 @@ def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None,
 
     except Exception as e:
         logger.error(f"Solver failed: {e}", exc_info=True)
-        notify_slack(
-            county=county_name,
-            message=f"❌ {county_name} solver FAILED: {e}",
-            level="error"
-        )
+        notify_error(county_name, str(e))
         return None
 
     if not records:
@@ -147,18 +143,15 @@ def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None,
         logger.info("DRY RUN — skipping Sheets write")
 
     # --- Step 5: Write JSON backup ---
-    write_json_output(county_name, unique_records, record_type='normalized')
+    write_json(unique_records, county_name, stage='normalized')
 
     # --- Step 6: Slack notification ---
     if stats['new'] > 0:
-        notify_slack(
-            county=county_name,
-            message=(
-                f"✅ *{county_name}* scraper complete\n"
-                f"  📊 {stats['new']} new | {stats['dupes']} dupes | {stats['qualified']} qualified"
-            ),
-            level="success"
-        )
+        notify_completion(county_name, {
+            'new_records': stats['new'],
+            'updated_records': 0,
+            'qualified_records': stats['qualified']
+        })
 
     logger.info(f"Pipeline complete: {stats}")
     return stats

@@ -6,7 +6,7 @@ enabled: true
 scraper:
   platform: custom
   stack: python
-  url: "https://www.pbso.org/inmates"
+  url: "https://www3.pbso.org/blotter/index.cfm"
   days_back: 14
   max_pages: 30
   headless: true

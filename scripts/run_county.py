@@ -51,15 +51,35 @@ def main():
     # Import and run the county runner
     try:
         runner_module = importlib.import_module(f"counties.{county}.runner")
-    except ModuleNotFoundError:
-        sys.stderr.write(
-            f"❌ No runner found for '{county}'\n"
-            f"   Expected: counties/{county}/runner.py\n"
-            f"   Copy from: counties/_template/runner.py\n"
-        )
+    except ModuleNotFoundError as e:
+        # Only catch if the runner module itself is missing, not inner imports
+        if f"counties.{county}" in str(e):
+            sys.stderr.write(
+                f"❌ No runner found for '{county}'\n"
+                f"   Expected: counties/{county}/runner.py\n"
+                f"   Copy from: counties/_template/runner.py\n"
+            )
+            sys.exit(1)
+        else:
+            import traceback
+            sys.stderr.write(f"❌ Import error in {county} runner:\n")
+            traceback.print_exc()
+            sys.exit(1)
+    except ImportError:
+        import traceback
+        sys.stderr.write(f"❌ Import error in {county} runner:\n")
+        traceback.print_exc()
         sys.exit(1)
 
-    stats = runner_module.run(county, config, dry_run=args.dry_run)
+    stats = runner_module.run_pipeline(
+        county,
+        days_back=args.days_back,
+        max_pages=args.max_pages,
+        dry_run=args.dry_run
+    )
+
+    if stats is None:
+        sys.exit(1)
 
     # Exit with non-zero if there were errors
     if stats.get("errors"):

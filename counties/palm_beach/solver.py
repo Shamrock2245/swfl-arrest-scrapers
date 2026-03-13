@@ -74,23 +74,24 @@ def scrape_palm_beach(days_back=1):
                     
                     # page.ele('#end_date').input(target_date) # Assuming end date defaults correctly or is single day
                     
-                    # Click Search
-                    # Finding the button - Reusing logic from POC
-                    btns = page.eles('tag:button')
-                    submit_btn = None
-                    for b in btns:
-                        if 'search' in b.text.lower():
-                            submit_btn = b
-                            break
-                    
+                    # Click Submit
+                    # The actual submit button is input#process (type=submit)
+                    submit_btn = page.ele('#process')
                     if not submit_btn:
                         submit_btn = page.ele('css:input[type=submit]')
+                    if not submit_btn:
+                        # Fallback: search for any button with submit/search text
+                        btns = page.eles('tag:button')
+                        for b in btns:
+                            if any(w in b.text.lower() for w in ['submit', 'search']):
+                                submit_btn = b
+                                break
                     
                     if submit_btn:
-                        sys.stderr.write("Clicking Search...\n")
+                        sys.stderr.write("Clicking Submit...\n")
                         submit_btn.click()
                         
-                        # Wait for navigation
+                        # Wait for results to load
                         time.sleep(5)
                         
             
@@ -234,13 +235,12 @@ def scrape_palm_beach(days_back=1):
                                         charges.append(cleaned)
                                     
                             # Bond
-                            # Look for text "Current Bond: $..."
-                            # It might be in the text of the row or inner divs
+                            # Look for text "Current Bond: $..." or "Bond Amount: $..."
                             row_text = row.text
-                            bond_matches = re.findall(r'Current Bond:\s*\$([\d\.]+)', row_text)
+                            bond_matches = re.findall(r'(?:Current Bond|Bond Amount|Bond):\s*\$([\d,\.]+)', row_text)
                             for amt in bond_matches:
                                 try:
-                                    total_bond += float(amt)
+                                    total_bond += float(amt.replace(',', ''))
                                 except: pass
                                 
                             if total_bond == 0.0:
@@ -251,7 +251,8 @@ def scrape_palm_beach(days_back=1):
                             # URL - use the page URL as fallback since we aren't visiting details
                             detail_url = page.url 
 
-                            # Construct Record
+                            # Construct Record (39-column schema)
+                            # Keys MUST match HEADER_ROW in core/writers/sheets_writer.py
                             record = {
                                 "Scrape_Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                                 "County": "Palm Beach",
@@ -261,11 +262,14 @@ def scrape_palm_beach(days_back=1):
                                 "First_Name": first_name,
                                 "Middle_Name": middle_name,
                                 "Last_Name": last_name,
-                                "DOB": "", # Not in list view
+                                "DOB": "",
+                                "Arrest_Date": booking_date,
+                                "Arrest_Time": booking_time,
                                 "Booking_Date": booking_date,
                                 "Booking_Time": booking_time,
                                 "Status": status,
                                 "Facility": facility,
+                                "Agency": "PBSO",
                                 "Race": race,
                                 "Sex": sex,
                                 "Height": "",
@@ -280,13 +284,15 @@ def scrape_palm_beach(days_back=1):
                                 "Bond_Paid": "NO",
                                 "Bond_Type": "",
                                 "Court_Type": "",
-                                "Case_Number": "", 
+                                "Case_Number": "",
                                 "Court_Date": "",
                                 "Court_Time": "",
                                 "Court_Location": "",
                                 "Detail_URL": detail_url,
                                 "Lead_Score": "0",
-                                "Lead_Status": "Cold"
+                                "Lead_Status": "Cold",
+                                "LastChecked": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                "LastCheckedMode": "scrape"
                             }
                             
                             records.append(record)
