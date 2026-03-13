@@ -20,20 +20,9 @@ def clean_text(text):
 
 
 def setup_browser():
-    """Configure and launch DrissionPage browser."""
-    co = ChromiumOptions()
-    co.auto_port()
-    co.headless(False)
-    co.set_argument('--no-sandbox')
-    co.set_argument('--disable-dev-shm-usage')
-    co.set_argument('--disable-blink-features=AutomationControlled')
-    co.set_argument('--window-size=1920,1080')
-    co.set_user_agent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/120.0.0.0 Safari/537.36'
-    )
-    return ChromiumPage(addr_or_opts=co)
+    """Configure and launch DrissionPage browser using shared core config."""
+    from core.browser import create_browser
+    return create_browser({"headless": True})
 
 
 def wait_for_cloudflare(page, max_wait=20):
