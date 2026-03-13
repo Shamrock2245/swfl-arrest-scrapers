@@ -12,7 +12,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 
 # Install Chromium dependencies for Puppeteer
-# (Puppeteer downloads its own Chromium, but needs these system libs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
@@ -36,25 +35,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first (layer caching optimization)
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 # Install Node dependencies
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
-# Copy application code (excludes items in .dockerignore)
-COPY index.js run_all_counties.js ./
+# Copy application code
+COPY index.js ./
 COPY config/ ./config/
 COPY jobs/ ./jobs/
-COPY normalizers/ ./normalizers/
-COPY scrapers/*.js ./scrapers/
-COPY shared/ ./shared/
-COPY writers/ ./writers/
+COPY scrapers/ ./scrapers/
 COPY slack/ ./slack/
-COPY wix_integration/ ./wix_integration/
 
 # Environment
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
 ENV NODE_ENV=production
 
-# Default: run all counties. Override with docker run ... node index.js collier
+# Default: run all counties
 CMD ["node", "index.js"]

@@ -18,8 +18,8 @@ services:
   # ---------------------------------------------------------------------------
   python-scrapers:
     build:
-      context: ./python_scrapers
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python_scrapers/Dockerfile
     container_name: shamrock-python-scrapers
     env_file: .env
     environment:

@@ -74,3 +74,7 @@ def get_logger(county_name: str = "system") -> logging.Logger:
     logger.addHandler(file_handler)
 
     return logger
+
+
+# Alias for backward compatibility — all county runners import this name
+setup_logging = get_logger
