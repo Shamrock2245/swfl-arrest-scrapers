@@ -22,8 +22,22 @@ sys.path.insert(0, str(REPO_ROOT))
 from core.config_loader import load_config
 from core.dedup import deduplicate
 from core.logging_config import get_logger
-from core.writers.json_writer import write_json
-from core.writers.slack_notifier import notify_completion, notify_error
+
+# Direct file imports to bypass SIP-locked core/writers/__init__.py on macOS
+import importlib.util
+
+def _import_from_file(module_name, file_path):
+    """Import a module directly from file path, bypassing package __init__.py."""
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+_json_writer = _import_from_file('json_writer', REPO_ROOT / 'core' / 'writers' / 'json_writer.py')
+_slack_notifier = _import_from_file('slack_notifier', REPO_ROOT / 'core' / 'writers' / 'slack_notifier.py')
+write_json = _json_writer.write_json
+notify_completion = _slack_notifier.notify_completion
+notify_error = _slack_notifier.notify_error
 
 
 def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None, dry_run: bool = False):
@@ -123,8 +137,9 @@ def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None,
 
     if not dry_run:
         try:
-            from core.writers.sheets_writer import SheetsWriter
-            sheets_id = os.getenv('GOOGLE_SHEETS_ID')
+            _sheets_mod = _import_from_file('sheets_writer', REPO_ROOT / 'core' / 'writers' / 'sheets_writer.py')
+            SheetsWriter = _sheets_mod.SheetsWriter
+            sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
             if sheets_id:
                 writer = SheetsWriter(sheets_id)
                 result = writer.write_records(unique_records, county=county_name)
