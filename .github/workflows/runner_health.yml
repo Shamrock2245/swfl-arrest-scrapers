@@ -1,0 +1,31 @@
+name: Runner Health Check
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: [self-hosted, linux, x64, hetzner]
+    timeout-minutes: 5
+
+    steps:
+      - name: Health Check
+        run: |
+          echo "🟢 Runner alive: $(hostname) @ $(date)"
+          echo "Docker: $(docker --version)"
+          echo "Chrome: $(google-chrome --version)"
+          echo "Python: $(python3 --version)"
+          echo "Node: $(node --version)"
+          echo "Disk: $(df -h / | tail -1)"
+          echo "Memory: $(free -h | grep Mem)"
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"🔴 *Hetzner Runner DOWN* — self-hosted runner failed health check — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'

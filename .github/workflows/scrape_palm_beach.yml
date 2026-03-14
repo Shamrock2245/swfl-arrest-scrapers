@@ -7,7 +7,7 @@ on:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, hetzner]
     timeout-minutes: 90
     env:
       GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
@@ -16,16 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Chrome
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends \
-            google-chrome-stable xvfb
 
       - name: Install Python deps
         run: pip install -r python_scrapers/requirements.txt
