@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Python deps
-        run: pip install .
+        run: pip install DrissionPage google-auth google-auth-oauthlib google-api-python-client gspread python-dotenv pyyaml requests beautifulsoup4
 
       - name: Write credentials
         run: |
