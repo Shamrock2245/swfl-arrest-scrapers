@@ -39,22 +39,27 @@ See `.env.example` for full list.
 
 | County | Stack | Status | Schedule | Notes |
 |--------|-------|--------|----------|-------|
+| **Brevard** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Simple HTML bookings |
 | **Charlotte** | Python/DrissionPage | ✅ Active | */30 * * * * | Revize CMS |
 | **Collier** | Node.js/Puppeteer | ✅ Active | */30 * * * * | Custom site |
 | **DeSoto** | Node.js/Puppeteer | ✅ Active | 0 */2 * * * | SmartCOP, incremental mode |
 | **Hendry** | Python/Playwright | ✅ Active | 0 */2 * * * | Wix API interception |
+| **Highlands** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Interactive search |
 | **Hillsborough** | Python/DrissionPage | ✅ Active | */20 * * * * | Login required |
+| **Indian River** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Interactive search form |
+| **Lake** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Interactive search |
 | **Lee** | GAS Internal | ✅ Active | */30 * * * * | Home county |
 | **Manatee** | Python/DrissionPage | ✅ Active | */30 * * * * | Revize CMS |
+| **Martin** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Recent Bookings page |
 | **Orange** | Python/DrissionPage | ✅ Active | 0 */3 * * * | High volume |
 | **Osceola** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Custom portal |
 | **Palm Beach** | Python/DrissionPage | ✅ Active | 0 */3 * * * | High volume |
 | **Pinellas** | Python/DrissionPage | ✅ Active | 0 */3 * * * | PCSO |
 | **Polk** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Central FL |
-| **Sarasota** | Python/DrissionPage | 🔄 In Progress | 0 */3 * * * | Date-iteration logic |
+| **Sarasota** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Cloudflare; DP required |
 | **Seminole** | Python/DrissionPage | ✅ Active | 0 */3 * * * | Sheriff's Office |
 
-**Goal:** 67 Florida counties (all remaining use `counties/_template/` scaffold).
+**19 active counties** — Goal: 67 Florida counties (all remaining use `counties/_template/` scaffold).
 
 ---
 

@@ -8,13 +8,18 @@
 
 | County | Stack | Schedule | Status | Known Quirks |
 |---|---|---|---|---|
+| **Brevard** | Python/DrissionPage | Every 3h | ✅ Stable | Simple HTML bookings page |
 | **Charlotte** | Python/DrissionPage | Every 30m | ✅ Stable | ColdFusion site; date format varies |
 | **Collier** | Apps Script (GAS) | Every 30m | ✅ Stable | Requires disclaimer acceptance |
 | **DeSoto** | Node.js/Puppeteer | Every 60m | ✅ Legacy | SmartCOP system; incremental scrape |
 | **Hendry** | Python/DrissionPage | Every 2h | ✅ Stable | Low volume county; API-based |
+| **Highlands** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive search form |
 | **Hillsborough** | Python/DrissionPage | Every 20m | ✅ Stable | ASP.NET ViewState; high volume |
+| **Indian River** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive search form |
+| **Lake** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive inmate search |
 | **Lee** | Apps Script (GAS) | Every 30m | ✅ Stable | Internal GAS scraper via booking search |
 | **Manatee** | Python/DrissionPage | Every 30m | ✅ Stable | Arrest inquiry form submission |
+| **Martin** | Python/DrissionPage | Every 3h | ✅ Stable | Recent Bookings page |
 | **Orange** | Python/DrissionPage | Every 30m | ✅ Stable | PDF-based roster + web scraping |
 | **Osceola** | Python/DrissionPage | Every 60m | ✅ Stable | Corrections report search form |
 | **Palm Beach** | Python/DrissionPage | Every 30m | ⚠️ Beta | High volume; occasional timeouts |
@@ -56,26 +61,26 @@ Counties with standard web forms that DrissionPage handles easily.
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
 | **Alachua** | `acso.us/inmate-search/` | 🟡 Medium | POST search form |
-| **Brevard** | `brevardsheriff.com/bookings/` | 🟢 Easy | Simple HTML bookings page |
+| ~~**Brevard**~~ | ~~`brevardsheriff.com/bookings/`~~ | ✅ Done | Moved to Active |
 | **Citrus** | `sheriffcitrus.org` | 🟢 Easy | Simple PHP recent arrests |
 | **Clay** | `claysheriff.policetocitizen.com` | 🟡 Medium | P2C system; disclaimer click |
 | **Columbia** | `50.204.15.10` | 🟡 Medium | SmartCOP via IP |
 | **Franklin** | `franklinsheriff.com` | 🟡 Medium | Check for 'I Accept' splash |
 | **Hernando** | `hernandosheriff.org` | 🟡 Medium | ASP.NET search form |
-| **Highlands** | `highlandssheriff.org` | 🟡 Medium | Interactive search |
+| ~~**Highlands**~~ | ~~`highlandssheriff.org`~~ | ✅ Done | Moved to Active |
 | **Holmes** | `holmescosheriff.org` | 🟡 Medium | Check if simple HTML |
-| **Indian River** | `ircsheriff.org` | 🟡 Medium | Interactive search form |
-| **Lake** | `lcso.org/inmates/` | 🟡 Medium | Interactive search |
+| ~~**Indian River**~~ | ~~`ircsheriff.org`~~ | ✅ Done | Moved to Active |
+| ~~**Lake**~~ | ~~`lcso.org/inmates/`~~ | ✅ Done | Moved to Active |
 | **Leon** | `leoncountyso.com` | 🟡 Medium | Search portal |
 | **Marion** | `jail.marionso.com` | 🟡 Medium | Search form |
-| **Martin** | `mcsofl.org` | 🟢 Easy | Recent Bookings page |
+| ~~**Martin**~~ | ~~`mcsofl.org`~~ | ✅ Done | Moved to Active |
 | **Monroe** | `keysso.net/arrests` | 🟡 Medium | Current inmates list |
 | **Okeechobee** | `okeesheriff.org` | 🟡 Medium | Inmate search form |
 | **St. Johns** | `sjso.org` | 🟡 Medium | Inmate search |
 | **St. Lucie** | `stluciesheriff.com` | 🟡 Medium | Inmate lookup |
 | **Washington** | `wcso.us/inmateRoster` | 🟡 Medium | Inmate roster |
 
-**Estimated effort per county:** 1–3 hours
+**Estimated effort per county:** 1–3 hours (14 remaining)
 
 ---
 
