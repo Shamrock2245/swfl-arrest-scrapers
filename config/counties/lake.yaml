@@ -1,0 +1,23 @@
+# Lake County Config
+name: Lake
+state: FL
+enabled: true
+
+scraper:
+  platform: angular
+  stack: python
+  url: "https://www.lcso.org/inmates/"
+  days_back: 7
+  max_pages: 10
+  headless: true
+
+output:
+  sheet_tab: "Lake"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  Angular-based JS-rendered search. Requires DrissionPage.
+  I-4 corridor, large county (393K pop).

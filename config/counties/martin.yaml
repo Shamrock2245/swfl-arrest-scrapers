@@ -1,0 +1,23 @@
+# Martin County Config
+name: Martin
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.martinso.us/inmatesearch/"
+  days_back: 7
+  max_pages: 10
+  headless: true
+
+output:
+  sheet_tab: "Martin"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  Martin County SO. Original mcsofl.org URL returned 404.
+  Using martinso.us as primary, with fallback URLs. Treasure Coast (161K pop).

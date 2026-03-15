@@ -1,0 +1,23 @@
+# Highlands County Config
+name: Highlands
+state: FL
+enabled: true
+
+scraper:
+  platform: react_spa
+  stack: python
+  url: "https://www.highlandssheriff.org/inmateSearch"
+  days_back: 7
+  max_pages: 10
+  headless: true
+
+output:
+  sheet_tab: "Highlands"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  React SPA behind Cloudflare. Uses myocv.com CMS.
+  Requires DrissionPage with API interception. Central FL (106K pop).

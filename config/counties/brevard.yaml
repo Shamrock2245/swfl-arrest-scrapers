@@ -1,0 +1,23 @@
+# Brevard County Config
+name: Brevard
+state: FL
+enabled: true
+
+scraper:
+  platform: custom_asp
+  stack: python
+  url: "https://inmatesearch.brevardsheriff.org/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Brevard"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  ASP.NET search form with date range fields. Uses requests + BS4.
+  POST to /Results with FromDate/ToDate. Largest county in this batch (617K pop).

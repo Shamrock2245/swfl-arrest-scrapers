@@ -1,0 +1,39 @@
+name: Scrape Brevard County
+
+on:
+  schedule:
+    - cron: '15 8,14,20,2 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: [self-hosted, linux, x64, hetzner]
+    timeout-minutes: 90
+    env:
+      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
+      TZ: America/New_York
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python deps
+        run: pip install -r python_scrapers/requirements.txt
+
+      - name: Write credentials
+        run: |
+          mkdir -p creds
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+
+      - name: Run scraper
+        run: |
+          python3 counties/brevard/runner.py --days-back 7
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"❌ *Brevard* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'

@@ -1,0 +1,23 @@
+# Indian River County Config
+name: Indian River
+state: FL
+enabled: true
+
+scraper:
+  platform: custom_html
+  stack: python
+  url: "https://www.ircsheriff.org/inmate-search"
+  days_back: 3
+  max_pages: 10
+  headless: true
+
+output:
+  sheet_tab: "Indian_River"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  Clean HTML listing with booking detail links at /booking-details/{id}.
+  Uses requests + BS4. Treasure Coast expansion (159K pop).
