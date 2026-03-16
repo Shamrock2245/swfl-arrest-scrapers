@@ -1,7 +1,7 @@
 # ============================================
 # Reusable Scraper Workflow Template
 # ============================================
-# All 15 county scrapers call this template.
+# All county scrapers call this template.
 # Change deps, creds, timeouts here — it cascades to all.
 # ============================================
 name: Scrape County (Reusable)
@@ -33,7 +33,10 @@ jobs:
     runs-on: [self-hosted, linux, x64, hetzner]
     timeout-minutes: 90
     env:
-      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+      # Hardcoded to the canonical Shamrock Arrests sheet.
+      # The run_*.py scripts also have this as a fallback default,
+      # but setting it here guarantees consistency.
+      GOOGLE_SHEETS_ID: '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
       GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
       TZ: America/New_York
 
@@ -50,6 +53,10 @@ jobs:
 
       - name: Run ${{ inputs.county }} scraper
         run: |
+          echo "🎯 Target Sheet: $GOOGLE_SHEETS_ID"
+          echo "📜 Script: ${{ inputs.script }}"
+          echo "📋 Args: ${{ inputs.args }}"
+          echo ""
           if [ "${{ inputs.needs_xvfb }}" = "true" ]; then
             xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
               python3 ${{ inputs.script }} ${{ inputs.args }}
