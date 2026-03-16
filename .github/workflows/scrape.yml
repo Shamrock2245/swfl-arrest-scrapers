@@ -1,0 +1,70 @@
+# ============================================
+# Reusable Scraper Workflow Template
+# ============================================
+# All 15 county scrapers call this template.
+# Change deps, creds, timeouts here — it cascades to all.
+# ============================================
+name: Scrape County (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      county:
+        description: 'County name (e.g. charlotte)'
+        required: true
+        type: string
+      script:
+        description: 'Path to scraper script'
+        required: true
+        type: string
+      args:
+        description: 'CLI arguments for the scraper'
+        required: false
+        type: string
+        default: ''
+      needs_xvfb:
+        description: 'Whether to wrap in xvfb-run for headless browser'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  scrape:
+    runs-on: [self-hosted, linux, x64, hetzner]
+    timeout-minutes: 90
+    env:
+      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
+      TZ: America/New_York
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python deps
+        run: pip install -r python_scrapers/requirements.txt
+
+      - name: Write credentials
+        run: |
+          mkdir -p creds
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+
+      - name: Run ${{ inputs.county }} scraper
+        run: |
+          if [ "${{ inputs.needs_xvfb }}" = "true" ]; then
+            xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+              python3 ${{ inputs.script }} ${{ inputs.args }}
+          else
+            python3 ${{ inputs.script }} ${{ inputs.args }}
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          WEBHOOK="${{ secrets.SLACK_WEBHOOK_URL }}"
+          if [ -n "$WEBHOOK" ]; then
+            curl -s -X POST "$WEBHOOK" \
+              -H 'Content-type: application/json' \
+              -d '{"text":"❌ *${{ inputs.county }}* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
+          else
+            echo "⚠️ SLACK_WEBHOOK_URL not set — skipping notification"
+          fi

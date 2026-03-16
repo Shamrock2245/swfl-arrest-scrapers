@@ -1,40 +1,14 @@
 name: Scrape Seminole County
-
 on:
   schedule:
     - cron: '10 8,14,20,2 * * *'
   workflow_dispatch:
-
 jobs:
   scrape:
-    runs-on: [self-hosted, linux, x64, hetzner]
-    timeout-minutes: 90
-    env:
-      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
-      TZ: America/New_York
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Python deps
-        run: pip install -r python_scrapers/requirements.txt
-
-      - name: Write credentials
-        run: |
-          mkdir -p creds
-          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
-
-      - name: Run scraper
-        run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            python3 python_scrapers/scrapers/run_seminole.py 3
-
-      - name: Notify on failure
-        if: failure()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -s -X POST "$SLACK_WEBHOOK_URL" \
-            -H 'Content-type: application/json' \
-            -d '{"text":"❌ *Seminole* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: seminole
+      script: python_scrapers/scrapers/run_seminole.py
+      args: "3"
+      needs_xvfb: true
+    secrets: inherit
