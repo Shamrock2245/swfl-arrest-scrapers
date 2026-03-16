@@ -1,14 +1,42 @@
 name: Scrape Hillsborough County
+
 on:
   schedule:
     - cron: '30 7,13,19,1 * * *'
   workflow_dispatch:
+
 jobs:
   scrape:
-    uses: ./.github/workflows/scrape.yml
-    with:
-      county: hillsborough
-      script: python_scrapers/scrapers/run_hillsborough.py
-      args: "1"
-      needs_xvfb: true
-    secrets: inherit
+    runs-on: [self-hosted, linux, x64, hetzner]
+    timeout-minutes: 90
+    env:
+      GOOGLE_SHEETS_ID: '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
+      GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
+      HCSO_EMAIL: ${{ secrets.HCSO_EMAIL }}
+      HCSO_PASSWORD: ${{ secrets.HCSO_PASSWORD }}
+      TZ: America/New_York
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python deps
+        run: pip install -r python_scrapers/requirements.txt
+
+      - name: Write credentials
+        run: |
+          mkdir -p creds
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}' > creds/service-account-key.json
+
+      - name: Run scraper
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            python3 python_scrapers/scrapers/run_hillsborough.py 3
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d '{"text":"\u274c *Hillsborough* scraper failed \u2014 <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'

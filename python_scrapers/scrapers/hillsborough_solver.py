@@ -1,20 +1,142 @@
+#!/usr/bin/env python3
+"""
+Hillsborough County Solver (HCSO) - Headless Login + Scrape
+
+Uses DrissionPage in headless mode to:
+1. Navigate to HCSO Arrest Inquiry login page
+2. Login with HCSO_EMAIL / HCSO_PASSWORD
+3. Perform search for recent arrests
+4. Parse results across paginated table
+5. Output JSON to stdout
+
+Requires: HCSO_EMAIL, HCSO_PASSWORD env vars
+
+Author: SWFL Arrest Scrapers Team
+Date: March 2026
+"""
+
 import sys
 import json
 import time
-import re
 import os
 import datetime
-from DrissionPage import ChromiumPage, ChromiumOptions
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 
-# Load environment variables
-load_dotenv()
+# DrissionPage import
+from DrissionPage import ChromiumPage, ChromiumOptions
 
-def clean_charge_text(raw_charge):
-    if not raw_charge:
-        return ''
-    return raw_charge.strip()
+
+def setup_browser():
+    """Create headless Chrome browser via DrissionPage."""
+    co = ChromiumOptions()
+    co.headless(True)
+    co.set_argument('--no-sandbox')
+    co.set_argument('--disable-dev-shm-usage')
+    co.set_argument('--disable-gpu')
+    co.set_argument('--window-size=1920,1080')
+    co.set_argument('--disable-blink-features=AutomationControlled')
+    co.set_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    return ChromiumPage(co)
+
+
+def login_hcso(page, email, password):
+    """Log into the HCSO Arrest Inquiry portal."""
+    login_url = "https://webapps.hcso.tampa.fl.us/arrestinquiry/Account/Login"
+    sys.stderr.write(f"\U0001f511 Navigating to login page...\n")
+    page.get(login_url)
+    time.sleep(3)
+
+    # Fill email
+    email_field = page.ele('#Email', timeout=10)
+    if not email_field:
+        sys.stderr.write("\u274c Could not find email field\n")
+        return False
+    email_field.clear()
+    email_field.input(email)
+
+    # Fill password
+    pwd_field = page.ele('#Password', timeout=5)
+    if not pwd_field:
+        sys.stderr.write("\u274c Could not find password field\n")
+        return False
+    pwd_field.clear()
+    pwd_field.input(password)
+
+    # Click login button
+    login_btn = page.ele('tag:button@@text():Log in', timeout=5) or page.ele('tag:input@@type=submit', timeout=3)
+    if login_btn:
+        login_btn.click()
+    else:
+        # Try form submit
+        pwd_field.input('\n')
+    
+    time.sleep(4)
+    
+    # Check if login succeeded
+    page_html = page.html
+    if 'Log out' in page_html or 'Welcome' in page_html or 'Search' in page_html:
+        sys.stderr.write("\u2705 Login successful\n")
+        return True
+    elif 'Invalid' in page_html or 'incorrect' in page_html.lower():
+        sys.stderr.write("\u274c Invalid credentials\n")
+        return False
+    else:
+        sys.stderr.write(f"\u26a0\ufe0f  Login status unclear. Current URL: {page.url}\n")
+        # Try to proceed anyway
+        return 'arrestinquiry' in page.url.lower()
+
+
+def perform_search(page, days_back=3):
+    """Perform the arrest search with date range."""
+    search_url = "https://webapps.hcso.tampa.fl.us/arrestinquiry/Home/Search"
+    sys.stderr.write(f"\U0001f50d Navigating to search page...\n")
+    page.get(search_url)
+    time.sleep(3)
+
+    # Calculate date range
+    end_date = datetime.datetime.now()
+    start_date = end_date - datetime.timedelta(days=days_back)
+    
+    start_str = start_date.strftime("%m/%d/%Y")
+    end_str = end_date.strftime("%m/%d/%Y")
+    
+    sys.stderr.write(f"\U0001f4c5 Search range: {start_str} to {end_str}\n")
+
+    # Fill start date
+    start_field = page.ele('#BeginDate', timeout=5) or page.ele('@@name=BeginDate', timeout=3)
+    if start_field:
+        start_field.clear()
+        start_field.input(start_str)
+
+    # Fill end date
+    end_field = page.ele('#EndDate', timeout=5) or page.ele('@@name=EndDate', timeout=3)
+    if end_field:
+        end_field.clear()
+        end_field.input(end_str)
+
+    # Click search button
+    search_btn = page.ele('tag:button@@text():Search', timeout=5) or page.ele('#searchButton', timeout=3) or page.ele('tag:input@@value=Search', timeout=3)
+    if search_btn:
+        search_btn.click()
+    else:
+        sys.stderr.write("\u26a0\ufe0f  Could not find search button, trying form submit...\n")
+        if end_field:
+            end_field.input('\n')
+    
+    time.sleep(5)
+    
+    # Check for results
+    page_html = page.html
+    if 'Search Results' in page_html or 'Booking Name' in page_html:
+        sys.stderr.write("\u2705 Search results found\n")
+        return True
+    elif 'No records found' in page_html or 'no results' in page_html.lower():
+        sys.stderr.write("\u26a0\ufe0f  No records found for date range\n")
+        return False
+    else:
+        sys.stderr.write(f"\u26a0\ufe0f  Search result status unclear\n")
+        return 'table-striped' in page_html
+
 
 def parse_results_table(soup):
     """Parse arrest records from the BeautifulSoup object of a results page."""
@@ -25,7 +147,7 @@ def parse_results_table(soup):
     if not results_table:
         return records
     
-    # Find header row to skip it
+    # Find rows
     tbody = results_table.find('tbody') or results_table
     all_rows = tbody.find_all('tr', recursive=False)
     
@@ -77,8 +199,7 @@ def parse_results_table(soup):
                     if len(demo_parts) >= 4:
                         record['DOB'] = demo_parts[3]
                     
-                    # Next rows have address, release info, and charges
-                    # Look for ADDRESS row
+                    # Address row
                     if i + 1 < len(all_rows):
                         addr_row = all_rows[i + 1]
                         addr_cells = addr_row.find_all('td')
@@ -89,21 +210,27 @@ def parse_results_table(soup):
                             elif text.startswith('CITY:'):
                                 record['City'] = text.replace('CITY:', '').strip()
                     
-                    # Look for RELEASE DATE row
+                    # Release date row
                     if i + 2 < len(all_rows):
                         rel_row = all_rows[i + 2]
                         rel_cells = rel_row.find_all('td')
                         for cell in rel_cells:
                             text = cell.get_text(strip=True)
-                            if text.startswith('RELEASE DATE:'):
-                                record['Booking_Date'] = text.replace('RELEASE DATE:', '').strip()
+                            if text.startswith('ARREST DATE:'):
+                                record['Arrest_Date'] = text.replace('ARREST DATE:', '').strip()
+                            elif text.startswith('BOOKING DATE:'):
+                                record['Booking_Date'] = text.replace('BOOKING DATE:', '').strip()
+                            elif text.startswith('RELEASE DATE:'):
+                                release_date = text.replace('RELEASE DATE:', '').strip()
+                                if release_date:
+                                    record['Status'] = 'Released'
+                                else:
+                                    record['Status'] = 'In Custody'
                             elif text.startswith('RELEASE CODE:'):
                                 code = text.replace('RELEASE CODE:', '').strip()
                                 record['Bond_Type'] = code
-                                if 'BOND' in code.upper():
-                                    record['Status'] = 'RELEASED'
                     
-                    # Look for charges in nested table
+                    # Charges in nested table
                     charges = []
                     case_numbers = []
                     total_bond = 0.0
@@ -119,30 +246,34 @@ def parse_results_table(soup):
                                     if charge_desc and 'Charge Type' not in charge_desc:
                                         charges.append(charge_desc)
                                     
-                                    # Bond Amount Extraction (Index 4 usually)
+                                    # Bond Amount (Index 4)
                                     if len(charge_cells) >= 5:
                                         bond_text = charge_cells[4].get_text(strip=True)
-                                        # Parse "$1,000.00"
                                         if '$' in bond_text or bond_text.replace(',','').replace('.','').isdigit():
                                             try:
                                                 amt = float(bond_text.replace('$', '').replace(',', ''))
                                                 total_bond += amt
-                                            except: pass
-
+                                            except:
+                                                pass
+                                    
                                     if len(charge_cells) >= 4:
                                         case_num = charge_cells[3].get_text(strip=True)
                                         if case_num and '-' in case_num and case_num not in case_numbers:
                                             case_numbers.append(case_num)
                     
                     record['Charges'] = ' | '.join(charges) if charges else ''
-                    # Calculate total bond from amounts found
                     record['Bond_Amount'] = str(total_bond) if total_bond > 0 else '0'
                     
                     if case_numbers:
                         record['Case_Number'] = case_numbers[0]
                     
                     record['State'] = 'FL'
-                    records.append(record)
+                    
+                    # Only add records that have a booking number
+                    if record.get('Booking_Number'):
+                        records.append(record)
+                    else:
+                        sys.stderr.write(f"   \u26a0\ufe0f  Skipping record without booking number: {record.get('Full_Name', 'UNKNOWN')}\n")
                     
                     # Skip the related rows (4 rows per inmate)
                     i += 4
@@ -151,157 +282,103 @@ def parse_results_table(soup):
             i += 1
             
         except Exception as e:
+            sys.stderr.write(f"   \u26a0\ufe0f  Error parsing row {i}: {e}\n")
             i += 1
     
     return records
 
+
 def scrape_hillsborough(days_back=3):
-    """
-    Scrape Hillsborough County (HCSO) with DrissionPage & Authorized Member Login
-    """
-    records = []
-    
-    # Get credentials from environment
+    """Main scraper function for Hillsborough County."""
     hcso_email = os.getenv('HCSO_EMAIL')
     hcso_password = os.getenv('HCSO_PASSWORD')
     
     if not hcso_email or not hcso_password:
-        sys.stderr.write("❌ HCSO_EMAIL and HCSO_PASSWORD must be set in .env\n")
-        return []
+        sys.stderr.write("\u274c HCSO_EMAIL and HCSO_PASSWORD must be set\n")
+        sys.stderr.write("   Hillsborough requires authorized member login.\n")
+        print("[]")
+        return
     
-    end_date = time.strftime("%m/%d/%Y")
-    # For now, let's just do a small range or what the user asked
-    # Calculate start date
-    import datetime
-    start_dt = datetime.datetime.now() - datetime.timedelta(days=days_back)
-    start_date = start_dt.strftime("%m/%d/%Y")
-
-    sys.stderr.write(f"ℹ️  Scraping HCSO from {start_date} to {end_date}\n")
+    sys.stderr.write(f"\U0001f3d9\ufe0f Hillsborough County Scraper (days_back={days_back})\n")
     
-    # Persistent browser profile path for storing login session
-    profile_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'hcso_profile')
-    os.makedirs(profile_path, exist_ok=True)
-    
+    page = None
     try:
-        # Try to connect to existing Chrome (where user is already logged in)
-        # First, check if Chrome is running with debug port
-        import socket
-        debug_port = 9222
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', debug_port))
-        sock.close()
+        page = setup_browser()
         
-        co = ChromiumOptions()
+        # Step 1: Login
+        if not login_hcso(page, hcso_email, hcso_password):
+            sys.stderr.write("\u274c Failed to login to HCSO\n")
+            print("[]")
+            return
         
-        if result == 0:
-            # Chrome is running with debug port - connect to it
-            sys.stderr.write("🔗 Connecting to existing Chrome session...\n")
-            co.set_local_port(debug_port)
-        else:
-            # No existing Chrome with debug port - need to start fresh
-            sys.stderr.write("⚠️  No existing Chrome debug session found.\n")
-            sys.stderr.write("   Please close all Chrome windows and run this command first:\n")
-            sys.stderr.write('   /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 &\n')
-            sys.stderr.write("   Then log into HCSO in that Chrome window, and run this scraper again.\n")
-            return []
+        # Step 2: Search
+        if not perform_search(page, days_back):
+            sys.stderr.write("\u26a0\ufe0f  No search results found\n")
+            print("[]")
+            return
         
-        page = ChromiumPage(co)
-        
-        # Show current URL for debug
-        current_url = page.url
-        sys.stderr.write(f"📍 Current page: {current_url}\n")
-        
-        # Get the page HTML to check what's there
-        page_html = page.html
-        
-        # Check for existing search results (look for the results table or header)
-        # The results are in the page HTML, just need to scroll or look for the right element
-        has_results = 'Search Results' in page_html or 'Booking Name' in page_html
-        is_logged_in = 'Log out' in page_html or 'Welcome' in page_html
-        
-        if has_results:
-            sys.stderr.write("✅ Found search results in page - scraping...\n")
-        elif is_logged_in:
-            sys.stderr.write("⚠️  Logged in but no search results visible. Please:\n")
-            sys.stderr.write("   1. Perform a search in the Chrome window\n")
-            sys.stderr.write("   2. Run this scraper again when results are showing\n")
-            return []
-        else:
-            sys.stderr.write("❌ Not logged in. Please:\n")
-            sys.stderr.write("   1. Log into HCSO in the Chrome window\n")
-            sys.stderr.write("   2. Perform a search manually\n")
-            sys.stderr.write("   3. Run this scraper again when results are showing\n")
-            return []
-        
-        # DEBUG: Snapshot
-        page.get_screenshot(path='hcso_results_debug.png', full_page=True)
-        with open('hcso_results_debug.html', 'w') as f:
-            f.write(page_html)
-        sys.stderr.write("📸 Saved debug screenshot and HTML\n")
-
-        # Parse results with pagination support
-        from bs4 import BeautifulSoup
+        # Step 3: Parse results with pagination
         all_records = []
         current_page = 1
-        max_pages = 20  # Safety limit
+        max_pages = 20
         
         while current_page <= max_pages:
-            sys.stderr.write(f"📄 Scraping page {current_page}...\n")
+            sys.stderr.write(f"\U0001f4c4 Scraping page {current_page}...\n")
             
-            # Get fresh page HTML
             page_html = page.html
             soup = BeautifulSoup(page_html, 'html.parser')
             
-            # Check pagination info to get total pages
+            # Pagination info
             pagination_info = soup.find('span', class_='paginationLeft')
             if pagination_info:
-                info_text = pagination_info.get_text(strip=True)
-                sys.stderr.write(f"   {info_text}\n")
+                sys.stderr.write(f"   {pagination_info.get_text(strip=True)}\n")
             
-            # Find the main results table
-            results_table = soup.find('table', class_='table-striped')
-            if not results_table:
-                sys.stderr.write("⚠️ Could not find results table\n")
-                break
-            
-            # Parse records from this page
+            # Parse records
             page_records = parse_results_table(soup)
             if not page_records:
-                sys.stderr.write("   No records found on this page\n")
+                sys.stderr.write("   No records on this page\n")
                 break
-                
+            
             all_records.extend(page_records)
-            sys.stderr.write(f"   ✅ Parsed {len(page_records)} records (total: {len(all_records)})\n")
+            sys.stderr.write(f"   \u2705 Parsed {len(page_records)} records (total: {len(all_records)})\n")
             
             # Check for Next button
             next_btn = page.ele('text:Next >', timeout=2)
             if next_btn:
-                # Check if it's disabled
                 btn_class = next_btn.attr('class') or ''
                 if 'disabled' in btn_class:
-                    sys.stderr.write("   📄 Reached last page\n")
+                    sys.stderr.write("   \U0001f4c4 Reached last page\n")
                     break
-                
-                # Click next
                 next_btn.click()
-                time.sleep(3)  # Wait for page to load
+                time.sleep(3)
                 current_page += 1
             else:
-                sys.stderr.write("   📄 No more pages\n")
+                sys.stderr.write("   \U0001f4c4 No more pages\n")
                 break
         
-        records = all_records
-        sys.stderr.write(f"✅ Total extracted: {len(records)} records\n")
+        sys.stderr.write(f"\u2705 Total extracted: {len(all_records)} records\n")
         
-        if records:
-            print(json.dumps(records, indent=2))
-        else:
-            sys.stderr.write("⚠️  No records extracted.\n")
-
+        # Output JSON to stdout
+        print(json.dumps(all_records, indent=2))
+        
     except Exception as e:
-        sys.stderr.write(f"❌ Error: {e}\n")
+        sys.stderr.write(f"\u274c Error: {e}\n")
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
+        print("[]")
+    finally:
+        if page:
+            try:
+                page.quit()
+            except:
+                pass
+
 
 if __name__ == "__main__":
-    scrape_hillsborough()
+    days = 3
+    if len(sys.argv) > 1:
+        try:
+            days = int(sys.argv[1])
+        except ValueError:
+            pass
+    scrape_hillsborough(days)
