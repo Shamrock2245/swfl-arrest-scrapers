@@ -149,6 +149,28 @@ def run_pipeline(county_name: str, days_back: int = None, max_pages: int = None,
     # --- Step 5: Write JSON backup ---
     write_json_output(county_name, unique_records, record_type='normalized')
 
+    # --- Step 5b: Mirror to MongoDB Atlas (non-fatal) ---
+    if not dry_run:
+        try:
+            from core.writers.mongo_writer import write_to_mongo
+            mongo_uri = os.getenv('MONGODB_URI')
+            if mongo_uri:
+                mongo_stats = write_to_mongo(unique_records, county=county_name)
+                stats['mongo_inserted'] = mongo_stats.get('inserted', 0)
+                stats['mongo_updated']  = mongo_stats.get('updated', 0)
+                stats['mongo_errors']   = mongo_stats.get('errors', 0)
+                logger.info(
+                    f"MongoDB: {stats['mongo_inserted']} inserted, "
+                    f"{stats['mongo_updated']} updated, "
+                    f"{stats['mongo_errors']} errors"
+                )
+            else:
+                logger.info("MONGODB_URI not set — skipping MongoDB Atlas write")
+        except Exception as e:
+            logger.error(f"MongoDB write failed (non-fatal): {e}", exc_info=True)
+    else:
+        logger.info("DRY RUN — skipping MongoDB write")
+
     # --- Step 6: Slack notification ---
     if stats['new'] > 0:
         notify_slack(
