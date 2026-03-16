@@ -9,7 +9,7 @@ Integrates charlotte_solver.py with the Python scraper infrastructure:
 - Writes to Google Sheets via SheetsWriter
 
 Author: SWFL Arrest Scrapers Team
-Date: December 9, 2025
+Date: November 24, 2025
 """
 
 import sys
@@ -40,7 +40,7 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         First_Name=raw_data.get('First_Name', ''),
         Middle_Name=raw_data.get('Middle_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
-        DOB=raw_data.get('DOB', raw_data.get('Date of Birth', '')),
+        DOB=raw_data.get('DOB', ''),
         Arrest_Date=raw_data.get('Arrest_Date', ''),
         Arrest_Time=raw_data.get('Arrest_Time', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
@@ -49,13 +49,13 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         Facility=raw_data.get('Facility', ''),
         Agency=raw_data.get('Agency', ''),
         Race=raw_data.get('Race', ''),
-        Sex=raw_data.get('Sex', raw_data.get('Gender', '')),
+        Sex=raw_data.get('Sex', ''),
         Height=raw_data.get('Height', ''),
         Weight=raw_data.get('Weight', ''),
         Address=raw_data.get('Address', ''),
         City=raw_data.get('City', ''),
         State=raw_data.get('State', 'FL'),
-        ZIP=raw_data.get('Zipcode', raw_data.get('ZIP', '')),
+        ZIP=raw_data.get('ZIP', ''),
         Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         Charges=raw_data.get('Charges', ''),
         Bond_Amount=raw_data.get('Bond_Amount', '0'),
@@ -90,7 +90,7 @@ def main():
     args = parser.parse_args()
 
     print(f"\n{'='*80}")
-    print(f"🚦 Charlotte County Scraper - Production Runner")
+    print(f"\ud83d\udea6 Charlotte County Scraper - Production Runner")
     print(f"{'='*80}\n")
     
     # Get script directory
@@ -98,7 +98,7 @@ def main():
     solver_path = os.path.join(script_dir, 'charlotte_solver.py')
     
     # Run the solver
-    print(f"📡 Running Charlotte solver (days_back={args.days_back}, max_pages={args.max_pages})...")
+    print(f"\ud83d\udce1 Running Charlotte solver (days_back={args.days_back}, max_pages={args.max_pages})...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
@@ -110,7 +110,7 @@ def main():
         )
         
         if result.returncode != 0:
-            print(f"❌ Solver failed with return code {result.returncode}")
+            print(f"\u274c Solver failed with return code {result.returncode}")
             return
         
         # Parse JSON output
@@ -119,56 +119,56 @@ def main():
             stdout_clean = result.stdout.strip()
             # If stdout contains multiple lines, the JSON should be the last one, or the whole thing
             raw_records = json.loads(stdout_clean)
-            print(f"✅ Solver extracted {len(raw_records)} raw records")
+            print(f"\u2705 Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-            print("⚠️  JSON Warning: Attempting to find JSON structure in output...")
+            print("\u26a0\ufe0f  JSON Warning: Attempting to find JSON structure in output...")
             import re
             match = re.search(r'\[.*\]', result.stdout, re.DOTALL)
             if match:
                 raw_records = json.loads(match.group(0))
-                print(f"✅ Solver extracted {len(raw_records)} raw records (regex)")
+                print(f"\u2705 Solver extracted {len(raw_records)} raw records (regex)")
             else:
-                print(f"❌ Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+                print(f"\u274c Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
                 return
         
     except subprocess.TimeoutExpired:
-        print("❌ Solver timed out after 60 minutes")
+        print("\u274c Solver timed out after 60 minutes")
         return
     except Exception as e:
-        print(f"❌ Error running solver: {e}")
+        print(f"\u274c Error running solver: {e}")
         return
     
     if not raw_records:
-        print("⚠️  No records scraped")
+        print("\u26a0\ufe0f  No records scraped")
         return
     
     # Convert to ArrestRecord objects
-    print(f"\n📊 Converting to ArrestRecord objects...")
+    print(f"\n\ud83d\udcca Converting to ArrestRecord objects...")
     records = []
     for raw in raw_records:
         try:
             record = convert_to_arrest_record(raw)
             records.append(record)
-            print(f"   ✅ {record.Full_Name} ({record.Booking_Number})")
+            print(f"   \u2705 {record.Full_Name} ({record.Booking_Number})")
         except Exception as e:
-            print(f"   ⚠️  Failed to convert record: {e}")
+            print(f"   \u26a0\ufe0f  Failed to convert record: {e}")
             continue
     
-    print(f"\n✅ Converted {len(records)} records")
+    print(f"\n\u2705 Converted {len(records)} records")
     
     # Score records
-    print(f"\n📊 Scoring records...")
+    print(f"\n\ud83d\udcca Scoring records...")
     scored_records = []
     for record in records:
         try:
             scored = score_and_update(record)
             scored_records.append(scored)
         except Exception as e:
-            print(f"   ⚠️  Failed to score {record.Booking_Number}: {e}")
+            print(f"   \u26a0\ufe0f  Failed to score {record.Booking_Number}: {e}")
             scored_records.append(record)  # Add unscored
     
     # Write to Google Sheets
-    print(f"\n📝 Writing to Google Sheets...")
+    print(f"\n\ud83d\udcdd Writing to Google Sheets...")
     
     try:
         # Get credentials from environment or use defaults
@@ -192,19 +192,23 @@ def main():
             credentials_path=creds_path
         )
         
+        # Write to Charlotte tab
         stats = writer.write_records(scored_records, county="Charlotte")
         
+        # Also log to ingestion log
+        writer.log_ingestion("Charlotte", stats)
+        
         print(f"\n{'='*80}")
-        print(f"✅ Charlotte County Scraper Complete!")
+        print(f"\u2705 Charlotte County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
-        print(f"   Updated: {stats['updated_records']}")
+        print(f"   Updated: {stats.get('updated_records', 0)}")
         print(f"   Qualified: {stats['qualified_records']}")
         print(f"   Duplicates skipped: {stats['duplicates_skipped']}")
         print(f"{'='*80}\n")
         
     except Exception as e:
-        print(f"\n❌ Error writing to sheets: {str(e)}")
+        print(f"\n\u274c Error writing to sheets: {str(e)}")
         import traceback
         traceback.print_exc()
 

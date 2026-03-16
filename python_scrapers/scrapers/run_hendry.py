@@ -9,13 +9,14 @@ Integrates hendry_solver.py with the Python scraper infrastructure:
 - Writes to Google Sheets via SheetsWriter
 
 Author: SWFL Arrest Scrapers Team
-Date: December 9, 2025
+Date: December 8, 2025
 """
 
 import sys
 import os
 import json
 import subprocess
+import argparse
 from datetime import datetime
 from typing import List
 
@@ -32,14 +33,14 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     
     # Map raw fields to ArrestRecord schema v3.0 (39 columns)
     record = ArrestRecord(
-        County="Hendry",
+        County="HENDRY",
         Booking_Number=raw_data.get('Booking_Number', ''),
         Person_ID=raw_data.get('Person_ID', ''),
         Full_Name=raw_data.get('Full_Name', ''),
         First_Name=raw_data.get('First_Name', ''),
         Middle_Name=raw_data.get('Middle_Name', ''),
         Last_Name=raw_data.get('Last_Name', ''),
-        DOB=raw_data.get('DOB', raw_data.get('Date of Birth', '')),
+        DOB=raw_data.get('DOB', ''),
         Arrest_Date=raw_data.get('Arrest_Date', ''),
         Arrest_Time=raw_data.get('Arrest_Time', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
@@ -48,13 +49,13 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         Facility=raw_data.get('Facility', ''),
         Agency=raw_data.get('Agency', ''),
         Race=raw_data.get('Race', ''),
-        Sex=raw_data.get('Sex', raw_data.get('Gender', '')),
+        Sex=raw_data.get('Sex', ''),
         Height=raw_data.get('Height', ''),
         Weight=raw_data.get('Weight', ''),
         Address=raw_data.get('Address', ''),
         City=raw_data.get('City', ''),
         State=raw_data.get('State', 'FL'),
-        ZIP=raw_data.get('Zipcode', raw_data.get('ZIP', '')),
+        ZIP=raw_data.get('ZIP', ''),
         Mugshot_URL=raw_data.get('Mugshot_URL', ''),
         Charges=raw_data.get('Charges', ''),
         Bond_Amount=raw_data.get('Bond_Amount', '0'),
@@ -83,9 +84,13 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 
 def main():
     """Main execution function."""
-    
+    import argparse
+    parser = argparse.ArgumentParser(description='Run Hendry County scraper')
+    parser.add_argument('days_back', nargs='?', type=int, default=21, help='Number of days back to scrape (default: 21)')
+    args = parser.parse_args()
+
     print(f"\n{'='*80}")
-    print(f"🚦 Hendry County Scraper - Production Runner")
+    print(f"\ud83c\udfe0 Hendry County Scraper - Production Runner")
     print(f"{'='*80}\n")
     
     # Get script directory
@@ -93,7 +98,7 @@ def main():
     solver_path = os.path.join(script_dir, 'hendry_solver.py')
     
     # Run the solver
-    print(f"📡 Running Hendry solver (days_back={args.days_back})...")
+    print(f"\ud83d\udce1 Running Hendry solver (days_back={args.days_back})...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
@@ -105,55 +110,71 @@ def main():
         )
         
         if result.returncode != 0:
-            print(f"❌ Solver failed with return code {result.returncode}")
+            print(f"\u274c Solver failed with return code {result.returncode}")
             return
         
         # Parse JSON output
         try:
             raw_records = json.loads(result.stdout)
-            print(f"✅ Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-             print(f"❌ Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
-             return
-             
+            # Try to find array brackets
+            try:
+                stdout_str = result.stdout
+                end_idx = stdout_str.rfind(']')
+                if end_idx != -1:
+                    subset = stdout_str[:end_idx+1]
+                    start_idx = subset.rfind('[')
+                    if start_idx != -1:
+                        candidate = subset[start_idx:]
+                        raw_records = json.loads(candidate)
+                    else:
+                        raw_records = []
+                else:
+                    raw_records = []
+            except Exception as e:
+                print(f"Failed to extract JSON from output: {e}")
+                raw_records = []
+            
+        print(f"\u2705 Solver extracted {len(raw_records)} raw records")
+        
     except subprocess.TimeoutExpired:
-        print("❌ Solver timed out after 60 minutes")
+        print("\u274c Solver timed out after 60 minutes")
         return
     except Exception as e:
-        print(f"❌ Error running solver: {e}")
+        print(f"\u274c Error running solver: {e}")
         return
     
     if not raw_records:
-        print("⚠️  No records scraped")
+        print("\u26a0\ufe0f  No records scraped")
         return
     
     # Convert to ArrestRecord objects
-    print(f"\n📊 Converting to ArrestRecord objects...")
+    print(f"\n\ud83d\udcca Converting to ArrestRecord objects...")
     records = []
     for raw in raw_records:
         try:
             record = convert_to_arrest_record(raw)
             records.append(record)
-            print(f"   ✅ {record.Full_Name} ({record.Booking_Number})")
+            print(f"   \u2705 {record.Full_Name} ({record.Booking_Number})")
         except Exception as e:
-            print(f"   ⚠️  Failed to convert record: {e}")
+            print(f"   \u26a0\ufe0f  Failed to convert record: {e}")
             continue
     
-    print(f"\n✅ Converted {len(records)} records")
+    print(f"\n\u2705 Converted {len(records)} records")
     
     # Score records
-    print(f"\n📊 Scoring records...")
+    print(f"\n\ud83d\udcca Scoring records...")
     scored_records = []
     for record in records:
         try:
             scored = score_and_update(record)
             scored_records.append(scored)
         except Exception as e:
-            print(f"   ⚠️  Failed to score {record.Booking_Number}: {e}")
+            print(f"   \u26a0\ufe0f  Failed to score {record.Booking_Number}: {e}")
             scored_records.append(record)  # Add unscored
     
     # Write to Google Sheets
-    print(f"\n📝 Writing to Google Sheets...")
+    print(f"\n\ud83d\udcdd Writing to Google Sheets...")
     
     try:
         # Get credentials from environment or use defaults
@@ -177,19 +198,23 @@ def main():
             credentials_path=creds_path
         )
         
+        # Write to Hendry tab
         stats = writer.write_records(scored_records, county="Hendry")
         
+        # Also log to ingestion log
+        writer.log_ingestion("Hendry", stats)
+        
         print(f"\n{'='*80}")
-        print(f"✅ Hendry County Scraper Complete!")
+        print(f"\u2705 Hendry County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
-        print(f"   Updated: {stats['updated_records']}")
+        print(f"   Updated: {stats.get('updated_records', 0)}")
         print(f"   Qualified: {stats['qualified_records']}")
         print(f"   Duplicates skipped: {stats['duplicates_skipped']}")
         print(f"{'='*80}\n")
         
     except Exception as e:
-        print(f"\n❌ Error writing to sheets: {str(e)}")
+        print(f"\n\u274c Error writing to sheets: {str(e)}")
         import traceback
         traceback.print_exc()
 
