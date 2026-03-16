@@ -69,7 +69,7 @@ apps_script/
 wix_integration/
 normalizers/
 shared/
-writers/
+/writers/
 fixtures/
 
 # Old python virtualenvs
