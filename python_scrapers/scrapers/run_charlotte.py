@@ -90,7 +90,7 @@ def main():
     args = parser.parse_args()
 
     print(f"\n{'='*80}")
-    print(f"\ud83d\udea6 Charlotte County Scraper - Production Runner")
+    print(f"[CHARLOTTE] Charlotte County Scraper - Production Runner")
     print(f"{'='*80}\n")
     
     # Get script directory
@@ -98,7 +98,7 @@ def main():
     solver_path = os.path.join(script_dir, 'charlotte_solver.py')
     
     # Run the solver
-    print(f"\ud83d\udce1 Running Charlotte solver (days_back={args.days_back}, max_pages={args.max_pages})...")
+    print(f"[>] Running Charlotte solver (days_back={args.days_back}, max_pages={args.max_pages})...")
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
@@ -110,7 +110,7 @@ def main():
         )
         
         if result.returncode != 0:
-            print(f"\u274c Solver failed with return code {result.returncode}")
+            print(f"[FAIL] Solver failed with return code {result.returncode}")
             return
         
         # Parse JSON output
@@ -119,56 +119,56 @@ def main():
             stdout_clean = result.stdout.strip()
             # If stdout contains multiple lines, the JSON should be the last one, or the whole thing
             raw_records = json.loads(stdout_clean)
-            print(f"\u2705 Solver extracted {len(raw_records)} raw records")
+            print(f"[OK] Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-            print("\u26a0\ufe0f  JSON Warning: Attempting to find JSON structure in output...")
+            print("[WARN] JSON Warning: Attempting to find JSON structure in output...")
             import re
             match = re.search(r'\[.*\]', result.stdout, re.DOTALL)
             if match:
                 raw_records = json.loads(match.group(0))
-                print(f"\u2705 Solver extracted {len(raw_records)} raw records (regex)")
+                print(f"[OK] Solver extracted {len(raw_records)} raw records (regex)")
             else:
-                print(f"\u274c Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+                print(f"[FAIL] Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
                 return
         
     except subprocess.TimeoutExpired:
-        print("\u274c Solver timed out after 60 minutes")
+        print("[FAIL] Solver timed out after 60 minutes")
         return
     except Exception as e:
-        print(f"\u274c Error running solver: {e}")
+        print(f"[FAIL] Error running solver: {e}")
         return
     
     if not raw_records:
-        print("\u26a0\ufe0f  No records scraped")
+        print("[WARN] No records scraped")
         return
     
     # Convert to ArrestRecord objects
-    print(f"\n\ud83d\udcca Converting to ArrestRecord objects...")
+    print(f"\n[>] Converting to ArrestRecord objects...")
     records = []
     for raw in raw_records:
         try:
             record = convert_to_arrest_record(raw)
             records.append(record)
-            print(f"   \u2705 {record.Full_Name} ({record.Booking_Number})")
+            print(f"   [OK] {record.Full_Name} ({record.Booking_Number})")
         except Exception as e:
-            print(f"   \u26a0\ufe0f  Failed to convert record: {e}")
+            print(f"   [WARN] Failed to convert record: {e}")
             continue
     
-    print(f"\n\u2705 Converted {len(records)} records")
+    print(f"\n[OK] Converted {len(records)} records")
     
     # Score records
-    print(f"\n\ud83d\udcca Scoring records...")
+    print(f"\n[>] Scoring records...")
     scored_records = []
     for record in records:
         try:
             scored = score_and_update(record)
             scored_records.append(scored)
         except Exception as e:
-            print(f"   \u26a0\ufe0f  Failed to score {record.Booking_Number}: {e}")
+            print(f"   [WARN] Failed to score {record.Booking_Number}: {e}")
             scored_records.append(record)  # Add unscored
     
     # Write to Google Sheets
-    print(f"\n\ud83d\udcdd Writing to Google Sheets...")
+    print(f"\n[>] Writing to Google Sheets...")
     
     try:
         # Get credentials from environment or use defaults
@@ -196,10 +196,13 @@ def main():
         stats = writer.write_records(scored_records, county="Charlotte")
         
         # Also log to ingestion log
-        writer.log_ingestion("Charlotte", stats)
+        try:
+            writer.log_ingestion("Charlotte", stats)
+        except Exception as e:
+            print(f"[WARN] Failed to log ingestion: {e}")
         
         print(f"\n{'='*80}")
-        print(f"\u2705 Charlotte County Scraper Complete!")
+        print(f"[OK] Charlotte County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
         print(f"   Updated: {stats.get('updated_records', 0)}")
@@ -208,7 +211,7 @@ def main():
         print(f"{'='*80}\n")
         
     except Exception as e:
-        print(f"\n\u274c Error writing to sheets: {str(e)}")
+        print(f"\n[FAIL] Error writing to sheets: {str(e)}")
         import traceback
         traceback.print_exc()
 
