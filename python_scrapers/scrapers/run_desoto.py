@@ -30,6 +30,8 @@ from python_scrapers.writers.sheets_writer import SheetsWriter
 
 def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
     """Convert raw scraper data to ArrestRecord object."""
+    
+    # Map raw fields to ArrestRecord schema v3.0 (39 columns)
     record = ArrestRecord(
         County="DeSoto",
         Booking_Number=raw_data.get('Booking_Number', ''),
@@ -43,7 +45,7 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         Arrest_Time=raw_data.get('Arrest_Time', ''),
         Booking_Date=raw_data.get('Booking_Date', ''),
         Booking_Time=raw_data.get('Booking_Time', ''),
-        Status=raw_data.get('Status', 'In Custody'),
+        Status=raw_data.get('Status', 'IN CUSTODY'),
         Facility=raw_data.get('Facility', ''),
         Agency=raw_data.get('Agency', ''),
         Race=raw_data.get('Race', ''),
@@ -70,128 +72,142 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
         LastChecked=datetime.utcnow().isoformat(),
         LastCheckedMode="INITIAL"
     )
-
+    
     # Chronological Fallback Logic
     if not record.Booking_Date and record.Arrest_Date:
         record.Booking_Date = record.Arrest_Date
     if not record.Booking_Time and record.Arrest_Time:
         record.Booking_Time = record.Arrest_Time
-
+        
     return record
 
 
 def main():
     """Main execution function."""
-    print(f"\n{'='*80}")
-    print(f"\U0001f3d4\ufe0f DeSoto County Scraper - Production Runner")
-    print(f"{'='*80}\n")
+    parser = argparse.ArgumentParser(description='Run DeSoto County scraper')
+    args = parser.parse_args()
 
+    print(f"\n{'='*80}")
+    print(f"[DESOTO] DeSoto County Scraper - Production Runner")
+    print(f"{'='*80}\n")
+    
     # Get script directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     solver_path = os.path.join(script_dir, 'desoto_solver.py')
-
+    
     # Run the solver
-    print(f"\U0001f4e1 Running DeSoto solver...")
+    print(f"[>] Running DeSoto solver...")
     try:
+        # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
             ['python3', solver_path],
             stdout=subprocess.PIPE,
-            stderr=sys.stderr,
+            stderr=sys.stderr,  # Stream logs directly to console
             text=True,
-            timeout=1800  # 30 minute timeout
+            timeout=3600  # 60 minute timeout
         )
-
+        
         if result.returncode != 0:
-            print(f"\u274c Solver failed with return code {result.returncode}")
+            print(f"[FAIL] Solver failed with return code {result.returncode}")
             return
-
+        
         # Parse JSON output
         try:
-            raw_records = json.loads(result.stdout)
+            stdout_clean = result.stdout.strip()
+            raw_records = json.loads(stdout_clean)
+            print(f"[OK] Solver extracted {len(raw_records)} raw records")
         except json.JSONDecodeError:
-            print(f"\u274c Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
-            return
-
-        print(f"\u2705 Solver extracted {len(raw_records)} raw records")
-
+            print("[WARN] JSON Warning: Attempting to find JSON structure in output...")
+            import re
+            match = re.search(r'\[.*\]', result.stdout, re.DOTALL)
+            if match:
+                raw_records = json.loads(match.group(0))
+                print(f"[OK] Solver extracted {len(raw_records)} raw records (regex)")
+            else:
+                print(f"[FAIL] Failed to parse solver output. Raw stdout preview: {result.stdout[:500]}")
+                return
+        
     except subprocess.TimeoutExpired:
-        print("\u274c Solver timed out after 30 minutes")
+        print("[FAIL] Solver timed out after 60 minutes")
         return
     except Exception as e:
-        print(f"\u274c Error running solver: {e}")
+        print(f"[FAIL] Error running solver: {e}")
         return
-
+    
     if not raw_records:
-        print("\u26a0\ufe0f  No records scraped")
+        print("[WARN] No records scraped")
         return
-
+    
     # Convert to ArrestRecord objects
-    print(f"\n\U0001f4ca Converting to ArrestRecord objects...")
+    print(f"\n[>] Converting to ArrestRecord objects...")
     records = []
     for raw in raw_records:
         try:
             record = convert_to_arrest_record(raw)
             records.append(record)
-            print(f"   \u2705 {record.Full_Name} ({record.Booking_Number})")
+            print(f"   [OK] {record.Full_Name} ({record.Booking_Number})")
         except Exception as e:
-            print(f"   \u26a0\ufe0f  Failed to convert record: {e}")
+            print(f"   [WARN] Failed to convert record: {e}")
             continue
-
-    print(f"\n\u2705 Converted {len(records)} records")
-
+    
+    print(f"\n[OK] Converted {len(records)} records")
+    
     # Score records
-    print(f"\n\U0001f4ca Scoring records...")
+    print(f"\n[>] Scoring records...")
     scored_records = []
     for record in records:
         try:
             scored = score_and_update(record)
             scored_records.append(scored)
         except Exception as e:
-            print(f"   \u26a0\ufe0f  Failed to score {record.Booking_Number}: {e}")
-            scored_records.append(record)
-
+            print(f"   [WARN] Failed to score {record.Booking_Number}: {e}")
+            scored_records.append(record)  # Add unscored
+    
     # Write to Google Sheets
-    print(f"\n\U0001f4dd Writing to Google Sheets...")
-
+    print(f"\n[>] Writing to Google Sheets...")
+    
     try:
+        # Get credentials from environment or use defaults
         sheets_id = os.getenv('GOOGLE_SHEETS_ID', '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E')
-
+        
+        # Check standard credential locations
         possible_creds = [
             os.getenv('GOOGLE_SERVICE_ACCOUNT_KEY_PATH'),
             os.path.join(os.path.dirname(__file__), '../../creds/service-account-key.json'),
             os.path.join(os.path.dirname(__file__), '../../../creds/service-account-key.json')
         ]
-
+        
         creds_path = None
         for path in possible_creds:
             if path and os.path.exists(path):
                 creds_path = path
                 break
-
+        
         writer = SheetsWriter(
             spreadsheet_id=sheets_id,
             credentials_path=creds_path
         )
-
+        
+        # Write to DeSoto tab
         stats = writer.write_records(scored_records, county="DeSoto")
-
-        # Log to ingestion log
+        
+        # Also log to ingestion log
         try:
             writer.log_ingestion("DeSoto", stats)
         except Exception as e:
-            print(f"\u26a0\ufe0f  Failed to log ingestion: {e}")
-
+            print(f"[WARN] Failed to log ingestion: {e}")
+        
         print(f"\n{'='*80}")
-        print(f"\u2705 DeSoto County Scraper Complete!")
+        print(f"[OK] DeSoto County Scraper Complete!")
         print(f"{'='*80}")
         print(f"   New records: {stats['new_records']}")
         print(f"   Updated: {stats.get('updated_records', 0)}")
         print(f"   Qualified: {stats['qualified_records']}")
         print(f"   Duplicates skipped: {stats['duplicates_skipped']}")
         print(f"{'='*80}\n")
-
+        
     except Exception as e:
-        print(f"\n\u274c Error writing to sheets: {str(e)}")
+        print(f"\n[FAIL] Error writing to sheets: {str(e)}")
         import traceback
         traceback.print_exc()
 

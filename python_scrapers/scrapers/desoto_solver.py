@@ -3,12 +3,11 @@
 DeSoto County Solver - DrissionPage Headless Scraper
 
 Scrapes DeSoto County jail roster from jail.desotosheriff.org
-1. Loads the inmate roster page
-2. Extracts all inmate detail links
-3. Visits each detail page to extract arrest data
-4. Outputs JSON to stdout
-
-Based on the existing Node.js solver (scrapers/desoto.js) rewritten in Python.
+1. Loads the inmate roster page (/DCN/inmates)
+2. Sorts by Admit Date descending (newest first)
+3. Extracts all inmate detail links across all pages
+4. Visits each detail page to extract arrest data
+5. Outputs JSON to stdout
 
 Author: SWFL Arrest Scrapers Team
 Date: March 2026
@@ -20,13 +19,13 @@ import time
 import os
 import datetime
 import re
-from urllib.parse import urljoin, unquote
+from urllib.parse import urljoin, unquote, urlparse, parse_qs
 from bs4 import BeautifulSoup
 
 from DrissionPage import ChromiumPage, ChromiumOptions
 
 
-ROSTER_URL = "https://jail.desotosheriff.org/DCN/roster"
+INMATES_URL = "https://jail.desotosheriff.org/DCN/inmates"
 BASE_URL = "https://jail.desotosheriff.org"
 
 
@@ -43,23 +42,119 @@ def setup_browser():
     return ChromiumPage(co)
 
 
-def parse_roster_links(page):
-    """Extract all inmate detail links from the roster page."""
-    page.get(ROSTER_URL)
-    time.sleep(3)
+def sort_by_admit_date_desc(page):
+    """Click the Admit Date column header to sort descending (newest first).
     
+    DevExpress grid uses AJAX sorting - click once for ASC, twice for DESC.
+    We click twice and verify the sort arrow direction.
+    """
+    try:
+        # Find the Admit Date header
+        admit_header = None
+        headers = page.eles('tag:th')
+        for h in headers:
+            text = h.text.strip()
+            if 'admit date' in text.lower():
+                admit_header = h
+                break
+        
+        if not admit_header:
+            sys.stderr.write("[WARN] Could not find Admit Date column header, skipping sort\n")
+            return
+        
+        # Click once for ascending sort
+        sys.stderr.write("[>] Sorting by Admit Date...\n")
+        admit_header.click()
+        time.sleep(2)
+        
+        # Click again for descending (newest first)
+        admit_header.click()
+        time.sleep(2)
+        
+        sys.stderr.write("[OK] Sorted by Admit Date descending\n")
+        
+    except Exception as e:
+        sys.stderr.write(f"[WARN] Sort failed: {e}, continuing without sort\n")
+
+
+def collect_links_from_current_page(page):
+    """Extract inmate detail links from the current page view."""
     html = page.html
     soup = BeautifulSoup(html, 'html.parser')
     
-    links = set()
+    links = []
     for a in soup.find_all('a', href=True):
         href = a['href']
         if 'inmate-details' in href:
             full_url = urljoin(BASE_URL, href)
-            links.add(full_url)
+            if full_url not in links:
+                links.append(full_url)
     
-    sys.stderr.write(f"\U0001f4cb Found {len(links)} inmate detail links\n")
-    return list(links)
+    return links
+
+
+def parse_all_roster_links(page):
+    """Extract all inmate detail links across all pages."""
+    page.get(INMATES_URL)
+    time.sleep(3)
+    
+    # Sort by Admit Date descending
+    sort_by_admit_date_desc(page)
+    
+    # Collect links from page 1
+    all_links = collect_links_from_current_page(page)
+    sys.stderr.write(f"[>] Page 1: {len(all_links)} links\n")
+    
+    # Check for additional pages
+    page_num = 2
+    max_pages = 10  # Safety limit
+    while page_num <= max_pages:
+        try:
+            # Look for page number buttons (DevExpress pager)
+            next_btn = None
+            pager_btns = page.eles('css:.dxp-num')
+            for btn in pager_btns:
+                if btn.text.strip() == str(page_num):
+                    next_btn = btn
+                    break
+            
+            if not next_btn:
+                # Try the "next" button
+                try:
+                    next_btn = page.ele('#gvInmates_DXPagerBottom_PBN')
+                except:
+                    break
+            
+            if not next_btn:
+                break
+                
+            next_btn.click()
+            time.sleep(2)
+            
+            new_links = collect_links_from_current_page(page)
+            if not new_links:
+                break
+                
+            # Check for duplicates with existing links
+            added = 0
+            for link in new_links:
+                if link not in all_links:
+                    all_links.append(link)
+                    added += 1
+            
+            sys.stderr.write(f"[>] Page {page_num}: {added} new links\n")
+            
+            if added == 0:
+                break  # No new links, we've cycled
+                
+            page_num += 1
+            
+        except Exception as e:
+            sys.stderr.write(f"[WARN] Pagination error on page {page_num}: {e}\n")
+            break
+    
+    sys.stderr.write(f"[OK] Found {len(all_links)} total inmate detail links\n")
+    return all_links
 
 
 def extract_detail(page, url):
@@ -77,7 +172,6 @@ def extract_detail(page, url):
     record['Detail_URL'] = url
     
     # Extract Booking ID from URL parameter
-    from urllib.parse import urlparse, parse_qs
     parsed = urlparse(url)
     qs = parse_qs(parsed.query)
     bid = qs.get('bid', [''])[0]
@@ -140,13 +234,23 @@ def extract_detail(page, url):
                     record['Sex'] = value[0] if value else ''
                 elif 'race' in label_lower:
                     record['Race'] = value
-                elif 'booking date' in label_lower or 'date in' in label_lower:
+                elif 'booking date' in label_lower or 'date in' in label_lower or 'admit date' in label_lower:
                     record['Booking_Date'] = value
                 elif 'release date' in label_lower or 'date out' in label_lower:
                     if value and value != 'N/A':
                         record['Status'] = 'Released'
-                elif 'facility' in label_lower or 'location' in label_lower:
+                elif 'facility' in label_lower or 'location' in label_lower or 'housing' in label_lower:
                     record['Facility'] = value
+                elif 'height' in label_lower:
+                    record['Height'] = value
+                elif 'weight' in label_lower:
+                    record['Weight'] = value
+                elif 'eye' in label_lower:
+                    pass  # Not in schema
+                elif 'hair' in label_lower:
+                    pass  # Not in schema
+                elif 'age' in label_lower:
+                    pass  # Not in schema directly, DOB is preferred
                 elif 'address' in label_lower:
                     record['Address'] = value
                     # Try to extract city/state/zip from address
@@ -205,41 +309,41 @@ def extract_detail(page, url):
 
 def scrape_desoto():
     """Main scraper function for DeSoto County."""
-    sys.stderr.write(f"\U0001f3d4\ufe0f DeSoto County Scraper\n")
+    sys.stderr.write("[DESOTO] DeSoto County Scraper\n")
     
     page = None
     try:
         page = setup_browser()
         
-        # Get roster links
-        detail_urls = parse_roster_links(page)
+        # Get roster links (sorted by admit date desc, across all pages)
+        detail_urls = parse_all_roster_links(page)
         
         if not detail_urls:
-            sys.stderr.write("\u26a0\ufe0f  No inmate detail links found\n")
+            sys.stderr.write("[WARN] No inmate detail links found\n")
             print("[]")
             return
         
         records = []
         for i, url in enumerate(detail_urls):
-            sys.stderr.write(f"\U0001f50d [{i+1}/{len(detail_urls)}] {url}\n")
+            sys.stderr.write(f"[>] [{i+1}/{len(detail_urls)}] {url}\n")
             try:
                 record = extract_detail(page, url)
                 if record.get('Booking_Number') or record.get('Full_Name'):
                     records.append(record)
-                    sys.stderr.write(f"   \u2705 {record.get('Full_Name', 'UNKNOWN')} ({record.get('Booking_Number', 'NO-BID')})\n")
+                    sys.stderr.write(f"   [OK] {record.get('Full_Name', 'UNKNOWN')} ({record.get('Booking_Number', 'NO-BID')})\n")
                 else:
-                    sys.stderr.write(f"   \u26a0\ufe0f  Skipping empty record\n")
+                    sys.stderr.write(f"   [WARN] Skipping empty record\n")
             except Exception as e:
-                sys.stderr.write(f"   \u274c Error: {e}\n")
+                sys.stderr.write(f"   [FAIL] Error: {e}\n")
             
             # Brief delay to avoid detection
             time.sleep(0.5 + (i % 3) * 0.3)
         
-        sys.stderr.write(f"\u2705 Total extracted: {len(records)} records\n")
+        sys.stderr.write(f"[OK] Total extracted: {len(records)} records\n")
         print(json.dumps(records, indent=2))
         
     except Exception as e:
-        sys.stderr.write(f"\u274c Error: {e}\n")
+        sys.stderr.write(f"[FAIL] Error: {e}\n")
         import traceback
         traceback.print_exc(file=sys.stderr)
         print("[]")
