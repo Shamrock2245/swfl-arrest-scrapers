@@ -39,6 +39,7 @@ jobs:
       GOOGLE_SHEETS_ID: '121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E'
       GOOGLE_SERVICE_ACCOUNT_KEY_PATH: creds/service-account-key.json
       TZ: America/New_York
+      PYTHONIOENCODING: utf-8
 
     steps:
       - uses: actions/checkout@v4
@@ -53,9 +54,9 @@ jobs:
 
       - name: Run ${{ inputs.county }} scraper
         run: |
-          echo "🎯 Target Sheet: $GOOGLE_SHEETS_ID"
-          echo "📜 Script: ${{ inputs.script }}"
-          echo "📋 Args: ${{ inputs.args }}"
+          echo "Target Sheet: $GOOGLE_SHEETS_ID"
+          echo "Script: ${{ inputs.script }}"
+          echo "Args: ${{ inputs.args }}"
           echo ""
           if [ "${{ inputs.needs_xvfb }}" = "true" ]; then
             xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
@@ -71,7 +72,7 @@ jobs:
           if [ -n "$WEBHOOK" ]; then
             curl -s -X POST "$WEBHOOK" \
               -H 'Content-type: application/json' \
-              -d '{"text":"❌ *${{ inputs.county }}* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
+              -d '{"text":"FAIL: *${{ inputs.county }}* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
           else
-            echo "⚠️ SLACK_WEBHOOK_URL not set — skipping notification"
+            echo "SLACK_WEBHOOK_URL not set — skipping notification"
           fi

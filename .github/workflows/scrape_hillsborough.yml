@@ -15,6 +15,7 @@ jobs:
       HCSO_EMAIL: ${{ secrets.HCSO_EMAIL }}
       HCSO_PASSWORD: ${{ secrets.HCSO_PASSWORD }}
       TZ: America/New_York
+      PYTHONIOENCODING: utf-8
 
     steps:
       - uses: actions/checkout@v4
@@ -39,4 +40,4 @@ jobs:
         run: |
           curl -s -X POST "$SLACK_WEBHOOK_URL" \
             -H 'Content-type: application/json' \
-            -d '{"text":"\u274c *Hillsborough* scraper failed \u2014 <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
+            -d '{"text":"FAIL: *Hillsborough* scraper failed — <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"}'
