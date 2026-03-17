@@ -9,6 +9,6 @@ jobs:
     with:
       county: charlotte
       script: python_scrapers/scrapers/run_charlotte.py
-      args: "--days-back 21"
+      args: "--days-back 7 --max-pages 2"
       needs_xvfb: true
     secrets: inherit
