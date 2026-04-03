@@ -4,10 +4,10 @@ state: FL
 enabled: true
 
 scraper:
-  platform: custom
+  platform: revize
   stack: python
-  url: "https://jail.sarasotasheriff.org"
-  days_back: 7
+  url: "https://cms.revize.com/revize/apps/sarasota/"
+  days_back: 1
   max_pages: 30
   headless: true
   date_iteration: true
@@ -20,7 +20,10 @@ schedule:
   github_action: true
 
 notes: |
-  DrissionPage scraper with date-iteration logic.
-  Iterates through date range day-by-day to capture all bookings.
-  Status: In Progress — date iteration needs verification.
-  7th SWFL county to complete geographic coverage.
+  DrissionPage scraper with 3-phase approach:
+  Phase 1: Date search URL → collect PIN links (paginated)
+  Phase 2: PIN pages → resolve to booking detail URLs
+  Phase 3: Booking detail pages → extract structured data
+  Same Revize CMS family as Charlotte and Manatee.
+  Cloudflare managed challenge requires browser automation.
+  Status: ✅ Active — Completed 2026-04-03

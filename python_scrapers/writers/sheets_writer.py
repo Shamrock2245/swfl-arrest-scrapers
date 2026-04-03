@@ -166,7 +166,7 @@ class SheetsWriter:
         # Write new records
         if new_records:
             rows = [record.to_sheet_row() for record in new_records]
-            sheet.append_rows(rows, value_input_option='USER_ENTERED')
+            sheet.insert_rows(rows, row=2, value_input_option='USER_ENTERED')
         
         # Count qualified records
         qualified_count = sum(1 for r in new_records if r.is_qualified(self.qualified_min_score))
@@ -213,7 +213,7 @@ class SheetsWriter:
         # Write new qualified records
         if new_records:
             rows = [record.to_sheet_row() for record in new_records]
-            sheet.append_rows(rows, value_input_option='USER_ENTERED')
+            sheet.insert_rows(rows, row=2, value_input_option='USER_ENTERED')
     
     def _get_or_create_sheet(self, sheet_name: str) -> gspread.Worksheet:
         """
