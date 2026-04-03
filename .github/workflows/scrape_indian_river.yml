@@ -1,0 +1,14 @@
+name: Scrape Indian River County
+on:
+  schedule:
+    - cron: '50 9,15,21,3 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: indian_river
+      script: counties/indian_river/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit

@@ -1,0 +1,14 @@
+name: Scrape Collier County
+on:
+  schedule:
+    - cron: '20 9,15,21,3 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: collier
+      script: counties/collier/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit

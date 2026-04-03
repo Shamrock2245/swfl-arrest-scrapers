@@ -1,0 +1,14 @@
+name: Scrape Lake County
+on:
+  schedule:
+    - cron: '0 10,16,22,4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: lake
+      script: counties/lake/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit

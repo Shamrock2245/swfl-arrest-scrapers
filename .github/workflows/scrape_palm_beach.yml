@@ -1,0 +1,14 @@
+name: Scrape Palm Beach County
+on:
+  schedule:
+    - cron: '10 9,15,21,3 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: palm_beach
+      script: python_scrapers/scrapers/run_palm_beach.py
+      args: "--days-back 7 --max-pages 2"
+      needs_xvfb: true
+    secrets: inherit
