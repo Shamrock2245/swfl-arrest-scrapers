@@ -92,7 +92,8 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(description='Run Pinellas County scraper')
-    parser.add_argument('days_back', nargs='?', type=int, default=7, help='Number of days back to scrape (default: 7)')
+    parser.add_argument('--days-back', type=int, default=7, help='Number of days back to scrape (default: 7)')
+    parser.add_argument('--max-pages', type=int, default=None, help='Max pages (workflow compat, unused)')
     args = parser.parse_args()
 
     print(f"\n{'='*80}")

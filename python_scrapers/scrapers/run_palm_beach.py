@@ -84,7 +84,8 @@ def convert_to_arrest_record(raw_data: dict) -> ArrestRecord:
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(description='Run Palm Beach County scraper')
-    parser.add_argument('days_back', nargs='?', type=int, default=1, help='Number of days back to scrape (default: 1)')
+    parser.add_argument('--days-back', type=int, default=1, help='Number of days back to scrape (default: 1)')
+    parser.add_argument('--max-pages', type=int, default=None, help='Max pages (workflow compat, unused)')
     args = parser.parse_args()
 
     print(f"\n{'='*80}")
@@ -100,7 +101,7 @@ def main():
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
-            ['python3', solver_path] + sys.argv[1:],
+            ['python3', solver_path, str(args.days_back)],
             stdout=subprocess.PIPE,
             stderr=sys.stderr,  # Stream logs directly to console
             text=True,
