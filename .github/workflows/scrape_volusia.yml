@@ -1,0 +1,14 @@
+name: Scrape Volusia County
+on:
+  schedule:
+    - cron: '45 */6 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: volusia
+      script: counties/volusia/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit

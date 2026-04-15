@@ -1,0 +1,14 @@
+name: Scrape Duval County
+on:
+  schedule:
+    - cron: '35 */6 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: duval
+      script: counties/duval/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit

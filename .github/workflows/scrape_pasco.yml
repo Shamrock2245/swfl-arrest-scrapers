@@ -1,0 +1,14 @@
+name: Scrape Pasco County
+on:
+  schedule:
+    - cron: '40 */6 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: pasco
+      script: counties/pasco/runner.py
+      args: "--days-back 7"
+      needs_xvfb: true
+    secrets: inherit
