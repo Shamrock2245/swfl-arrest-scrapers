@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from curl_cffi import requests
 from bs4 import BeautifulSoup
 
-def scrape_county() -> None:
+def scrape_collier(days_back=7, max_pages=10) -> list:
     url = 'https://www2.colliersheriff.org/arrestsearch/Report.aspx'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -169,14 +169,14 @@ def scrape_county() -> None:
             if 'booking_number' in record:
                 records.append(record)
                 
-        # Return as JSON
-        print(json.dumps(records))
+        return records
         
     except Exception as e:
         sys.stderr.write(f"❌ Error: {e}\n")
         import traceback
         traceback.print_exc()
-        print("[]")
+        return []
 
 if __name__ == "__main__":
-    scrape_county()
+    records = scrape_collier()
+    print(json.dumps(records))

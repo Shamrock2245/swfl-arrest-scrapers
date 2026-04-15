@@ -37,7 +37,11 @@ def scrape_highlands(days_back=7, max_pages=10):
     Returns:
         List of record dicts
     """
-    from DrissionPage import ChromiumPage, ChromiumOptions
+    try:
+        from DrissionPage import ChromiumPage, ChromiumOptions
+    except ImportError:
+        sys.stderr.write("❌ DrissionPage not installed — pip install DrissionPage\n")
+        return []
 
     sys.stderr.write(f"🐊 Highlands County Scraper\n")
     sys.stderr.write(f"📅 Days back: {days_back}  |  📄 Max pages: {max_pages}\n")
@@ -52,7 +56,11 @@ def scrape_highlands(days_back=7, max_pages=10):
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     )
 
-    page = ChromiumPage(options)
+    try:
+        page = ChromiumPage(options)
+    except Exception as e:
+        sys.stderr.write(f"❌ Could not start Chromium browser: {e}\n")
+        return []
     records = []
     api_responses = []
 

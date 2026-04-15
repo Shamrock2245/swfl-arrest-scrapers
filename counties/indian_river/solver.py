@@ -5,9 +5,12 @@ Target: https://www.ircsheriff.org/inmate-search
 Stack: Python (requests + BeautifulSoup)
 Status: 🟢 Active
 
-Approach: The inmate search page renders HTML directly with booking links
-at /booking-details/{id}. Parse listing page for links, then fetch detail pages.
-Today's and yesterday's bookings are listed directly on the page.
+Approach:
+  The inmate search page renders Today's and Yesterday's bookings as
+  static HTML with name, DOB, bond, and booking-detail links.
+  Detail pages are JavaScript-rendered (React SPA) so we extract all
+  available data from the listing page directly rather than fetching
+  individual detail URLs that return empty shells.
 """
 
 import sys
@@ -39,7 +42,8 @@ def scrape_indian_river(days_back=3, max_pages=10):
     Scrape Indian River County booking records.
 
     The site shows today's and yesterday's bookings at /inmate-search.
-    Each booking links to /booking-details/{id} with full detail.
+    Data is extracted from the listing page since detail pages require
+    JavaScript rendering.
 
     Args:
         days_back: Not used (site only shows recent bookings)
@@ -55,7 +59,7 @@ def scrape_indian_river(days_back=3, max_pages=10):
     session.headers.update(HEADERS)
 
     records = []
-    booking_urls = set()
+    seen_ids = set()
 
     # Fetch both the main search page and today's bookings
     for page_url in [SEARCH_URL, TODAYS_URL]:
@@ -67,166 +71,91 @@ def scrape_indian_river(days_back=3, max_pages=10):
 
             # Find all booking detail links
             links = soup.find_all("a", href=re.compile(r"/booking-details/\d+"))
-            for link in links:
-                href = link.get("href", "")
-                if not href.startswith("http"):
-                    href = BASE_URL + href
-                booking_urls.add(href)
-
-                # Also extract listing-level data
-                name = link.get_text(strip=True)
-                if name:
-                    # Find parent container for DOB, bond, status
-                    parent = link.find_parent("li") or link.find_parent("div")
-                    listing_data = {
-                        "Full_Name": name,
-                        "Detail_URL": href,
-                    }
-                    if parent:
-                        parent_text = parent.get_text()
-                        # Extract DOB from listing
-                        dob_match = re.search(r"DOB:\s*(\d{2}/\d{2}/\d{4})", parent_text)
-                        if dob_match:
-                            listing_data["DOB"] = dob_match.group(1)
-                        # Extract bond
-                        bond_match = re.search(r"Bond:\s*\$?([\d,]+\.?\d*)", parent_text)
-                        if bond_match:
-                            listing_data["Bond_Amount"] = bond_match.group(1).replace(",", "")
-                        # Extract status
-                        if "Incarcerated" in parent_text:
-                            listing_data["Status"] = "Incarcerated"
-                        elif "Released" in parent_text:
-                            listing_data["Status"] = "Released"
-
             sys.stderr.write(f"   Found {len(links)} booking links\n")
 
-        except Exception as e:
-            sys.stderr.write(f"❌ Error loading {page_url}: {e}\n")
+            for link in links:
+                href = link.get("href", "")
+                # Extract booking ID
+                id_match = re.search(r"/booking-details/(\d+)", href)
+                if not id_match:
+                    continue
+                booking_id = id_match.group(1)
 
-    sys.stderr.write(f"📋 Total unique booking URLs: {len(booking_urls)}\n")
+                # Deduplicate across pages
+                if booking_id in seen_ids:
+                    continue
+                seen_ids.add(booking_id)
 
-    # Fetch detail pages
-    for i, url in enumerate(list(booking_urls)[:max_pages * 10]):
-        try:
-            sys.stderr.write(f"🔍 [{i+1}/{len(booking_urls)}] Fetching: {url}\n")
-            record = _fetch_booking_detail(session, url)
-            if record:
-                records.append(record)
-            time.sleep(0.5)  # Be polite
-        except Exception as e:
-            sys.stderr.write(f"   ⚠️  Error: {e}\n")
+                # Extract name from link text
+                name = link.get_text(strip=True)
+                if not name or len(name) < 3:
+                    continue
 
-    sys.stderr.write(f"📊 Total records: {len(records)}\n")
-    return records
+                # Build detail URL
+                detail_url = href if href.startswith("http") else BASE_URL + href
 
+                # Initialize record from listing data
+                record = {
+                    "County": "Indian River",
+                    "State": "FL",
+                    "Facility": "Indian River County Jail",
+                    "Full_Name": name,
+                    "Booking_Number": booking_id,
+                    "Detail_URL": detail_url,
+                }
 
-def _fetch_booking_detail(session, url):
-    """Fetch an individual booking detail page and extract data."""
-    try:
-        resp = session.get(url, timeout=30)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        record = {
-            "County": "Indian River",
-            "State": "FL",
-            "Facility": "Indian River County Jail",
-            "Detail_URL": url,
-        }
-
-        # Extract booking ID from URL
-        id_match = re.search(r"/booking-details/(\d+)", url)
-        if id_match:
-            record["Booking_Number"] = id_match.group(1)
-
-        # Extract name — typically in h1 or h2
-        name_el = soup.find("h1") or soup.find("h2")
-        if name_el:
-            name = name_el.get_text(strip=True)
-            # Skip if it's the page title
-            if name and "booking" not in name.lower() and "inmate" not in name.lower():
-                record["Full_Name"] = name
+                # Parse name parts (site uses "Last, First Middle" format)
                 if "," in name:
                     parts = name.split(",", 1)
                     record["Last_Name"] = parts[0].strip()
-                    record["First_Name"] = parts[1].strip()
+                    first_parts = parts[1].strip().split()
+                    if first_parts:
+                        record["First_Name"] = first_parts[0]
+                    if len(first_parts) > 1:
+                        record["Middle_Name"] = " ".join(first_parts[1:])
 
-        # Generic label:value extraction
-        def get_field(labels):
-            for label_text in labels:
-                # Try finding text containing label
-                for el in soup.find_all(string=re.compile(label_text, re.IGNORECASE)):
-                    parent = el.parent
-                    if parent:
-                        full = parent.get_text(strip=True)
-                        parts = re.split(r':\s*', full, maxsplit=1)
-                        if len(parts) > 1 and parts[1].strip():
-                            return parts[1].strip()
-                        next_el = parent.find_next_sibling()
-                        if next_el:
-                            return next_el.get_text(strip=True)
-                # Try table row approach
-                for td in soup.find_all("td"):
-                    if label_text.lower() in td.get_text(strip=True).lower():
-                        next_td = td.find_next_sibling("td")
-                        if next_td:
-                            return next_td.get_text(strip=True)
-                # Try dt/dd approach
-                for dt in soup.find_all("dt"):
-                    if label_text.lower() in dt.get_text(strip=True).lower():
-                        dd = dt.find_next_sibling("dd")
-                        if dd:
-                            return dd.get_text(strip=True)
-            return None
+                # Find parent list item for context data (DOB, bond, status)
+                parent = link.find_parent("li") or link.find_parent("div")
+                if parent:
+                    parent_text = parent.get_text(separator=" ", strip=True)
 
-        record["Booking_Date"] = get_field(["Booking Date", "Book Date", "Arrest Date", "Date Booked"])
-        record["DOB"] = get_field(["Date of Birth", "DOB", "Birth Date"])
-        record["Sex"] = get_field(["Gender", "Sex"])
-        record["Race"] = get_field(["Race", "Ethnicity"])
-        record["Height"] = get_field(["Height"])
-        record["Weight"] = get_field(["Weight"])
-        record["Address"] = get_field(["Address", "Home Address", "Residence"])
-        record["Hair_Color"] = get_field(["Hair", "Hair Color"])
-        record["Eye_Color"] = get_field(["Eye", "Eye Color"])
+                    # Extract DOB
+                    dob_match = re.search(r"DOB:\s*(\d{2}/\d{2}/\d{4})", parent_text)
+                    if dob_match:
+                        record["DOB"] = dob_match.group(1)
 
-        # Extract charges
-        charges = []
-        charge_sections = soup.find_all(string=re.compile(r"charge|offense|statute", re.IGNORECASE))
-        charge_tables = soup.select("table.charges, .charge-row, [class*='charge']")
-        for ct in charge_tables:
-            rows = ct.find_all("tr") if ct.name == "table" else [ct]
-            for row in rows:
-                text = row.get_text(strip=True)
-                if text and len(text) > 5 and not text.startswith("Charge"):
-                    charges.append(text)
-        if charges:
-            record["Charges"] = " | ".join(charges[:10])  # Cap at 10 charges
+                    # Extract Bond Amount
+                    bond_match = re.search(r"Bond:\s*\$?([\d,]+\.?\d*)", parent_text)
+                    if bond_match:
+                        record["Bond_Amount"] = bond_match.group(1).replace(",", "")
+                    elif "No Bond" in parent_text:
+                        record["Bond_Amount"] = "0"
+                        record["Bond_Type"] = "No Bond"
 
-        # Bond amount
-        bond = get_field(["Bond Amount", "Bond", "Total Bond"])
-        if bond:
-            cleaned = re.sub(r'[^\d.]', '', bond)
-            if cleaned:
-                record["Bond_Amount"] = cleaned
+                    # Extract status
+                    if "Incarcerated" in parent_text:
+                        record["Status"] = "Incarcerated"
+                    elif "Released" in parent_text:
+                        record["Status"] = "Released"
 
-        # Mugshot
-        mugshot = soup.find("img", {"src": re.compile(r"photo|mugshot|inmate|booking", re.IGNORECASE)})
-        if mugshot and mugshot.get("src"):
-            src = mugshot["src"]
-            if not src.startswith("http"):
-                src = BASE_URL + src
-            record["Mugshot_URL"] = src
+                    # Extract booking count
+                    bookings_match = re.search(r"Bookings:\s*(\d+)", parent_text)
+                    if bookings_match:
+                        record["Person_ID"] = f"IRC-{booking_id}-B{bookings_match.group(1)}"
 
-        # Remove None values
-        record = {k: v for k, v in record.items() if v is not None}
+                # Set timestamps
+                record["Scrape_Timestamp"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-        if record.get("Full_Name") or record.get("Booking_Number"):
-            sys.stderr.write(f"   ✅ {record.get('Full_Name', 'Unknown')} ({record.get('Booking_Number', 'N/A')})\n")
-            return record
+                records.append(record)
+                sys.stderr.write(f"   ✅ {name} (#{booking_id})\n")
 
-    except Exception as e:
-        sys.stderr.write(f"   ⚠️  Detail error: {e}\n")
-    return None
+        except requests.RequestException as e:
+            sys.stderr.write(f"❌ HTTP error loading {page_url}: {e}\n")
+        except Exception as e:
+            sys.stderr.write(f"❌ Error loading {page_url}: {e}\n")
+
+    sys.stderr.write(f"📊 Total records: {len(records)}\n")
+    return records
 
 
 if __name__ == "__main__":

@@ -86,6 +86,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='Run Osceola County scraper')
     parser.add_argument('--days-back', type=int, default=3, help='Number of days back to scrape (default: 3)')
+    parser.add_argument('--max-pages', type=int, default=None, help='Max pages (workflow compat, unused)')
     args = parser.parse_args()
 
     # Calculate start date
@@ -104,7 +105,7 @@ def main():
     try:
         # Stream logs directly to console (stderr) while capturing JSON output (stdout)
         result = subprocess.run(
-            ['python3', solver_path, str(args.days_back)],
+            ['python3', solver_path, '--start', start_date],
             stdout=subprocess.PIPE,
             stderr=sys.stderr,  # Stream logs directly to console
             text=True,
