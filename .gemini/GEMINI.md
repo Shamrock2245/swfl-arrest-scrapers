@@ -1,7 +1,7 @@
 # SWFL Arrest Scrapers — Agent Context
 
 ## Mission
-Build and maintain a **67-county Florida arrest scraping network** that feeds real-time booking data into the Shamrock Bail Bonds lead pipeline. Currently at **18 counties active** (2 more than originally listed because we expanded beyond SWFL). Every new county directly increases revenue and geographic reach.
+Build and maintain a **67-county Florida arrest scraping network** that feeds real-time booking data into the Shamrock Bail Bonds lead pipeline. Currently at **24 counties active**. Every new county directly increases revenue and geographic reach.
 
 Lee County is handled by the GAS internal scraper (in `shamrock-bail-portal-site/backend-gas/`), not this repo. It has a config here for reference only.
 
@@ -47,13 +47,16 @@ creds/                    # Created at runtime by workflows
 5. **Dedup key**: `Booking_Number` + `County` — both required in every record
 6. **Error handling**: Return `[]` on failure, never `None` or raise unhandled exceptions
 
-## County Status (18 Active)
+## County Status (24 Active)
 | County | Stack | Status |
 |--------|-------|--------|
+| Alachua | requests+BS4 | ✅ (added 2026-04-14) |
 | Brevard | requests+BS4 | ✅ |
 | Charlotte | DrissionPage | ✅ |
 | Collier | requests+BS4 | ✅ (fixed 2026-04-14) |
 | DeSoto | DrissionPage | ✅ |
+| Duval | DrissionPage | ✅ (added 2026-04-14) |
+| Escambia | requests+BS4 | ✅ (added 2026-04-14) |
 | Hendry | DrissionPage | ✅ |
 | Highlands | DrissionPage | ✅ (fixed 2026-04-14) |
 | Hillsborough | requests+BS4 | ✅ |
@@ -65,15 +68,17 @@ creds/                    # Created at runtime by workflows
 | Orange | DrissionPage | ✅ |
 | Osceola | Playwright | ✅ (fixed 2026-04-14) |
 | Palm Beach | requests+BS4 | ✅ |
+| Pasco | DrissionPage | ✅ (added 2026-04-14) |
 | Pinellas | requests+BS4 | ✅ |
 | Polk | DrissionPage | ✅ |
 | Sarasota | DrissionPage | ✅ |
 | Seminole | requests+BS4 | ✅ |
+| Volusia | DrissionPage | ✅ (added 2026-04-14) |
 
-## Remaining 49 Counties (Expansion Targets)
+## Remaining 43 Counties (Expansion Targets)
 Priority order based on population, bond volume, and geographic proximity:
-1. **Tier 1** (High population, high bond volume): Duval (Jacksonville), Miami-Dade, Broward, Pasco, Volusia, St. Lucie
-2. **Tier 2** (Medium population): Escambia, Leon, Alachua, Marion, Okaloosa, Bay, St. Johns, Flagler, Hernando, Citrus, Sumter, Putnam, Columbia
+1. **Tier 1** (High population, high bond volume): Miami-Dade, Broward, St. Lucie
+2. **Tier 2** (Medium population): Leon, Marion, Okaloosa, Bay, St. Johns, Flagler, Hernando, Citrus, Sumter, Putnam, Columbia
 3. **Tier 3** (Smaller counties): Remaining 30 counties
 
 ## Environment Variables
