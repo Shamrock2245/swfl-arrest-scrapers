@@ -86,7 +86,15 @@ TZ=America/New_York
 
 ## Skills
 See `.gemini/skills/` for specialized agent skills:
-- `self-improving-agent/` — Post-task learning loop
-- `county-scraper-builder/` — New county setup guide
-- `scraper-debugger/` — Diagnostic procedures for failures
-- `county-expansion/` — 67-county expansion playbook
+
+### Core Skills (Custom)
+- `self-improving-agent/` — Post-task learning loop with multi-memory architecture
+- `county-scraper-builder/` — New county setup guide, naming conventions, checklist
+- `scraper-debugger/` — 7 common failure modes, diagnostic procedures
+- `county-expansion/` — 67-county roadmap, site recon, lead analysis strategy
+
+### Community Skills (Adapted from skills.sh)
+- `systematic-debugging/` — 4-phase root cause analysis (from obra/superpowers)
+- `github-actions-docs/` — Workflow writing, cron scheduling, CI/CD (from xixu-me/skills)
+- `playwright-scraping/` — DrissionPage/Playwright anti-bot patterns (from currents-dev)
+- `google-sheets-integration/` — 39-col schema, dedup, Sheets API patterns (from googleworkspace)
