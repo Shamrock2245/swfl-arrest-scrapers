@@ -1,0 +1,26 @@
+# Duval County (Jacksonville) Config
+name: Duval
+state: FL
+enabled: true
+
+scraper:
+  platform: angular
+  stack: python
+  url: "https://inmatesearch.coj.net/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+  cloudflare_protected: false
+  has_api: true
+
+output:
+  sheet_tab: "Duval"
+
+schedule:
+  cron: "35 */6 * * *"
+  github_action: true
+
+notes: |
+  Jacksonville Sheriff's Office. Angular SPA with API backend.
+  DrissionPage intercepts Angular API responses, DOM fallback for resilience.
+  Highest-volume county in this batch (~1M pop).

@@ -1,0 +1,23 @@
+# Alachua County Config
+name: Alachua
+state: FL
+enabled: true
+
+scraper:
+  platform: aspnet
+  stack: python
+  url: "https://www.alachuasheriff.org/inmate-search/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Alachua"
+
+schedule:
+  cron: "20 */6 * * *"
+  github_action: true
+
+notes: |
+  ASP.NET WebForms site. Uses requests + BS4 to POST __VIEWSTATE tokens.
+  "View All" endpoint returns full inmate roster.

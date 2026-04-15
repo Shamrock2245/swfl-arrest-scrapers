@@ -1,0 +1,24 @@
+# Pasco County Config
+name: Pasco
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.pascosheriff.com/inmate-search/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+  cloudflare_protected: true
+
+output:
+  sheet_tab: "Pasco"
+
+schedule:
+  cron: "40 */6 * * *"
+  github_action: true
+
+notes: |
+  Cloudflare-protected site. DrissionPage with wait_for_cloudflare() bypass.
+  Search form + table pagination. ~570K population.

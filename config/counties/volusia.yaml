@@ -1,0 +1,23 @@
+# Volusia County Config
+name: Volusia
+state: FL
+enabled: true
+
+scraper:
+  platform: custom
+  stack: python
+  url: "https://www.volusia.org/services/public-protection/corrections/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Volusia"
+
+schedule:
+  cron: "45 */6 * * *"
+  github_action: true
+
+notes: |
+  TLS issues with raw requests. DrissionPage browser-based scraper.
+  Adaptive form interaction with search navigation. ~560K population.

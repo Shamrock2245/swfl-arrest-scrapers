@@ -1,0 +1,23 @@
+# Escambia County Config
+name: Escambia
+state: FL
+enabled: true
+
+scraper:
+  platform: revize
+  stack: python
+  url: "https://www.escambiaso.com/inmate-info/"
+  days_back: 7
+  max_pages: 20
+  headless: true
+
+output:
+  sheet_tab: "Escambia"
+
+schedule:
+  cron: "25 */6 * * *"
+  github_action: true
+
+notes: |
+  Revize CMS pattern. Uses requests + BS4 with 3 fallback parsers
+  (table, card, dl). Similar to Charlotte/Manatee pattern.
