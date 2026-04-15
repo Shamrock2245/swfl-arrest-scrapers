@@ -1,52 +1,114 @@
 ---
 name: self-improving-agent
 description: >
-  Use this skill when debugging scrapers, fixing bugs, or completing any task in this repo.
-  After completing work, the agent should reflect on what it learned and update the relevant
-  skill files to capture new patterns, gotchas, and solutions for future sessions.
+  Automatically triggered after completing ANY task in this repo — fixing a bug, adding a county,
+  debugging a failure, or modifying infrastructure. Implements a multi-memory learning loop that
+  extracts patterns from experiences and patches skill files to prevent repeating mistakes.
+  Based on the charon-fan/agent-playbook self-improving-agent pattern.
 ---
 
 # Self-Improving Agent
 
-You are a self-improving coding agent. After completing any significant task in this repository, you MUST reflect on what you learned and update the relevant skill files to prevent repeating mistakes and to codify new patterns.
+> "An AI agent that learns from every interaction, accumulating patterns and insights
+> to continuously improve its own capabilities."
 
-## When to Trigger
+## Overview
 
-- After fixing a bug or debugging a scraper
-- After adding a new county scraper
-- After resolving a CI/CD or dependency issue
-- After discovering a new pattern or anti-pattern in the codebase
-- When the user provides feedback about a mistake you made
+This implements a complete self-improvement feedback loop with:
+- **Semantic Memory**: Patterns/rules stored in skill SKILL.md files (Known Gotchas, Best Practices)
+- **Episodic Memory**: Specific fix experiences stored as dated entries in skills
+- **Self-Correction**: Detects and fixes inaccurate guidance via correction markers
 
-## Self-Improvement Loop
+## When This Triggers
 
-### Step 1: Complete the Task
-Do the work first. Fix the bug, build the feature, debug the issue.
+This skill activates automatically after:
+- Fixing a bug or debugging a scraper
+- Adding a new county scraper
+- Resolving a CI/CD or dependency issue
+- Discovering a new website anti-bot pattern
+- User provides corrective feedback
 
-### Step 2: Reflect
-After completing the task, ask yourself:
-- What was the root cause?
-- Was there a pattern I missed that I should recognize next time?
-- Did the codebase have a convention I violated?
-- Is there a gotcha that future sessions should know about?
+## The Learning Loop
 
-### Step 3: Patch the Skills
-Update the appropriate `SKILL.md` file(s) in `.gemini/skills/` to capture the new knowledge. Common updates include:
-- Adding a new entry to a "Known Gotchas" or "Common Bugs" section
-- Adding a new pattern to a "Conventions" section
-- Updating a checklist with a new verification step
-- Adding a new county-specific note to the scraper builder skill
+### Phase 1: Complete the Task
+Do the work first. Fix the bug, build the scraper, debug the workflow.
 
-### Step 4: Commit the Skill Update
-Include skill file updates in your commit alongside the code fix. Use the commit message pattern:
+### Phase 2: Extract Experience
+After task completion, capture structured experience:
+
+```yaml
+skill_used: county-scraper-builder  # or scraper-debugger
+task: "Fix Collier County function name mismatch"
+outcome: success
+root_cause: "Solver exported scrape_county() but runner expects scrape_collier()"
+lesson: "Function name MUST match the county directory name"
+confidence: 0.99  # Very high — deterministic code bug
 ```
-fix: [description of fix]
 
-Also updated .gemini/skills/[skill-name] with [what was learned]
+### Phase 3: Abstract to Pattern
+Convert to reusable knowledge using these rules:
+
+| Condition | Pattern Level | Action |
+|-----------|--------------|--------|
+| Error repeats 2+ times | 🔴 Critical | Add to **Known Gotchas** section |
+| Solution was effective | 🟢 Best Practice | Add to **Best Practices** section |
+| Website changed structure | 🟡 Site-Specific | Add note under county entry |
+| Anti-bot pattern discovered | 🔵 Infrastructure | Add to stack selection guide |
+
+### Phase 4: Patch the Skills
+Update the appropriate `SKILL.md` file(s) in `.gemini/skills/`:
+
+```markdown
+<!-- Evolution: 2026-04-14 | source: collier-function-name-fix | skill: county-scraper-builder -->
+- `[2026-04-14]` **Collier**: Used `scrape_county()` instead of `scrape_collier()` — runner couldn't find it
+```
+
+Correction markers (when fixing wrong guidance):
+```markdown
+<!-- Correction: 2026-04-14 | was: "Use requests for all sites" | reason: SPA sites return empty HTML -->
+**Corrected**: Indian River detail pages are JS-rendered SPAs — use listing page extraction
+or DrissionPage for browser-based scraping instead of requests+BS4.
+```
+
+### Phase 5: Commit with Skill Updates
+Include skill file updates alongside code fixes:
+```
+fix: patch Collier function name mismatch
+
+Also updated .gemini/skills/county-scraper-builder with new gotcha:
+function name must match directory name exactly.
 ```
 
 ## Rules
-1. **Never delete existing skill content** — only add to it or refine it
-2. **Be specific** — "Collier uses `scrape_collier()` not `scrape_county()`" is better than "check function names"
-3. **Include examples** — code snippets in skills are more useful than abstract descriptions
-4. **Date your additions** — prefix new gotchas with `[YYYY-MM-DD]` so we can track recency
+
+### DO ✅
+- Learn from EVERY skill interaction
+- Extract patterns at the right abstraction level
+- Update multiple related skills when a lesson applies broadly
+- Date-prefix all new entries (`[YYYY-MM-DD]`)
+- Include code snippets — they're more useful than prose
+- Track which county a lesson came from
+
+### DON'T ❌
+- Over-generalize from a single experience
+- Delete existing skill content — only add or refine
+- Make changes without understanding the full context
+- Create contradictory guidance (check existing content first)
+- Skip self-improvement just because the fix was "obvious"
+
+## Memory Locations
+
+| Memory Type | Location | Purpose |
+|-------------|----------|---------|
+| Semantic (Patterns) | `.gemini/skills/*/SKILL.md` | Reusable rules, checklists, gotchas |
+| Episodic (Experiences) | Dated entries in Known Gotchas sections | What happened, when, and why |
+| Working (Current) | This conversation's context | Active session state |
+
+## Pattern Categories for This Repo
+
+1. **solver_conventions** — Function naming, return types, parameter signatures
+2. **website_patterns** — Anti-bot strategies, site stack detection, HTML structure changes
+3. **pipeline_patterns** — Runner behavior, Sheets writing, Slack notifications
+4. **ci_cd_patterns** — GitHub Actions, Docker, dependency management
+5. **expansion_patterns** — New county onboarding, config setup, workflow creation
+6. **data_quality** — Dedup logic, field normalization, record validation
