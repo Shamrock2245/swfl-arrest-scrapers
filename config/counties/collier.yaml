@@ -5,9 +5,10 @@ enabled: true
 
 scraper:
   platform: custom
-  stack: nodejs
-  url: "https://www.colliersheriff.org/how-do-i/search-inmates"
+  stack: python
+  url: "https://www2.colliersheriff.org/arrestsearch/Report.aspx"
   days_back: 30
+  max_pages: 10
   headless: true
 
 output:

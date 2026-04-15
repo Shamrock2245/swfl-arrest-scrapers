@@ -46,5 +46,20 @@ def write_json(records: list[dict], county_name: str, stage: str = "raw",
     return filepath
 
 
-# Alias for backward compatibility — county runners import this name
-write_json_output = write_json
+def write_json_output(*args, **kwargs):
+    """
+    Wrapper that handles both calling conventions:
+      - write_json_output(records, county_name, stage='raw')        ← correct
+      - write_json_output(county_name, records, record_type='...')  ← runner.py convention
+    """
+    # Map record_type → stage if used
+    if 'record_type' in kwargs:
+        kwargs['stage'] = kwargs.pop('record_type')
+
+    if len(args) >= 2:
+        # Detect swapped args: if first arg is a string, it's the county name
+        if isinstance(args[0], str) and isinstance(args[1], list):
+            # Swapped: (county_name, records, ...) → fix to (records, county_name, ...)
+            args = (args[1], args[0]) + args[2:]
+
+    return write_json(*args, **kwargs)
