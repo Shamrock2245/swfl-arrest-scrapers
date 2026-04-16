@@ -1,0 +1,24 @@
+# Leon County Config
+name: Leon
+state: FL
+enabled: true
+
+scraper:
+  platform: html-form
+  stack: python
+  url: "https://www.leoncountyso.com/resources/inmate-search"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Leon"
+
+schedule:
+  cron: "30 */4 * * *"
+  github_action: true
+
+notes: |
+  Leon County inmate search form.
+  Iterates A-Z last name prefix to get full roster.
+  Tallahassee — state capital, medium-high volume.

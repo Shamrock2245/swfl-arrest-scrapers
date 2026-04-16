@@ -1,0 +1,25 @@
+# Broward County Config
+name: Broward
+state: FL
+enabled: true
+
+scraper:
+  platform: angular-api
+  stack: python
+  url: "https://apps.sheriff.org/arrestsearch"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Broward"
+
+schedule:
+  cron: "0 */2 * * *"
+  github_action: true
+
+notes: |
+  BSO AngularJS app at apps.sheriff.org/arrestsearch.
+  ?d=y param bypasses reCAPTCHA for yesterday view.
+  Detail pages at /ArrestSearch/InmateDetail/{JMS_NUMBER}.
+  Pure requests + BeautifulSoup — no browser needed.

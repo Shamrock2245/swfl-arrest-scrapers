@@ -1,0 +1,14 @@
+name: Scrape Marion County
+on:
+  schedule:
+    - cron: '20 */4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: marion
+      script: counties/marion/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

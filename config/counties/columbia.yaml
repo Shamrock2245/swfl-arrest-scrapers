@@ -1,0 +1,24 @@
+# Columbia County Config
+name: Columbia
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://50.204.15.10/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Columbia"
+
+schedule:
+  cron: "10 */4 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper via IP address (no domain).
+  Uses shared core/smartcop_parser.py.
+  No browser required — pure requests + BeautifulSoup.

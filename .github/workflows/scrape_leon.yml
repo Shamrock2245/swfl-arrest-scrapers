@@ -1,0 +1,14 @@
+name: Scrape Leon County
+on:
+  schedule:
+    - cron: '30 */4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: leon
+      script: counties/leon/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

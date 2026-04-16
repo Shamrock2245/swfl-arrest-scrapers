@@ -67,17 +67,17 @@ Counties with standard web forms that DrissionPage handles easily.
 |---|---|---|---|
 | ~~**Alachua**~~ | ~~`acso.us/inmate-search/`~~ | ✅ Done | Moved to Active |
 | ~~**Brevard**~~ | ~~`brevardsheriff.com/bookings/`~~ | ✅ Done | Moved to Active |
-| **Citrus** | `sheriffcitrus.org` | 🟢 Easy | Simple PHP recent arrests |
+| ~~**Citrus**~~ | ~~`sheriffcitrus.org`~~ | ✅ Done | Moved to Active (PDF scraper) |
 | **Clay** | `claysheriff.policetocitizen.com` | 🟡 Medium | P2C system; disclaimer click |
-| **Columbia** | `50.204.15.10` | 🟡 Medium | SmartCOP via IP |
+| ~~**Columbia**~~ | ~~`50.204.15.10`~~ | ✅ Done | Moved to Active (SmartCOP via IP) |
 | **Franklin** | `franklinsheriff.com` | 🟡 Medium | Check for 'I Accept' splash |
 | **Hernando** | `hernandosheriff.org` | 🟡 Medium | ASP.NET search form |
 | ~~**Highlands**~~ | ~~`highlandssheriff.org`~~ | ✅ Done | Moved to Active |
 | **Holmes** | `holmescosheriff.org` | 🟡 Medium | Check if simple HTML |
 | ~~**Indian River**~~ | ~~`ircsheriff.org`~~ | ✅ Done | Moved to Active |
 | ~~**Lake**~~ | ~~`lcso.org/inmates/`~~ | ✅ Done | Moved to Active |
-| **Leon** | `leoncountyso.com` | 🟡 Medium | Search portal |
-| **Marion** | `jail.marionso.com` | 🟡 Medium | Search form |
+| ~~**Leon**~~ | ~~`leoncountyso.com`~~ | ✅ Done | Moved to Active |
+| ~~**Marion**~~ | ~~`jail.marionso.com`~~ | ✅ Done | Moved to Active |
 | ~~**Martin**~~ | ~~`mcsofl.org`~~ | ✅ Done | Moved to Active |
 | **Monroe** | `keysso.net/arrests` | 🟡 Medium | Current inmates list |
 | **Okeechobee** | `okeesheriff.org` | 🟡 Medium | Inmate search form |
@@ -95,7 +95,7 @@ Counties with heavy JS, CAPTCHAs, or unusual tech stacks.
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
 | **Bay** | `baysomobile.org` | 🟡 Medium | Mobile-optimized JS list |
-| **Broward** | `sheriff.org` | 🔴 Hard | Captcha + ASP.NET search |
+| ~~**Broward**~~ | ~~`apps.sheriff.org`~~ | ✅ Done | Moved to Active (Angular API, ?d=y bypass) |
 | ~~**Duval**~~ | ~~`inmatesearch.jaxsheriff.org`~~ | ✅ Done | Moved to Active |
 | **Flagler** | `nwwebcad.fcpsn.org` | 🔴 Hard | Tyler Tech/New World; very slow |
 | **Miami-Dade** | `miamidade.gov` | 🔴 Hard | Complex search + Captcha |
@@ -149,7 +149,8 @@ Counties that may not have accessible online rosters.
 | **ASP.NET WebForms** | ViewState-heavy .NET apps | DrissionPage required | Hillsborough, Hernando, Seminole |
 | **P2C (Police-to-Citizen)** | Public-facing platform | DrissionPage + disclaimer | Clay |
 | **ColdFusion** | Adobe CF-based apps | DrissionPage or Requests | Charlotte |
-| **PHP/Simple HTML** | Basic web pages | Requests/BS4 preferred | Citrus, Brevard |
+| **PHP/Simple HTML** | Basic web pages | Requests/BS4 preferred | Brevard |
+| **AngularJS API** | SPA with JSON API backend | Requests to API endpoints | Broward |
 | **PDF Rosters** | Downloaded PDF files | requests + pdfplumber | Calhoun, Hardee |
 | **Mobile App Only** | No web access | Manual investigation | Gulf |
 | **Custom/Unknown** | Non-standard implementations | DrissionPage (safe default) | Various |

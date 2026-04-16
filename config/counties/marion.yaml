@@ -1,0 +1,24 @@
+# Marion County Config
+name: Marion
+state: FL
+enabled: true
+
+scraper:
+  platform: html-form
+  stack: python
+  url: "https://jail.marionso.com/"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Marion"
+
+schedule:
+  cron: "20 */4 * * *"
+  github_action: true
+
+notes: |
+  Marion County jail search with "Recent" button.
+  POST with empty name to get recent bookings.
+  Detail pages available for charges/bond enrichment.
