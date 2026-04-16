@@ -74,7 +74,7 @@ Open DevTools (Network tab) and classify:
 ### Step 3: Map the Data Flow
 1. **Search page**: How to trigger a search (date range? last name? all?)
 2. **Results page**: Where are the links to individual bookings?
-3. **Detail page**: What fields are available? Map to our 39-column schema.
+3. **Detail page**: What fields are available? Map to our 34-column schema.
 4. **Pagination**: How does the site paginate? Page numbers? Next buttons? Infinite scroll?
 
 ### Step 4: Check for API Shortcuts
@@ -152,7 +152,7 @@ Not all arrests are bail-bondable. After scraping, the pipeline should:
 4. **Geographic proximity**: Distance from Ft. Myers office matters for in-person bonds
 5. **Repeat offenders**: Prior bookings indicate familiarity with bail process (easier close)
 
-## Data Schema (39 columns)
+## Data Schema (34 columns)
 
 The core record dict maps to Google Sheets columns via `core/writers/sheets_writer.py`:
 ```

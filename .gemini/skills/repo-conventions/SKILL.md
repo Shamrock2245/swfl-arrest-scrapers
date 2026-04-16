@@ -23,7 +23,7 @@ description: >
 - Never make one county's solver depend on another county's code
 
 ### 3. Preserve the Schema
-- `core/writers/sheets_writer.py` defines the 39-column `HEADER_ROW`
+- `core/writers/sheets_writer.py` defines the 34-column `HEADER_ROW`
 - Never add, remove, or rename columns without updating the writer AND all county parsers
 - Dedup key is always `Booking_Number + County` — never change this
 
@@ -194,7 +194,7 @@ def old_function():
 
 ## Schema Change Process
 
-The 39-column `HEADER_ROW` in `core/writers/sheets_writer.py` is the source of truth.
+The 34-column `HEADER_ROW` in `core/writers/sheets_writer.py` is the source of truth.
 
 ### When Schema Changes Are Needed
 - A jail site provides a new field important for all counties

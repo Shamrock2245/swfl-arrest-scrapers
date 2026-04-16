@@ -72,7 +72,7 @@ See `.env.example` for the full list.
 counties/             → One folder per county (solver.py + runner.py)
 core/                 → Shared Python modules
   ├── browser/        → DrissionPage browser management
-  ├── normalizer/     → 39-column schema normalization
+  ├── normalizer/     → 34-column schema normalization
   └── writers/        → Output writers
       ├── sheets.py   → Google Sheets writer (newest at row 2)
       └── mongo_writer.py → MongoDB Atlas writer (bulk upsert, dedup)
@@ -91,7 +91,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design and 
 
 ```
 County Website → Scraper (DrissionPage/Puppeteer)
-    → Normalize (39-column schema)
+    → Normalize (34-column schema)
     → Deduplicate (County + Booking_Number)
     → Score (0-100 lead score)
     → Step 5a: Write to Google Sheets (newest at row 2)
@@ -150,7 +150,7 @@ Full guide: [county-scraper-builder](.gemini/skills/county-scraper-builder/SKILL
 |-----|-----|----------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Engineers | System design, data flows, interface contracts |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Ops | Docker, GitHub Actions, credentials |
-| [SCHEMA.md](docs/DATA_SCHEMA.md) | Data | 39-column schema reference |
+| [SCHEMA.md](docs/DATA_SCHEMA.md) | Data | 34-column schema reference |
 | [ROADMAP.md](docs/ROADMAP.md) | Strategy | Wave 1-5 county expansion plan |
 | [repo-conventions](.gemini/skills/repo-conventions/SKILL.md) | AI Agents | Rules, safe refactoring, secrets, schema changes |
 | [scraper-debugger](.gemini/skills/scraper-debugger/SKILL.md) | AI/Engineers | Troubleshooting playbook |

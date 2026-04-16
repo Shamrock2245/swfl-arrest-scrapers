@@ -52,7 +52,7 @@ def scrape_county():
 - MUST return a `list[dict]` of record dicts
 - NEVER print JSON to stdout — the runner expects a return value
 - Return `[]` on error, not `None` (None triggers `sys.exit(1)` in the runner)
-- Each dict should have keys matching the 39-column `HEADER_ROW` in `core/writers/sheets_writer.py`
+- Each dict should have keys matching the 34-column `HEADER_ROW` in `core/writers/sheets_writer.py`
 
 ### 3. Solver Parameters
 Accept `days_back` and `max_pages` as keyword arguments with defaults:

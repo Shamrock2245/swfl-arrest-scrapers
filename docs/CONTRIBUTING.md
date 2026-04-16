@@ -162,7 +162,7 @@ refactor(writer): extract dedup logic to shared util
 | **Stealth** | Random delays? User-agent rotation? No brute force? |
 | **Error Handling** | Specific catches? Slack alerts on failure? |
 | **Data Quality** | Required fields populated? Dates normalized? |
-| **Documentation** | COUNTY_REGISTRY updated? MEMORY updated? |
+| **Documentation** | SOURCES updated? MEMORY updated? |
 | **Tests** | 2+ idempotent runs verified? |
 
 ---
