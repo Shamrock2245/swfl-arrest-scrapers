@@ -90,16 +90,23 @@ TZ=America/New_York
 ```
 
 ## Skills
-See `.gemini/skills/` for specialized agent skills:
+All agent skills live in `.gemini/skills/`. No other skill directories exist.
 
 ### Core Skills (Custom)
 - `self-improving-agent/` — Post-task learning loop with multi-memory architecture
 - `county-scraper-builder/` — New county setup guide, naming conventions, checklist
 - `scraper-debugger/` — 7 common failure modes, diagnostic procedures
 - `county-expansion/` — 67-county roadmap, site recon, lead analysis strategy
+- `repo-conventions/` — Non-negotiable rules, safe refactoring, secrets management, schema changes
+- `testing-guide/` — Parser tests, fixture guidelines, TDD red-green patterns, smoke tests
 
 ### Community Skills (Adapted from skills.sh)
 - `systematic-debugging/` — 4-phase root cause analysis (from obra/superpowers)
+- `verification-before-completion/` — Iron law: evidence before claims (from obra/superpowers)
+- `harden/` — Anti-bot, network resilience, data edge cases (from pbakaus/impeccable)
+- `python-performance-optimization/` — Connection pooling, batch writes, profiling (from wshobson/agents)
 - `github-actions-docs/` — Workflow writing, cron scheduling, CI/CD (from xixu-me/skills)
 - `playwright-scraping/` — DrissionPage/Playwright anti-bot patterns (from currents-dev)
+- `playwright-cli/` — Browser automation CLI commands (from playwright)
 - `google-sheets-integration/` — 39-col schema, dedup, Sheets API patterns (from googleworkspace)
+- `gws-sheets/` — Google Sheets API v4 reference and CLI patterns (from googleworkspace)

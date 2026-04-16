@@ -1,4 +1,12 @@
-# 🧪 Testing Guide
+---
+name: testing-guide
+description: >
+  Testing patterns, fixture guidelines, parser test templates, smoke tests, and
+  red-green TDD methodology for the scraper pipeline. Use when writing tests for
+  new counties, verifying core/ changes, or debugging test failures.
+---
+
+# Testing Guide
 
 ## Test Structure
 ```
@@ -26,6 +34,7 @@ pytest tests/smoke/ -v
 ```
 
 ## Writing a Parser Test
+
 Every county should have a parser test that uses saved HTML fixtures:
 
 ```python
@@ -38,7 +47,6 @@ FIXTURES = Path(__file__).parent.parent.parent / "counties" / "charlotte" / "fix
 def test_parse_listing():
     """Verify we can extract booking links from a listing page."""
     html = (FIXTURES / "listing_page.html").read_text()
-    # Import the parsing function from the solver
     from counties.charlotte.solver import parse_listing
     links = parse_listing(html)
     assert len(links) > 0
@@ -87,9 +95,54 @@ def test_sites_respond():
         assert resp.status_code < 500, f"{county} returned {resp.status_code}"
 ```
 
+## Regression Test Pattern (Red-Green-Refactor)
+
+When fixing a bug, write a regression test using this cycle:
+
+```
+1. Write test that reproduces the bug → Run → MUST FAIL (red)
+2. Fix the bug in the code
+3. Run test again → MUST PASS (green)
+4. (Optional) Revert fix → Run → MUST FAIL again (confirms test validity)
+5. Restore fix → Run → MUST PASS
+```
+
+**Never skip the red step.** A test that never fails proves nothing.
+
+```python
+# tests/regression/test_collier_function_name.py
+def test_collier_exports_correct_function():
+    """Regression: Collier used scrape_county() instead of scrape_collier()."""
+    from counties.collier import solver
+    assert hasattr(solver, 'scrape_collier'), \
+        "Solver must export scrape_collier(), not scrape_county()"
+```
+
 ## Fixture Guidelines
+
 - Save FULL HTML pages, not fragments
 - Include at least 3 sample records in listing fixtures
 - Include all field variations in detail fixtures (empty bonds, multiple charges, etc.)
 - Name files: `listing_page.html`, `detail_page.html`, `expected_output.json`
 - **NEVER** include real personal information — redact names, DOBs, etc.
+- Store fixtures in `counties/{county}/fixtures/`
+
+## When to Write Tests
+
+| Scenario | Required Test |
+|----------|--------------|
+| New county added | Parser test with fixtures |
+| Bug fixed | Regression test (red-green verified) |
+| `core/` module changed | Unit test for changed function |
+| New writer added | Integration test for pipeline |
+| Site accessibility concern | Smoke test entry |
+
+## Quick Verification (When Full Tests Aren't Available)
+
+```bash
+# Run solver standalone — should output JSON array to stdout
+python counties/{county}/solver.py --days-back 1
+
+# Verify record count and structure
+python counties/{county}/solver.py --days-back 1 | python -c "import json,sys; d=json.load(sys.stdin); print(f'{len(d)} records'); print(d[0].keys() if d else 'empty')"
+```

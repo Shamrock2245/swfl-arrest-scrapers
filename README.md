@@ -4,7 +4,7 @@
 
 Automated arrest data ingestion across 67 Florida counties. Scrapers collect, normalize, score, and deliver booking records to Google Sheets, MongoDB Atlas, and Slack — powering real-time lead generation for the agency.
 
-**Active Counties:** 19 / 67 | **Status:** 🟢 Production | **Last Updated:** March 16, 2026
+**Active Counties:** 24 / 67 | **Status:** 🟢 Production | **Last Updated:** April 16, 2026
 
 ---
 
@@ -62,7 +62,7 @@ See `.env.example` for the full list.
 | **Sarasota** | Python/DrissionPage | ✅ Active | `0 */3 * * *` | Cloudflare; DP required |
 | **Seminole** | Python/DrissionPage | ✅ Active | `0 */3 * * *` | Sheriff's Office |
 
-**19 active counties** — Goal: 67 Florida counties (Wave 1 SmartCOP blitz next: 13 easy clones).
+**24 active counties** — Goal: 67 Florida counties (Wave 1 SmartCOP blitz next: 13 easy clones).
 
 ---
 
@@ -78,7 +78,7 @@ core/                 → Shared Python modules
       └── mongo_writer.py → MongoDB Atlas writer (bulk upsert, dedup)
 config/               → Global + per-county YAML configs
 scripts/              → CLI entry points (run_county.py, run_all.py)
-.agent/               → AI agent instruction files (12 docs)
+.gemini/              → Agent context (GEMINI.md) + 15 skill files
 docs/                 → Human documentation
 .github/workflows/    → GitHub Actions CI/CD (15 workflows)
 ```
@@ -125,7 +125,7 @@ python scripts/run_county.py your_county --dry-run
 echo "Site uses SmartCOP, no Cloudflare" > counties/your_county/quirks.md
 ```
 
-Full guide: [.agent/ADDING_A_COUNTY.md](.agent/ADDING_A_COUNTY.md)
+Full guide: [county-scraper-builder](.gemini/skills/county-scraper-builder/SKILL.md) | [county-expansion](.gemini/skills/county-expansion/SKILL.md)
 
 ---
 
@@ -152,8 +152,8 @@ Full guide: [.agent/ADDING_A_COUNTY.md](.agent/ADDING_A_COUNTY.md)
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Ops | Docker, GitHub Actions, credentials |
 | [SCHEMA.md](docs/SCHEMA.md) | Data | 39-column schema reference |
 | [ROADMAP.md](docs/ROADMAP.md) | Strategy | Wave 1-5 county expansion plan |
-| [.agent/RULES.md](.agent/RULES.md) | AI Agents | Do's, don'ts, modification rules |
-| [.agent/DEBUGGING_SCRAPERS.md](.agent/DEBUGGING_SCRAPERS.md) | AI/Engineers | Troubleshooting playbook |
+| [repo-conventions](.gemini/skills/repo-conventions/SKILL.md) | AI Agents | Rules, safe refactoring, secrets, schema changes |
+| [scraper-debugger](.gemini/skills/scraper-debugger/SKILL.md) | AI/Engineers | Troubleshooting playbook |
 
 ---
 
@@ -163,7 +163,7 @@ Full guide: [.agent/ADDING_A_COUNTY.md](.agent/ADDING_A_COUNTY.md)
 - **Service Account** → `GOOGLE_SERVICE_ACCOUNT_JSON` env var (raw or Base64)
 - **MongoDB** → `MONGODB_URI` env var with SRV connection string
 - **Never** commit `.env`, `*_key.json`, or credentials to git
-- See [.agent/SECRETS_AND_CONFIG.md](.agent/SECRETS_AND_CONFIG.md)
+- See [repo-conventions](.gemini/skills/repo-conventions/SKILL.md) for full secrets & config guidelines
 
 ---
 
@@ -173,9 +173,9 @@ Full guide: [.agent/ADDING_A_COUNTY.md](.agent/ADDING_A_COUNTY.md)
 |------|---------|
 | [shamrock-bail-portal-site](https://github.com/Shamrock2245/shamrock-bail-portal-site) | Wix website + GAS backend |
 | [shamrock-node-red](https://github.com/Shamrock2245/shamrock-node-red) | Node-RED automation engine |
-| **swfl-arrest-scrapers** (this repo) | 19-county scraper fleet |
+| **swfl-arrest-scrapers** (this repo) | 24-county scraper fleet |
 | [shamrock-telegram-app](https://github.com/Shamrock2245/shamrock-telegram-app) | Telegram Mini-Apps (Netlify) |
 
 ---
 
-*Maintained by Shamrock Engineering & AI Agents · March 2026*
+*Maintained by Shamrock Engineering & AI Agents · April 2026*

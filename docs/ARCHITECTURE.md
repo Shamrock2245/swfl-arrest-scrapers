@@ -156,12 +156,14 @@ swfl-arrest-scrapers/
 │   ├── run_all.py               #    Run all enabled scrapers
 │   └── cleanup_old_dirs.sh      #    One-shot cleanup script
 │
-├── .agent/                      # 🤖 AI agent instructions
-│   ├── IDENTITY.md              #    Agent role & personality
-│   ├── RULES.md                 #    Do's and don'ts
-│   ├── ADDING_A_COUNTY.md       #    Step-by-step new county guide
-│   ├── DEBUGGING_SCRAPERS.md    #    Troubleshooting playbook
-│   └── ...                      #    (12 instruction files)
+├── .gemini/                     # 🤖 AI agent context & skills
+│   ├── GEMINI.md                #    Agent entry point & county status
+│   └── skills/                  #    15 specialized agent skills
+│       ├── self-improving-agent/ #    Post-task learning loop
+│       ├── repo-conventions/    #    Rules, safe refactoring, secrets
+│       ├── county-scraper-builder/ # New county setup guide
+│       ├── scraper-debugger/    #    Failure modes & diagnostics
+│       └── ...                  #    (15 skill directories)
 │
 ├── docs/                        # 📚 Human documentation
 │   ├── ARCHITECTURE.md          #    System design & data flow
@@ -300,4 +302,4 @@ County A fails → County A logs error, alerts Slack
 
 ---
 *Maintained by: Shamrock Engineering Team & AI Agents*
-*Last Updated: March 2026*
+*Last Updated: April 2026*

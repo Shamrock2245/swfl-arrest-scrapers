@@ -22,14 +22,15 @@
 
 ## For AI Agents
 
-All agent instruction files live in `../.agent/` — see [../.agent/IDENTITY.md](../.agent/IDENTITY.md) for the entry point.
+All agent skills live in `../.gemini/skills/` — see [../.gemini/GEMINI.md](../.gemini/GEMINI.md) for the entry point.
 
-Key files:
-- **RULES.md** — What you can and cannot modify
-- **ADDING_A_COUNTY.md** — Step-by-step new scraper guide
-- **DEBUGGING_SCRAPERS.md** — Troubleshooting playbook
-- **SECRETS_AND_CONFIG.md** — How to handle env vars and credentials
-- **SCHEMA_AND_COLUMNS.md** — Column contract and validation rules
+Key skills:
+- **repo-conventions/** — Rules, safe refactoring, secrets management, schema changes
+- **county-scraper-builder/** — Step-by-step new scraper guide
+- **scraper-debugger/** — Troubleshooting playbook
+- **systematic-debugging/** — 4-phase root cause analysis
+- **testing-guide/** — Parser tests, fixtures, TDD patterns
+- **self-improving-agent/** — Post-task learning loop
 
 ## Consolidated Reference
 
@@ -42,8 +43,8 @@ These docs were consolidated during the March 2026 repo restructuring:
 | `SCHEMA.md` (root) | `docs/SCHEMA.md` |
 | `ARCHITECTURE.md` (root) | `docs/ARCHITECTURE.md` |
 | `LOCAL_SCRAPER_GUIDE.md` + `QUICK_START.md` | `docs/QUICKSTART.md` |
-| `SCRAPING_RULES.md` | `.agent/RULES.md` |
-| `SECURITY.md` | `.agent/SECRETS_AND_CONFIG.md` |
+| `SCRAPING_RULES.md` | `.gemini/skills/repo-conventions/` |
+| `SECURITY.md` | `.gemini/skills/repo-conventions/` |
 | `STEALTH_IMPLEMENTATION.md` | `docs/STEALTH_PLAYBOOK.md` |
-| `TROUBLESHOOTING.md` | `.agent/DEBUGGING_SCRAPERS.md` |
+| `TROUBLESHOOTING.md` | `.gemini/skills/scraper-debugger/` |
 | `DEVELOPMENT.md` | `docs/CONTRIBUTING.md` |
