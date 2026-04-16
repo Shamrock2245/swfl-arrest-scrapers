@@ -1,6 +1,6 @@
 # 🏗️ ARCHITECTURE.md — System Design & Data Flow
 
-> **Pattern: Scrape → Normalize → Score → Write → Notify**
+> **Pattern: Scrape → Normalize → Score → Compliance Gate → Dedup → Write → Notify**
 
 ---
 
@@ -71,7 +71,7 @@ We maintain two scraping engines for historical and practical reasons:
 | **Browser** | Chromium (headless or headful) |
 | **Strengths** | Cloudflare bypass, session management, cookie handling |
 | **Weaknesses** | Higher memory usage (~300MB per instance), slower startup |
-| **Counties** | Charlotte, Hendry, Hillsborough, Manatee, Orange, Palm Beach, Sarasota, Osceola, Pinellas, Polk, Seminole |
+| **Counties** | Charlotte, DeSoto, Duval, Hendry, Manatee, Orange, Pasco, Polk, Sarasota, Volusia |
 
 ### Node.js / Puppeteer (Legacy — `counties/*/solver.js`)
 | Attribute | Detail |
@@ -81,7 +81,7 @@ We maintain two scraping engines for historical and practical reasons:
 | **Browser** | Chromium via Puppeteer |
 | **Strengths** | Faster startup, lower memory, mature ecosystem |
 | **Weaknesses** | Less effective against modern anti-bot |
-| **Counties** | DeSoto, Collier (via GAS) |
+| **Counties** | DeSoto (legacy only — being migrated to Python) |
 
 ### When to Use Which
 ```
@@ -131,7 +131,7 @@ swfl-arrest-scrapers/
 │   ├── browser.py               #    DrissionPage factory
 │   ├── stealth.py               #    Anti-bot evasion utilities
 │   ├── normalizer.py            #    Field alias mapping + value cleanup
-│   ├── schema.py                #    39-column schema validation
+│   ├── schema.py                #    34-column schema validation
 │   ├── dedup.py                 #    Booking_Number + County dedup
 │   ├── retry.py                 #    Exponential backoff decorator
 │   ├── config_loader.py         #    4-level config merge
@@ -144,12 +144,12 @@ swfl-arrest-scrapers/
 │
 ├── config/                      # ⚙️ Configuration
 │   ├── global.yaml              #    System-wide defaults
-│   ├── schema.json              #    39-column canonical schema
+│   ├── schema.json              #    34-column canonical schema
 │   ├── field_aliases.json       #    Raw field → schema mappings
 │   └── counties/                #    Per-county YAML configs
 │       ├── _defaults.yaml       #    Shared county defaults
 │       ├── charlotte.yaml       #    Charlotte-specific config
-│       └── ...                  #    (14 county configs)
+│       └── ...                  #    (24 county configs)
 │
 ├── scripts/                     # 🚀 CLI entry points
 │   ├── run_county.py            #    Run a single county scraper
@@ -168,8 +168,9 @@ swfl-arrest-scrapers/
 ├── docs/                        # 📚 Human documentation
 │   ├── ARCHITECTURE.md          #    System design & data flow
 │   ├── DEPLOYMENT.md            #    Deployment guide
-│   ├── SCHEMA.md                #    39-column schema reference
-│   └── ...                      #    (see docs/README.md)
+│   ├── DATA_SCHEMA.md           #    34-column schema reference
+│   ├── INTEGRATION.md           #    Downstream system connections
+│   └── ...                      #    (see docs/README.md for full index)
 │
 ├── python_scrapers/             # 📦 Legacy (models + scoring only)
 │   ├── models/arrest_record.py  #    ArrestRecord dataclass
@@ -212,7 +213,7 @@ ArrestRecord → LeadScorer.score() → Scored Record (0-100)
 ```
 - Evaluates bond amount, charge severity, custody status, data completeness
 - Assigns `Lead_Score` (0–100) and `Lead_Status` (Hot/Warm/Cold/Disqualified)
-- See `SCHEMA.md` for the full scoring rubric
+- See `SCORING.md` for the full scoring rubric
 
 ### Phase 4: Storage
 ```

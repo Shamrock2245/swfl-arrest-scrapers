@@ -32,6 +32,7 @@
 | Document | Contents |
 |----------|----------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System design, data flow diagrams, repo layout |
+| [INTEGRATION.md](INTEGRATION.md) | How scrapers feed GAS, Node-RED, Slack, and downstream systems |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Docker setup, GitHub Actions, environment variables |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Code style, PR process, testing requirements |
 | [QUICKSTART.md](QUICKSTART.md) | First-run setup in under 5 minutes |

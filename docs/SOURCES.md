@@ -101,10 +101,10 @@ Counties with heavy JS, CAPTCHAs, or unusual tech stacks.
 | **Miami-Dade** | `miamidade.gov` | 🔴 Hard | Complex search + Captcha |
 | **Nassau** | `dssinmate.nassauso.com` | 🟡 Medium | Tyler Tech/New World |
 | **Okaloosa** | `sheriff-okaloosa.org` | 🟡 Medium | Search form |
-| **Osceola** | `osceola.org` | 🟡 Medium | Corrections report search |
+| ~~**Osceola**~~ | ~~`osceola.org`~~ | ✅ Done | Moved to Active |
 | ~~**Pasco**~~ | ~~`jailinfo.pascocorrections.net`~~ | ✅ Done | Moved to Active |
-| **Pinellas** | `pcsoweb.com` | 🟡 Medium | Disclaimer + search |
-| **Seminole** | `seminolesheriff.org` | 🟡 Medium | ASP.NET WebBond |
+| ~~**Pinellas**~~ | ~~`pcsoweb.com`~~ | ✅ Done | Moved to Active |
+| ~~**Seminole**~~ | ~~`seminolesheriff.org`~~ | ✅ Done | Moved to Active |
 | ~~**Volusia**~~ | ~~`volusiamug.vcgov.org`~~ | ✅ Done | Moved to Active |
 | **Walton** | `nwscorrections.waltonso.org` | 🟡 Medium | Tyler Tech/New World |
 
