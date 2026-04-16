@@ -38,9 +38,14 @@ except ImportError:
 BASE_URL = "https://apps.sheriff.org"
 DETAIL_URL = f"{BASE_URL}/ArrestSearch/InmateDetail"
 
-# Known good ID from April 2026: 232600590
-# BSO format: YY26XXXXX where YY seems to be a prefix identifier
-KNOWN_RECENT_ID = 232600590
+# Calibrated 04/16/2026:
+#   232600590 = 03/05/2026, 232601027 = 04/15/2026
+#   437 IDs across 42 days → ~10.4 arrests/day
+#   ~38% of sequential IDs are valid (gaps of 1-3 between records)
+#   Format: 2326XXXXX (23 = prefix, 26 = year, XXXXX = sequence)
+KNOWN_RECENT_ID = 232601027
+ARRESTS_PER_DAY = 11  # Conservative estimate
+ID_DENSITY = 0.38     # ~38% of IDs have records
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -68,17 +73,18 @@ def scrape_broward(days_back=7, max_pages=10):
     frontier = _find_frontier(session, start_id)
     sys.stderr.write(f"[BROWARD] Frontier ID: {frontier}\n")
 
-    # Phase 2: Scrape detail pages from (frontier - range) to frontier
-    # For daily runs, scan last ~200 IDs (covers a busy day)
-    # For catchup (days_back > 1), scan more
-    scan_range = min(200 * days_back, 2000)
-    scan_start = max(frontier - scan_range, start_id - 50)
+    # Phase 2: Scrape detail pages from start_id to frontier + buffer
+    # At ~10 arrests/day with 38% density, 1 day ≈ ~29 IDs to scan
+    # We scan from start_id to frontier + small buffer for late-arriving IDs
+    ids_per_day = int(ARRESTS_PER_DAY / ID_DENSITY)  # ~29 IDs to scan per day
+    scan_range = ids_per_day * days_back
+    scan_start = max(frontier - scan_range, start_id)
 
     records = []
     consecutive_misses = 0
-    max_consecutive_misses = 20
+    max_consecutive_misses = 10  # At 38% density, 10 misses = very likely past frontier
 
-    for jms_id in range(scan_start, frontier + 100):
+    for jms_id in range(scan_start, frontier + 50):
         record = _fetch_detail(session, str(jms_id))
         if record:
             records.append(record)
@@ -123,11 +129,14 @@ def _find_frontier(session, start_id):
 
 
 def _id_exists(session, jms_id):
-    """Quick check if an arrest ID exists (HEAD request)."""
+    """Quick check if an arrest ID exists."""
     try:
-        resp = session.head(f"{DETAIL_URL}/{jms_id}", timeout=8, allow_redirects=False)
-        # 200 = exists, 302/404 = doesn't
-        return resp.status_code == 200
+        # Use GET since BSO may not support HEAD properly
+        resp = session.get(f"{DETAIL_URL}/{jms_id}", timeout=8, allow_redirects=True)
+        if resp.status_code != 200:
+            return False
+        # Check for actual inmate content (h3 with name)
+        return '<h3' in resp.text and len(resp.text) > 1000
     except Exception:
         return False
 
@@ -147,7 +156,8 @@ def _fetch_detail(session, jms_number):
         text = soup.get_text(' ', strip=True)
 
         # Verify this is actually an inmate detail page
-        if 'Arrest Search' in text and 'ARREST NO' not in text and len(text) < 500:
+        h3 = soup.find('h3')
+        if not h3 or len(text) < 200:
             return None
 
         record = {
@@ -161,8 +171,7 @@ def _fetch_detail(session, jms_number):
 
         # ---- Parse structured fields ----
 
-        # Name — typically in an h3 or prominent element
-        h3 = soup.find('h3')
+        # Name — in the h3 element (already found above)
         if h3:
             name = h3.get_text(strip=True)
             record['Full_Name'] = name
@@ -175,13 +184,20 @@ def _fetch_detail(session, jms_number):
                     if len(first_parts) > 1:
                         record['Middle_Name'] = ' '.join(first_parts[1:])
 
-        # All dates on page
+        # Dates — BSO format: "232601026 04/16/2026" then "W M 09/29/1986"
+        # First date after booking number is booking date, date after race/sex is DOB
         dates = re.findall(r'(\d{2}/\d{2}/\d{4})', text)
         if len(dates) >= 2:
             record['Booking_Date'] = dates[0]
             record['DOB'] = dates[1]
         elif len(dates) == 1:
             record['Booking_Date'] = dates[0]
+
+        # Arrest location — appears right after booking date on BSO pages
+        # Format: "232601026 04/16/2026\nPOMPANO BEACH"
+        loc_match = re.search(r'\d{2}/\d{2}/\d{4}\s+([A-Z][A-Z\s]+?)\s+[BWHAI]\s+[MF]', text)
+        if loc_match:
+            record['Arrest_Location'] = loc_match.group(1).strip()
 
         # Race/Sex — typically single letters like "W M" or "B F"
         race_sex = re.search(r'\b([BWHAI])\s+([MF])\b', text)
@@ -207,29 +223,39 @@ def _fetch_detail(session, jms_number):
                 record['Facility'] = fac
                 break
 
-        # Charges — look for table rows or lines with charge descriptions
+        # Charges — BSO format: "893.13-6a(Fent) POSSESSION OF FENTANYL"
+        # Bond format: "PENDING TRIAL BD $1,000.00" or "BOND DECR BD $5.00"
         charges = []
         total_bond = 0.0
 
-        # Try parsing charge table
-        charge_tables = soup.find_all('table')
-        for ct in charge_tables:
-            for row in ct.find_all('tr'):
-                row_text = row.get_text(' ', strip=True)
-                # Charge rows typically have statute numbers or descriptions
-                if re.search(r'\d{3}\.\d{2,3}', row_text) or \
-                   any(kw in row_text.upper() for kw in ['BATTERY', 'THEFT', 'ASSAULT', 'DUI',
-                       'DRUG', 'POSS', 'BURG', 'ROBBERY', 'FRAUD', 'TRESP', 'RESIST',
-                       'DRIVING', 'FLEE', 'VOP', 'PROBATION', 'WARRANT', 'FELONY',
-                       'MISDEMEANOR', 'HOLD']):
-                    charges.append(row_text.strip())
-                    # Extract bond from this row
-                    bond_match = re.search(r'\$([\d,]+\.?\d*)', row_text)
-                    if bond_match:
-                        try:
-                            total_bond += float(bond_match.group(1).replace(',', ''))
-                        except ValueError:
-                            pass
+        # Match BSO charge pattern: statute + description
+        charge_matches = re.findall(
+            r'(\d{2,3}\.\d{2,3}[^\n]*?(?:POSSESSION|BATTERY|ASSAULT|THEFT|DUI|DRUG|'
+            r'BURG|ROBBERY|FRAUD|RESIST|DRIVING|FLEE|VOP|PROBATION|WARRANT|'
+            r'FELONY|MISDEMEANOR|VIOLATION|CAPIAS|HOLD|TRESPASS|CARRY|WEAPON|'
+            r'MURDER|HOMICIDE|SEXUAL|LEWD|CHILD|DOMESTIC|STALKING|FLEE|'
+            r'IMMIGRATION|CONTEMPT|FAIL)[^\n]*)',
+            text, re.I
+        )
+        for cm in charge_matches:
+            charges.append(cm.strip())
+
+        # Also catch non-statute charges (immigration holds, capias, etc)
+        hold_matches = re.findall(
+            r'((?:HLD|CAP|FTA|VOP|HOLD)[A-Z-]*\s+[A-Z][A-Z\s-]+)',
+            text
+        )
+        for hm in hold_matches:
+            if hm.strip() not in charges:
+                charges.append(hm.strip())
+
+        # Extract all bond amounts
+        bond_matches = re.findall(r'\$([\d,]+\.\d{2})', text)
+        for bm in bond_matches:
+            try:
+                total_bond += float(bm.replace(',', ''))
+            except ValueError:
+                pass
 
         if charges:
             record['Charges'] = ' | '.join(charges[:15])  # Cap at 15 charges
