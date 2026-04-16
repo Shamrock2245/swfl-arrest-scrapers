@@ -81,3 +81,4 @@ python_scrapers/.playwright-browsers/
 debug_*.html
 debug_*.png
 browser_server.py
+*.json
