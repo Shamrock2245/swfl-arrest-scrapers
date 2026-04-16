@@ -1,0 +1,24 @@
+# Taylor County Config
+name: Taylor
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartcop.taylorsheriff.org/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Taylor"
+
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartCOP standard
+  No browser required — pure requests + BeautifulSoup.

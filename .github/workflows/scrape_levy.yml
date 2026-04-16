@@ -1,0 +1,14 @@
+name: Scrape Levy County
+on:
+  schedule:
+    - cron: '35 */4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: levy
+      script: counties/levy/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

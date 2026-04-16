@@ -1,0 +1,24 @@
+# Gilchrist County Config
+name: Gilchrist
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartweb.gcso.us/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Gilchrist"
+
+schedule:
+  cron: "20 */6 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard — small county
+  No browser required — pure requests + BeautifulSoup.

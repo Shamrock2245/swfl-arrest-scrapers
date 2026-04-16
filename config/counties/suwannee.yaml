@@ -1,0 +1,24 @@
+# Suwannee County Config
+name: Suwannee
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartcop.suwanneesheriff.com/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Suwannee"
+
+schedule:
+  cron: "55 */6 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartCOP standard — verified live
+  No browser required — pure requests + BeautifulSoup.

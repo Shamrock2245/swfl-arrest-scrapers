@@ -1,0 +1,24 @@
+# Santa Rosa County Config
+name: Santa Rosa
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartweb.santarosasheriff.org/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Santa Rosa"
+
+schedule:
+  cron: "45 */4 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard
+  No browser required — pure requests + BeautifulSoup.

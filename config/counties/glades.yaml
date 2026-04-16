@@ -1,0 +1,24 @@
+# Glades County Config
+name: Glades
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartweb.gladessheriff.org/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Glades"
+
+schedule:
+  cron: "25 */6 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard — very small county
+  No browser required — pure requests + BeautifulSoup.

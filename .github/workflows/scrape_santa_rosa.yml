@@ -1,0 +1,14 @@
+name: Scrape Santa Rosa County
+on:
+  schedule:
+    - cron: '45 */4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: santa_rosa
+      script: counties/santa_rosa/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

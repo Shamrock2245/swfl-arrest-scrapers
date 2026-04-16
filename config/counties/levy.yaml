@@ -1,0 +1,24 @@
+# Levy County Config
+name: Levy
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartweb.levyso.com/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Levy"
+
+schedule:
+  cron: "35 */4 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard
+  No browser required — pure requests + BeautifulSoup.

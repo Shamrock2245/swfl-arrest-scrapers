@@ -1,0 +1,24 @@
+# Hamilton County Config
+name: Hamilton
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://inmate.hamiltonsheriff.com/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Hamilton"
+
+schedule:
+  cron: "30 */6 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard — small county
+  No browser required — pure requests + BeautifulSoup.

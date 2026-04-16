@@ -1,0 +1,24 @@
+# Sumter County Config
+name: Sumter
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://portal.sumtercountysheriff.org/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Sumter"
+
+schedule:
+  cron: "50 */4 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard
+  No browser required — pure requests + BeautifulSoup.

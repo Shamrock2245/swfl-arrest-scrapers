@@ -1,0 +1,24 @@
+# Putnam County Config
+name: Putnam
+state: FL
+enabled: true
+
+scraper:
+  platform: smartcop
+  stack: python
+  url: "http://smartweb.pcso.us/smartwebclient/Jail.aspx"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Putnam"
+
+schedule:
+  cron: "40 */4 * * *"
+  github_action: true
+
+notes: |
+  SmartCOP/SmartWEB scraper. Uses shared core/smartcop_parser.py.
+  SmartWEB standard
+  No browser required — pure requests + BeautifulSoup.
