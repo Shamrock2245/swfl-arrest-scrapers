@@ -5,7 +5,7 @@ This document outlines the background processes, scripts, and integrations that 
 ## 📊 Master Data Store
 All automated workflows synchronize with the Master Google Sheet.
 * **Link:** [Shamrock Master Database](https://docs.google.com/spreadsheets/d/121z5R6Hpqur54GNPC8L26ccfDPLHTJc3_LU6G7IV_0E/edit)
-* **Schema:** Strict 34-column format. See [SCHEMA.md](file:///Users/brendan/Desktop/swfl-arrest-scrapers/docs/SCHEMA.md) for field definitions.
+* **Schema:** Strict 34-column format. See [DATA_SCHEMA.md](file:///Users/brendan/Desktop/swfl-arrest-scrapers/docs/DATA_DATA_SCHEMA.md) for field definitions.
 
 ---
 

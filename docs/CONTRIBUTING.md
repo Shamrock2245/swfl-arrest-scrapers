@@ -11,7 +11,7 @@
 1. Read docs/IDENTITY.md — understand your role
 2. Read docs/RULES.md — understand constraints
 3. Read docs/ARCHITECTURE.md — understand the pipeline
-4. Read docs/COUNTY_REGISTRY.md — understand the landscape
+4. Read docs/SOURCES.md — understand the landscape
 5. Check docs/MEMORY.md — learn from past mistakes
 ```
 
@@ -31,7 +31,7 @@
 4. PLAN your approach (T3/T4: present plan before coding)
 5. IMPLEMENT with tests
 6. TEST locally (2+ consecutive idempotent runs)
-7. UPDATE docs (MEMORY.md, COUNTY_REGISTRY.md, etc.)
+7. UPDATE docs (MEMORY.md, SOURCES.md, etc.)
 8. COMMIT with conventional message format
 ```
 
@@ -94,7 +94,7 @@ Before submitting a PR, verify:
 □ 2+ consecutive idempotent runs successful
 □ No credentials in committed code
 □ Commit messages follow conventional format
-□ COUNTY_REGISTRY.md updated (if adding/modifying county)
+□ SOURCES.md updated (if adding/modifying county)
 □ MEMORY.md updated (if resolving an issue)
 □ No new `file 2` or `file 3` duplicate artifacts
 ```
@@ -147,7 +147,7 @@ refactor(writer): extract dedup logic to shared util
 
 ### Schema Change
 1. Update `config/schema.json`
-2. Update `docs/SCHEMA.md`
+2. Update `docs/DATA_DATA_SCHEMA.md`
 3. Verify all active scrapers produce valid output
 4. Check Sheets tab headers match new schema
 

@@ -1,4 +1,4 @@
-# 🗺️ COUNTY_REGISTRY.md — Master County Reference
+# 🗺️ SOURCES — Master County Reference (67 Counties)
 
 > **67 counties. One pipeline. Zero missed arrests.**
 
@@ -8,25 +8,30 @@
 
 | County | Stack | Schedule | Status | Known Quirks |
 |---|---|---|---|---|
-| **Brevard** | Python/DrissionPage | Every 3h | ✅ Stable | Simple HTML bookings page |
-| **Charlotte** | Python/DrissionPage | Every 30m | ✅ Stable | ColdFusion site; date format varies |
-| **Collier** | Apps Script (GAS) | Every 30m | ✅ Stable | Requires disclaimer acceptance |
-| **DeSoto** | Node.js/Puppeteer | Every 60m | ✅ Legacy | SmartCOP system; incremental scrape |
-| **Hendry** | Python/DrissionPage | Every 2h | ✅ Stable | Low volume county; API-based |
-| **Highlands** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive search form |
-| **Hillsborough** | Python/DrissionPage | Every 20m | ✅ Stable | ASP.NET ViewState; high volume |
-| **Indian River** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive search form |
-| **Lake** | Python/DrissionPage | Every 3h | ✅ Stable | Interactive inmate search |
-| **Lee** | Apps Script (GAS) | Every 30m | ✅ Stable | Internal GAS scraper via booking search |
-| **Manatee** | Python/DrissionPage | Every 30m | ✅ Stable | Arrest inquiry form submission |
-| **Martin** | Python/DrissionPage | Every 3h | ✅ Stable | Recent Bookings page |
-| **Orange** | Python/DrissionPage | Every 30m | ✅ Stable | PDF-based roster + web scraping |
-| **Osceola** | Python/DrissionPage | Every 60m | ✅ Stable | Corrections report search form |
-| **Palm Beach** | Python/DrissionPage | Every 30m | ⚠️ Beta | High volume; occasional timeouts |
-| **Pinellas** | Python/DrissionPage | Every 30m | ✅ Stable | Disclaimer + search; high volume |
-| **Polk** | Python/DrissionPage | Every 60m | ✅ Stable | HTML table; straightforward |
-| **Sarasota** | Python/DrissionPage | Every 30m | ✅ Stable | Cloudflare strict mode; DP required |
-| **Seminole** | Python/DrissionPage | Every 60m | ✅ Stable | WebBond/Inmates ASP.NET |
+| **Alachua** | requests+BS4 | Every 3h | ✅ Stable | POST search form; added 2026-04-14 |
+| **Brevard** | requests+BS4 | Every 3h | ✅ Stable | Simple HTML bookings page |
+| **Charlotte** | DrissionPage | Every 30m | ✅ Stable | ColdFusion site; date format varies |
+| **Collier** | requests+BS4 | Every 30m | ✅ Stable | Migrated from GAS; disclaimer acceptance |
+| **DeSoto** | DrissionPage | Every 60m | ✅ Stable | SmartCOP system; template for Wave 1 |
+| **Duval** | DrissionPage | Every 60m | ✅ Stable | Jacksonville; added 2026-04-14 |
+| **Escambia** | requests+BS4 | Every 3h | ✅ Stable | Pensacola; added 2026-04-14 |
+| **Hendry** | DrissionPage | Every 2h | ✅ Stable | Low volume county; API-based |
+| **Highlands** | DrissionPage | Every 3h | ✅ Stable | Interactive search form; fixed 2026-04-14 |
+| **Hillsborough** | requests+BS4 | Every 20m | ✅ Stable | ASP.NET ViewState; high volume |
+| **Indian River** | requests+BS4 | Every 3h | ✅ Stable | Interactive search form; fixed 2026-04-14 |
+| **Lake** | requests+BS4 | Every 3h | ✅ Stable | Interactive inmate search |
+| **Lee** | Apps Script (GAS) | Every 30m | ✅ Stable | Internal GAS scraper (not in this repo) |
+| **Manatee** | DrissionPage | Every 30m | ✅ Stable | Arrest inquiry form submission |
+| **Martin** | requests+BS4 | Every 3h | ✅ Stable | Recent Bookings page |
+| **Orange** | DrissionPage | Every 30m | ✅ Stable | PDF-based roster + web scraping |
+| **Osceola** | Playwright | Every 60m | ✅ Stable | Corrections report; switched to Playwright |
+| **Palm Beach** | requests+BS4 | Every 30m | ✅ Stable | High volume; promoted from Beta |
+| **Pasco** | DrissionPage | Every 60m | ✅ Stable | Heavy JS SPA; added 2026-04-14 |
+| **Pinellas** | requests+BS4 | Every 30m | ✅ Stable | Disclaimer + search; high volume |
+| **Polk** | DrissionPage | Every 60m | ✅ Stable | HTML table; straightforward |
+| **Sarasota** | DrissionPage | Every 30m | ✅ Stable | Cloudflare strict mode; DP required |
+| **Seminole** | requests+BS4 | Every 60m | ✅ Stable | WebBond/Inmates ASP.NET |
+| **Volusia** | DrissionPage | Every 60m | ✅ Stable | Mugshot-focused; added 2026-04-14 |
 
 ---
 
@@ -39,7 +44,7 @@ These counties use the **SmartCOP/SmartWEB** jail management system — identica
 |---|---|---|---|
 | **Bradford** | `smartweb.bradfordsheriff.org` | 🟢 Easy | High |
 | **Dixie** | `smartcop.dixiecountysheriff.com` | 🟢 Easy | Medium |
-| **Escambia** | `inmatelookup.myescambia.com` | 🟢 Easy | High |
+| ~~**Escambia**~~ | ~~`inmatelookup.myescambia.com`~~ | ✅ Done | Moved to Active |
 | **Gadsden** | `gadsdensheriff.com` | 🟢 Easy | Low |
 | **Gilchrist** | `gcso.us` | 🟢 Easy | Low |
 | **Glades** | `smartweb.gladessheriff.org` | 🟢 Easy | Low |
@@ -60,7 +65,7 @@ Counties with standard web forms that DrissionPage handles easily.
 
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
-| **Alachua** | `acso.us/inmate-search/` | 🟡 Medium | POST search form |
+| ~~**Alachua**~~ | ~~`acso.us/inmate-search/`~~ | ✅ Done | Moved to Active |
 | ~~**Brevard**~~ | ~~`brevardsheriff.com/bookings/`~~ | ✅ Done | Moved to Active |
 | **Citrus** | `sheriffcitrus.org` | 🟢 Easy | Simple PHP recent arrests |
 | **Clay** | `claysheriff.policetocitizen.com` | 🟡 Medium | P2C system; disclaimer click |
@@ -91,16 +96,16 @@ Counties with heavy JS, CAPTCHAs, or unusual tech stacks.
 |---|---|---|---|
 | **Bay** | `baysomobile.org` | 🟡 Medium | Mobile-optimized JS list |
 | **Broward** | `sheriff.org` | 🔴 Hard | Captcha + ASP.NET search |
-| **Duval** | `inmatesearch.jaxsheriff.org` | 🔴 Hard | Login required |
+| ~~**Duval**~~ | ~~`inmatesearch.jaxsheriff.org`~~ | ✅ Done | Moved to Active |
 | **Flagler** | `nwwebcad.fcpsn.org` | 🔴 Hard | Tyler Tech/New World; very slow |
 | **Miami-Dade** | `miamidade.gov` | 🔴 Hard | Complex search + Captcha |
 | **Nassau** | `dssinmate.nassauso.com` | 🟡 Medium | Tyler Tech/New World |
 | **Okaloosa** | `sheriff-okaloosa.org` | 🟡 Medium | Search form |
 | **Osceola** | `osceola.org` | 🟡 Medium | Corrections report search |
-| **Pasco** | `jailinfo.pascocorrections.net` | 🔴 Hard | Heavy JS SPA (#/inCustody) |
+| ~~**Pasco**~~ | ~~`jailinfo.pascocorrections.net`~~ | ✅ Done | Moved to Active |
 | **Pinellas** | `pcsoweb.com` | 🟡 Medium | Disclaimer + search |
 | **Seminole** | `seminolesheriff.org` | 🟡 Medium | ASP.NET WebBond |
-| **Volusia** | `volusiamug.vcgov.org` | 🟡 Medium | Mugshot-focused site |
+| ~~**Volusia**~~ | ~~`volusiamug.vcgov.org`~~ | ✅ Done | Moved to Active |
 | **Walton** | `nwscorrections.waltonso.org` | 🟡 Medium | Tyler Tech/New World |
 
 **Estimated effort per county:** 3–8 hours
@@ -179,4 +184,4 @@ When a county reaches `STABLE` status, these metrics should be tracked:
 
 ---
 *Maintained by: Shamrock Engineering Team & AI Agents*
-*Last Updated: March 2026*
+*Last Updated: April 2026*

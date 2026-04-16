@@ -150,7 +150,7 @@ Full guide: [county-scraper-builder](.gemini/skills/county-scraper-builder/SKILL
 |-----|-----|----------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Engineers | System design, data flows, interface contracts |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Ops | Docker, GitHub Actions, credentials |
-| [SCHEMA.md](docs/SCHEMA.md) | Data | 39-column schema reference |
+| [SCHEMA.md](docs/DATA_SCHEMA.md) | Data | 39-column schema reference |
 | [ROADMAP.md](docs/ROADMAP.md) | Strategy | Wave 1-5 county expansion plan |
 | [repo-conventions](.gemini/skills/repo-conventions/SKILL.md) | AI Agents | Rules, safe refactoring, secrets, schema changes |
 | [scraper-debugger](.gemini/skills/scraper-debugger/SKILL.md) | AI/Engineers | Troubleshooting playbook |

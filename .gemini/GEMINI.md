@@ -1,9 +1,66 @@
 # SWFL Arrest Scrapers — Agent Context
 
 ## Mission
-Build and maintain a **67-county Florida arrest scraping network** that feeds real-time booking data into the Shamrock Bail Bonds lead pipeline. Currently at **24 counties active**. Every new county directly increases revenue and geographic reach.
+Build and maintain a **67-county Florida arrest scraping network** that feeds real-time booking data into the Shamrock Bail Bonds lead pipeline. Currently at **24 counties active** (36% coverage). Every new county directly increases revenue and geographic reach.
 
 Lee County is handled by the GAS internal scraper (in `shamrock-bail-portal-site/backend-gas/`), not this repo. It has a config here for reference only.
+
+---
+
+## Quick Navigation
+
+### Agent Brain (`.gemini/`)
+| File | Purpose |
+|------|---------|
+| [IDENTITY.md](IDENTITY.md) | Who I am, my mission, my personality |
+| [SYSTEM.md](SYSTEM.md) | Full system architecture & topology |
+| [AGENTS.md](AGENTS.md) | Digital workforce roster (9 agents) |
+| [BOUNDARIES.md](BOUNDARIES.md) | What I may and may not do |
+| [TOOLS.md](TOOLS.md) | Technology & tool ecosystem |
+| [STATE.md](STATE.md) | Current operational state (live snapshot) |
+| [HEARTBEAT.md](HEARTBEAT.md) | System health pulse & SLOs |
+| [MEMORY.md](MEMORY.md) | Learned patterns & county quirks |
+| [TASKS.md](TASKS.md) | Active task queue |
+| [USER.md](USER.md) | Operator profile & preferences |
+| [REFLECTION.md](REFLECTION.md) | Self-assessment & improvement |
+| [LOGBOOK.md](LOGBOOK.md) | Chronological activity log |
+
+### Technical Reference (`docs/`)
+| File | Purpose |
+|------|---------|
+| [DATA_SCHEMA.md](../docs/DATA_SCHEMA.md) | 34-column universal arrest record schema |
+| [SOURCES.md](../docs/SOURCES.md) | Master 67-county reference (URLs, stacks, status) |
+| [NORMALIZATION.md](../docs/NORMALIZATION.md) | Field mapping & data cleanup rules |
+| [SCORING.md](../docs/SCORING.md) | Lead scoring algorithm (0-100) |
+| [QUEUE.md](../docs/QUEUE.md) | 6-stage pipeline: scrape → notify |
+| [SCRAPING_RULES.md](../docs/SCRAPING_RULES.md) | Legal/ethical scraping + anti-detection |
+| [OUTREACH_RULES.md](../docs/OUTREACH_RULES.md) | Contact workflow & messaging rules |
+| [COMPLIANCE.md](../docs/COMPLIANCE.md) | Legal, privacy, data handling |
+| [ERRORS_AND_RECOVERY.md](../docs/ERRORS_AND_RECOVERY.md) | Error codes & recovery playbooks |
+| [SECRETS.md](../docs/SECRETS.md) | Credential handling & security |
+| [CHANGELOG.md](../docs/CHANGELOG.md) | Scraper network history |
+| [ROADMAP.md](../docs/ROADMAP.md) | Strategic expansion plan |
+
+### Skills (`.gemini/skills/`)
+| Skill | Purpose |
+|-------|---------|
+| `self-improving-agent/` | Post-task learning loop with multi-memory architecture |
+| `county-scraper-builder/` | New county setup guide, naming conventions, checklist |
+| `scraper-debugger/` | 7 common failure modes, diagnostic procedures |
+| `county-expansion/` | 67-county roadmap, site recon, lead analysis strategy |
+| `repo-conventions/` | Non-negotiable rules, safe refactoring, config hierarchy |
+| `testing-guide/` | Parser tests, fixture guidelines, TDD patterns |
+| `systematic-debugging/` | 4-phase root cause analysis |
+| `verification-before-completion/` | Evidence before claims |
+| `harden/` | Anti-bot, network resilience, edge cases |
+| `python-performance-optimization/` | Connection pooling, batch writes, profiling |
+| `github-actions-docs/` | Workflow writing, cron scheduling, CI/CD |
+| `playwright-scraping/` | DrissionPage/Playwright anti-bot patterns |
+| `playwright-cli/` | Browser automation CLI commands |
+| `google-sheets-integration/` | 34-col schema, dedup, Sheets API patterns |
+| `gws-sheets/` | Google Sheets API v4 reference |
+
+---
 
 ## Pipeline Architecture
 ```
@@ -13,73 +70,12 @@ County Jail Website → solver.py (scrape) → runner.py (pipeline)
     → Slack (#new-arrests-{county})
 ```
 
-## Repository Structure
-```
-counties/{name}/          # One folder per county
-  solver.py               # Scraping logic — THE critical file
-  runner.py               # Universal pipeline runner (identical everywhere)
-  __init__.py             # Makes it a Python package
-
-python_scrapers/scrapers/ # Old-style runners (subprocess-based, being phased out)
-  run_{name}.py           # These call solver.py via subprocess
-
-config/counties/          # YAML config per county
-  {name}.yaml             # Scraping config, schedule, output tab name
-
-core/                     # Shared library code
-  config_loader.py        # Loads YAML configs
-  writers/                # Output writers
-    sheets_writer.py      # Google Sheets output (39-col HEADER_ROW)
-
-.github/workflows/        # GitHub Actions cron jobs
-  scrape_{name}.yml       # One workflow per county
-  scrape.yml              # Reusable workflow template
-
-creds/                    # Created at runtime by workflows
-  service-account-key.json
-```
-
 ## Critical Conventions
 1. **Function name = directory name**: `counties/collier/solver.py` MUST export `scrape_collier()`
 2. **Return a list**: Solver functions MUST `return records` (list of dicts), never `print()`
 3. **Parameters**: Always accept `days_back=7, max_pages=10` kwargs
-4. **Logging**: `sys.stderr.write()` for progress, `print()` only in `__main__` CLI
-5. **Dedup key**: `Booking_Number` + `County` — both required in every record
-6. **Error handling**: Return `[]` on failure, never `None` or raise unhandled exceptions
-
-## County Status (24 Active)
-| County | Stack | Status |
-|--------|-------|--------|
-| Alachua | requests+BS4 | ✅ (added 2026-04-14) |
-| Brevard | requests+BS4 | ✅ |
-| Charlotte | DrissionPage | ✅ |
-| Collier | requests+BS4 | ✅ (fixed 2026-04-14) |
-| DeSoto | DrissionPage | ✅ |
-| Duval | DrissionPage | ✅ (added 2026-04-14) |
-| Escambia | requests+BS4 | ✅ (added 2026-04-14) |
-| Hendry | DrissionPage | ✅ |
-| Highlands | DrissionPage | ✅ (fixed 2026-04-14) |
-| Hillsborough | requests+BS4 | ✅ |
-| Indian River | requests+BS4 | ✅ (fixed 2026-04-14) |
-| Lake | requests+BS4 | ✅ |
-| Lee | GAS Internal | ✅ (not in this repo) |
-| Manatee | DrissionPage | ✅ |
-| Martin | requests+BS4 | ✅ |
-| Orange | DrissionPage | ✅ |
-| Osceola | Playwright | ✅ (fixed 2026-04-14) |
-| Palm Beach | requests+BS4 | ✅ |
-| Pasco | DrissionPage | ✅ (added 2026-04-14) |
-| Pinellas | requests+BS4 | ✅ |
-| Polk | DrissionPage | ✅ |
-| Sarasota | DrissionPage | ✅ |
-| Seminole | requests+BS4 | ✅ |
-| Volusia | DrissionPage | ✅ (added 2026-04-14) |
-
-## Remaining 43 Counties (Expansion Targets)
-Priority order based on population, bond volume, and geographic proximity:
-1. **Tier 1** (High population, high bond volume): Miami-Dade, Broward, St. Lucie
-2. **Tier 2** (Medium population): Leon, Marion, Okaloosa, Bay, St. Johns, Flagler, Hernando, Citrus, Sumter, Putnam, Columbia
-3. **Tier 3** (Smaller counties): Remaining 30 counties
+4. **Dedup key**: `Booking_Number` + `County` — both required in every record
+5. **Error handling**: Return `[]` on failure, never `None` or raise unhandled exceptions
 
 ## Environment Variables
 ```
@@ -88,25 +84,3 @@ GOOGLE_SERVICE_ACCOUNT_KEY_PATH=creds/service-account-key.json
 SLACK_WEBHOOK_URL=<from secrets>
 TZ=America/New_York
 ```
-
-## Skills
-All agent skills live in `.gemini/skills/`. No other skill directories exist.
-
-### Core Skills (Custom)
-- `self-improving-agent/` — Post-task learning loop with multi-memory architecture
-- `county-scraper-builder/` — New county setup guide, naming conventions, checklist
-- `scraper-debugger/` — 7 common failure modes, diagnostic procedures
-- `county-expansion/` — 67-county roadmap, site recon, lead analysis strategy
-- `repo-conventions/` — Non-negotiable rules, safe refactoring, secrets management, schema changes
-- `testing-guide/` — Parser tests, fixture guidelines, TDD red-green patterns, smoke tests
-
-### Community Skills (Adapted from skills.sh)
-- `systematic-debugging/` — 4-phase root cause analysis (from obra/superpowers)
-- `verification-before-completion/` — Iron law: evidence before claims (from obra/superpowers)
-- `harden/` — Anti-bot, network resilience, data edge cases (from pbakaus/impeccable)
-- `python-performance-optimization/` — Connection pooling, batch writes, profiling (from wshobson/agents)
-- `github-actions-docs/` — Workflow writing, cron scheduling, CI/CD (from xixu-me/skills)
-- `playwright-scraping/` — DrissionPage/Playwright anti-bot patterns (from currents-dev)
-- `playwright-cli/` — Browser automation CLI commands (from playwright)
-- `google-sheets-integration/` — 39-col schema, dedup, Sheets API patterns (from googleworkspace)
-- `gws-sheets/` — Google Sheets API v4 reference and CLI patterns (from googleworkspace)
