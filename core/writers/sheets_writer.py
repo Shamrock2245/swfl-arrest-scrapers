@@ -2,7 +2,7 @@
 Google Sheets Writer — core/writers/sheets_writer.py
 
 Writes arrest records to Google Sheets with:
-- 39-column header in row 1 (auto-created if missing)
+- 34-column header in row 1 (auto-created if missing)
 - NEW RECORDS INSERTED AT ROW 2 (newest first — today's arrests at top)
 - Deduplication by County + Booking_Number
 - Qualified_Arrests cross-posting for high-score leads
@@ -23,7 +23,7 @@ from google.oauth2.service_account import Credentials
 
 logger = logging.getLogger(__name__)
 
-# 39-column canonical header (matches ArrestRecord.get_header_row())
+# 34-column canonical header (matches ArrestRecord.get_header_row())
 HEADER_ROW = [
     "Scrape_Timestamp", "County", "Booking_Number", "Person_ID", "Full_Name",
     "First_Name", "Middle_Name", "Last_Name", "DOB", "Arrest_Date", "Arrest_Time",
@@ -253,7 +253,7 @@ class SheetsWriter:
             return set()
 
     def _record_to_row(self, record: dict, county: str) -> list:
-        """Convert a record dict to a 39-element list in header order."""
+        """Convert a record dict to a row list in header order."""
         row = []
         for col in HEADER_ROW:
             val = record.get(col, '')
