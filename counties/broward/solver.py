@@ -44,15 +44,15 @@ DETAIL_URL = f"{BASE_URL}/ArrestSearch/InmateDetail"
 
 # Agency prefixes and their known frontiers (calibrated 04/16/2026)
 AGENCY_PREFIXES = {
-    23: {'name': 'Pompano Beach PD',        'active': True,  'frontier': 232601027, 'rate': 11},
-    25: {'name': 'Sunrise PD',              'active': True,  'frontier': 252600228, 'rate': 4},
-    50: {'name': 'BSO Direct',              'active': True,  'frontier': 502600917, 'rate': 15},
-    57: {'name': 'Fort Lauderdale PD',      'active': True,  'frontier': 572600810, 'rate': 12},
+    23: {'name': 'Pompano Beach PD',        'active': True,  'frontier': 232601027, 'rate': 13},
+    25: {'name': 'Sunrise PD',              'active': True,  'frontier': 252600276, 'rate': 5},
+    50: {'name': 'BSO Direct',              'active': True,  'frontier': 502601127, 'rate': 23},
+    57: {'name': 'Fort Lauderdale PD',      'active': True,  'frontier': 572601255, 'rate': 15},
     80: {'name': 'Main Jail',               'active': False, 'frontier': 802600100, 'rate': 2},
-    90: {'name': 'U.S. Marshals Service',   'active': True,  'frontier': 902600268, 'rate': 4},
+    90: {'name': 'U.S. Marshals Service',   'active': True,  'frontier': 902600270, 'rate': 9},
 }
 
-ID_DENSITY = 0.38  # ~38% of sequential IDs have records
+ID_DENSITY = 0.45  # ~45% of sequential IDs have records (calibrated 04/16/2026)
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
