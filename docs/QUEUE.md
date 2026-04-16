@@ -1,15 +1,24 @@
 # 🔄 QUEUE — Pipeline Stages
 
-> **Every arrest record flows through 6 stages from website to actionable lead.**
+> **Every arrest record flows through 8 stages from website to actionable lead.**
 
 ---
 
 ## Pipeline Overview
 
 ```
-Stage 1        Stage 2          Stage 3        Stage 4        Stage 5          Stage 6
-SCRAPE    →    NORMALIZE    →   SCORE     →    DEDUP     →    STORE       →    NOTIFY
-(solver.py)    (normalizer)      (scorer)       (writer)       (sheets/mongo)   (slack)
+  Stage 1      Stage 2        Stage 3     Stage 4          Stage 5
+  SCRAPE  →  NORMALIZE  →    SCORE   →  COMPLIANCE  →     DEDUP
+(solver.py)  (normalizer)    (scorer)     (gate)          (writer)
+                                           │
+                               ┌───────────┘
+                               ▼
+                         REVIEW_HOLD (if flagged)
+                               │
+                               ▼
+                    Stage 6        Stage 7       Stage 8
+                    STORE     →    NOTIFY    →   CLOSE
+                 (sheets/mongo)    (slack)     (lifecycle)
 ```
 
 ---
@@ -73,10 +82,34 @@ Scoring factors (see `SCORING.md` for full rubric):
 
 ---
 
-## Stage 4: DEDUP
+## Stage 4: COMPLIANCE GATE
+
+**Owner**: Pipeline (inline checks)
+**Input**: Scored 34-column dict
+**Output**: `PASS`, `SUPPRESS`, or `REVIEW_HOLD`
+
+Automatic checks before any storage or contact:
+
+| Check | Action if Failed |
+|-------|------------------|
+| Minor (DOB → age < 18) | `SUPPRESS` — do not store or contact |
+| Capital offense | `SUPPRESS` — mark `Lead_Status: Disqualified`, store for analytics only |
+| Federal/ICE charge | `SUPPRESS` — different jurisdiction, cannot bond |
+| Suppression list match | `SUPPRESS` — individual previously opted out |
+| Incomplete required fields | `REVIEW_HOLD` — flag for human review |
+| Anomalous data (future dates, negative bonds) | `REVIEW_HOLD` — possible parser error |
+
+**`REVIEW_HOLD` records** are stored with `compliance_status: review_required` and do NOT trigger outreach until a human clears them.
+
+**Success criteria**: Zero suppressed records reach outreach pipeline
+**Failure mode**: If compliance check errors, default to `REVIEW_HOLD` (safer than passing through)
+
+---
+
+## Stage 5: DEDUP
 
 **Owner**: `core/writers/sheets_writer.py` (dedup logic)
-**Input**: Scored 34-column dict
+**Input**: Compliance-cleared 34-column dict
 **Output**: Decision: INSERT, UPDATE, or SKIP
 
 ```
@@ -97,7 +130,7 @@ IF key found AND data unchanged    → SKIP (no action)
 
 ---
 
-## Stage 5: STORE
+## Stage 6: STORE
 
 **Owner**: `core/writers/sheets_writer.py` + `core/writers/mongo_writer.py`
 **Input**: Dedup decision + scored record
@@ -122,7 +155,7 @@ IF key found AND data unchanged    → SKIP (no action)
 
 ---
 
-## Stage 6: NOTIFY
+## Stage 7: NOTIFY
 
 **Owner**: `core/writers/slack_notifier.py`
 **Input**: Newly inserted/updated records
@@ -135,9 +168,30 @@ IF key found AND data unchanged    → SKIP (no action)
 | `Lead_Score ≥ 70` | `#leads` | HIGH (`@channel`) |
 | Scraper error | `#scraper-alerts` | ERROR |
 | Run complete | `#drive` | INFO (summary) |
+| `REVIEW_HOLD` flagged | `#scraper-alerts` | WARN |
 
 **Success criteria**: Slack messages delivered within 60 seconds of record storage
 **Failure mode**: Non-fatal. Log warning and continue. Bad Slack should never crash a scraper.
+
+---
+
+## Stage 8: CLOSE (Lifecycle)
+
+**Owner**: GAS backend (`shamrock-bail-portal-site`)
+**Input**: Stored record lifecycle events
+**Output**: Status transitions
+
+Records move through these terminal states downstream:
+
+| Status | Meaning | Trigger |
+|---|---|---|
+| `exported` | Sent to outreach queue (The Closer / Concierge) | `Lead_Score ≥ 50` + compliance PASS |
+| `contacted` | Outreach attempted | The Closer touches 1-4 |
+| `converted` | Client signed paperwork | SignNow `document.complete` |
+| `closed` | Bond posted or lead expired | Human action or 30-day timeout |
+| `suppressed` | Opted out or compliance block | Opt-out reply or manual flag |
+
+**Note**: Stage 8 lives outside this repo — it's documented here for pipeline completeness.
 
 ---
 
@@ -150,6 +204,7 @@ IF key found AND data unchanged    → SKIP (no action)
 | **Order independent** | Records can be processed in any order |
 | **Non-fatal secondary stores** | MongoDB/Slack failures don't affect primary (Sheets) |
 | **Auditable** | Every run logged in `Ingestion_Log` with counts and timing |
+| **Compliance-gated** | No record reaches outreach without passing compliance checks |
 
 ---
 
@@ -160,6 +215,7 @@ IF key found AND data unchanged    → SKIP (no action)
 | Scrape | 10-120s | Depends on county site speed + anti-bot delays |
 | Normalize | <1s | Pure in-memory transformation |
 | Score | <1s | Pure computation |
+| Compliance Gate | <1s | In-memory checks |
 | Dedup | 2-5s | Sheets API read to check existing records |
 | Store | 2-10s | Sheets API write (batch if >5 records) |
 | Notify | 1-3s | Slack webhook POST |

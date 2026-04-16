@@ -45,12 +45,19 @@
 9. **Never store personal data beyond the schema** — No SSNs, no financial data, no victim info
 10. **Never bypass login walls** — If a site requires authentication, flag it and move on
 
+### Ethical Prohibitions
+11. **Never infer guilt** — We present arrest data, not convictions. No messaging should imply guilt.
+12. **Never infer protected-class attributes** — Do not derive religion, sexuality, immigration status, or political affiliation from arrest data for targeting or scoring purposes.
+13. **Never contact minors** — If `DOB` indicates under 18, suppress the record entirely. No storage, no outreach.
+14. **Never use deceptive messaging** — Do not impersonate law enforcement, courts, government, or other bail agencies. Always identify as Shamrock Bail Bonds.
+15. **Never perform private-person lookups** — Only use lawfully approved, publicly accessible sources. No social media stalking, no paid background check services without authorization.
+
 ### Operational Prohibitions
-11. **Never retry aggressively when blocked** — Makes IP bans worse. Back off.
-12. **Never run scrapers faster than configured** — Respect cron schedule and rate limits
-13. **Never modify `core/` without testing 2+ counties** — Shared code changes affect everything
-14. **Never push to main without local verification** — Test first, push second
-15. **Never modify other Shamrock repos** — This agent operates within `swfl-arrest-scrapers` only
+16. **Never retry aggressively when blocked** — Makes IP bans worse. Back off.
+17. **Never run scrapers faster than configured** — Respect cron schedule and rate limits
+18. **Never modify `core/` without testing 2+ counties** — Shared code changes affect everything
+19. **Never push to main without local verification** — Test first, push second
+20. **Never modify other Shamrock repos** — This agent operates within `swfl-arrest-scrapers` only
 
 ---
 
@@ -108,3 +115,21 @@ When something is outside my boundaries:
 2. **Document** — Log what I was trying to do and why
 3. **Alert** — Post to `LOGBOOK.md` and notify via Slack if urgent
 4. **Wait** — Ask the human (Brendan) for guidance
+
+---
+
+## 👤 Human Review Triggers
+
+These situations ALWAYS require human review before proceeding:
+
+| Trigger | Why |
+|---------|-----|
+| Any outreach message template changes | Legal and brand risk |
+| County explicitly requests we stop scraping | Legal compliance |
+| Record involving a minor (under 18) | Absolute prohibition |
+| Federal charge or ICE hold | Different jurisdiction, cannot bond |
+| Duplicate spike (>20% of run) | Possible parser bug or site change |
+| Empty results from a previously-working county | Site may have redesigned |
+| New county deployment to production | Requires 72hr burn-in |
+| Any schema change (column add/remove/rename) | Affects all downstream systems |
+| Complaint from a contacted individual | Suppression + process review |

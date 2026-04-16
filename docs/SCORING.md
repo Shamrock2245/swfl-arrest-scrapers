@@ -107,6 +107,50 @@ These conditions immediately disqualify a record:
 
 ---
 
+## Reason Codes
+
+Every scored record includes machine-readable reason codes explaining how the score was derived:
+
+| Code | Meaning | Points Impact |
+|---|---|---|
+| `BOND_SWEET_SPOT` | Bond in $500–$50K range | +30 |
+| `BOND_HIGH` | Bond $50K–$100K | +20 |
+| `BOND_PREMIUM` | Bond >$100K | +10 |
+| `IN_CUSTODY` | Currently detained | +20 |
+| `BONDABLE_CHARGE` | Charge matches bondable keywords | +20 |
+| `CASH_SURETY` | Cash or surety bond type | +25 |
+| `DATA_COMPLETE` | All key fields present | +15 |
+| `RECENT_BOOKING` | Booked within 24h | +10 |
+| `SERIOUS_CHARGE` | Felony with bondable amount | +20 |
+| `RELEASED` | Already released | -30 |
+| `NO_BOND` | Zero bond or "No Bond" type | -50 |
+| `CAPITAL_CHARGE` | Murder / Capital offense | -100 |
+| `HOLD_DETAINER` | ICE / federal / out-of-state hold | -30 |
+| `MINOR_OFFENSE` | Low-severity charge | -10 |
+| `OLD_BOOKING` | Booked >7 days ago | -10 |
+| `DQ_MINOR` | Defendant under 18 | Disqualified |
+| `DQ_FEDERAL` | Federal jurisdiction | Disqualified |
+
+**Output format**: `reason_codes` field is a pipe-separated list: `BOND_SWEET_SPOT|IN_CUSTODY|BONDABLE_CHARGE`
+
+---
+
+## Manual Review Conditions
+
+These conditions flag a record for `REVIEW_HOLD` — human must clear before outreach:
+
+| Condition | Why |
+|-----------|-----|
+| `Bond_Amount` is negative or unrealistically high (>$10M) | Likely parser error |
+| `Booking_Date` is in the future | Data integrity issue |
+| `DOB` implies age >100 or <0 | Bad data or parsing failure |
+| `Lead_Score` between 45–55 (borderline qualified) | Human should validate quality |
+| Charge text is `UNKNOWN` or empty but bond exists | May be bondable but unverifiable |
+| 3+ records for the same person in 24h | Possible dedup failure or rebooking |
+| County first seen (new county launch) | 72-hour burn-in monitoring |
+
+---
+
 ## Scoring vs. Business Value
 
 | Lead_Score | What It Means for the Business |
