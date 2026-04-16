@@ -1,0 +1,14 @@
+name: Scrape Wakulla County
+on:
+  schedule:
+    - cron: '5 */8 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: wakulla
+      script: counties/wakulla/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

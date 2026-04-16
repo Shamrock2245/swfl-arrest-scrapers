@@ -1,0 +1,16 @@
+# Madison County Config
+name: Madison
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.madisonsheriff.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Madison"
+schedule:
+  cron: "55 */12 * * *"
+  github_action: true
+notes: |
+  Small county

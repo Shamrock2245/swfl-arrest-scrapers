@@ -1,0 +1,14 @@
+name: Scrape Walton County
+on:
+  schedule:
+    - cron: '35 */6 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: walton
+      script: counties/walton/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

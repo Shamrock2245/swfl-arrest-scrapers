@@ -1,0 +1,14 @@
+name: Scrape Okaloosa County
+on:
+  schedule:
+    - cron: '25 */4 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: okaloosa
+      script: counties/okaloosa/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

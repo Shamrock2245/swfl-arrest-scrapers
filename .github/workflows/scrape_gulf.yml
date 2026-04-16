@@ -1,0 +1,14 @@
+name: Scrape Gulf County
+on:
+  schedule:
+    - cron: '5 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: gulf
+      script: counties/gulf/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

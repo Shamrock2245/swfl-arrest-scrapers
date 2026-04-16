@@ -1,0 +1,16 @@
+# Gulf County Config
+name: Gulf
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.gulfsheriff.com"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Gulf"
+schedule:
+  cron: "5 */12 * * *"
+  github_action: true
+notes: |
+  Very small county

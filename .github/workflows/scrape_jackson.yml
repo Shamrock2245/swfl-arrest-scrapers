@@ -1,0 +1,14 @@
+name: Scrape Jackson County
+on:
+  schedule:
+    - cron: '15 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: jackson
+      script: counties/jackson/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

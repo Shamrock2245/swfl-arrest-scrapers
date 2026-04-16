@@ -1,0 +1,16 @@
+# Hernando County Config
+name: Hernando
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.hernandosheriff.org/inmate-search"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Hernando"
+schedule:
+  cron: "30 */4 * * *"
+  github_action: true
+notes: |
+  ASP.NET A-Z search

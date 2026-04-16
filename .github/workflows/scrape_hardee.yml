@@ -1,0 +1,14 @@
+name: Scrape Hardee County
+on:
+  schedule:
+    - cron: '55 */8 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: hardee
+      script: counties/hardee/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

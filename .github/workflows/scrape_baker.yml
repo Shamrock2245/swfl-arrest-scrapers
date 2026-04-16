@@ -1,0 +1,14 @@
+name: Scrape Baker County
+on:
+  schedule:
+    - cron: '10 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: baker
+      script: counties/baker/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

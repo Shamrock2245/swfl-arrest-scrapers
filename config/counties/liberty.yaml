@@ -1,0 +1,16 @@
+# Liberty County Config
+name: Liberty
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.libertycountysheriff.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Liberty"
+schedule:
+  cron: "45 */12 * * *"
+  github_action: true
+notes: |
+  Very small county

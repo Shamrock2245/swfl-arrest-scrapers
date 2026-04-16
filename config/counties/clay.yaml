@@ -1,0 +1,16 @@
+# Clay County Config
+name: Clay
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "http://p2c.claysheriff.com/jailinmates.aspx"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Clay"
+schedule:
+  cron: "15 */4 * * *"
+  github_action: true
+notes: |
+  P2C direct jail inmates page

@@ -1,0 +1,14 @@
+name: Scrape Jefferson County
+on:
+  schedule:
+    - cron: '25 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: jefferson
+      script: counties/jefferson/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

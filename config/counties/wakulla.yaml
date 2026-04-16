@@ -1,0 +1,16 @@
+# Wakulla County Config
+name: Wakulla
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.wcso.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Wakulla"
+schedule:
+  cron: "5 */8 * * *"
+  github_action: true
+notes: |
+  South of Tallahassee

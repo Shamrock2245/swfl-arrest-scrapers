@@ -1,0 +1,16 @@
+# Holmes County Config
+name: Holmes
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "http://holmescosheriff.org/jail-division.html"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Holmes"
+schedule:
+  cron: "40 */12 * * *"
+  github_action: true
+notes: |
+  Small county

@@ -68,12 +68,12 @@ Counties with standard web forms that DrissionPage handles easily.
 | ~~**Alachua**~~ | ~~`acso.us/inmate-search/`~~ | ✅ Done | Moved to Active |
 | ~~**Brevard**~~ | ~~`brevardsheriff.com/bookings/`~~ | ✅ Done | Moved to Active |
 | ~~**Citrus**~~ | ~~`sheriffcitrus.org`~~ | ✅ Done | Moved to Active (PDF scraper) |
-| **Clay** | `claysheriff.policetocitizen.com` | 🟡 Medium | P2C system; disclaimer click |
+| ~~**Clay**~~ | ~~`p2c.claysheriff.com`~~ | ✅ Done | Moved to Active (P2C direct page) |
 | ~~**Columbia**~~ | ~~`50.204.15.10`~~ | ✅ Done | Moved to Active (SmartCOP via IP) |
-| **Franklin** | `franklinsheriff.com` | 🟡 Medium | Check for 'I Accept' splash |
-| **Hernando** | `hernandosheriff.org` | 🟡 Medium | ASP.NET search form |
+| ~~**Franklin**~~ | ~~`franklinsheriff.com`~~ | ✅ Done | Moved to Active (arrest log) |
+| ~~**Hernando**~~ | ~~`hernandosheriff.org`~~ | ✅ Done | Moved to Active (ASP.NET A-Z) |
 | ~~**Highlands**~~ | ~~`highlandssheriff.org`~~ | ✅ Done | Moved to Active |
-| **Holmes** | `holmescosheriff.org` | 🟡 Medium | Check if simple HTML |
+| ~~**Holmes**~~ | ~~`holmescosheriff.org`~~ | ✅ Done | Moved to Active |
 | ~~**Indian River**~~ | ~~`ircsheriff.org`~~ | ✅ Done | Moved to Active |
 | ~~**Lake**~~ | ~~`lcso.org/inmates/`~~ | ✅ Done | Moved to Active |
 | ~~**Leon**~~ | ~~`leoncountyso.com`~~ | ✅ Done | Moved to Active |
@@ -85,7 +85,7 @@ Counties with standard web forms that DrissionPage handles easily.
 | ~~**St. Lucie**~~ | ~~`stluciesheriff.com`~~ | ✅ Done | Moved to Active (% wildcard) |
 | ~~**Washington**~~ | ~~`wcso.us/inmateRoster`~~ | ✅ Done | Moved to Active |
 
-**Estimated effort per county:** 1–3 hours (14 remaining)
+**All Wave 2 counties complete.** ✅
 
 ---
 
@@ -94,19 +94,19 @@ Counties with heavy JS, CAPTCHAs, or unusual tech stacks.
 
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
-| **Bay** | `baysomobile.org` | 🟡 Medium | Mobile-optimized JS list |
-| ~~**Broward**~~ | ~~`apps.sheriff.org`~~ | ✅ Done | Moved to Active (Angular API, ?d=y bypass) |
+| ~~**Bay**~~ | ~~`baysomobile.org`~~ | ✅ Done | Moved to Active |
+| ~~**Broward**~~ | ~~`apps.sheriff.org`~~ | ✅ Done | Moved to Active (sequential ID probing) |
 | ~~**Duval**~~ | ~~`inmatesearch.jaxsheriff.org`~~ | ✅ Done | Moved to Active |
-| **Flagler** | `nwwebcad.fcpsn.org` | 🔴 Hard | Tyler Tech/New World; very slow |
-| **Miami-Dade** | `miamidade.gov` | 🔴 Hard | Complex search + Captcha |
-| **Nassau** | `dssinmate.nassauso.com` | 🟡 Medium | Tyler Tech/New World |
-| **Okaloosa** | `sheriff-okaloosa.org` | 🟡 Medium | Search form |
+| ~~**Flagler**~~ | ~~`nwwebcad.fcpsn.org`~~ | ✅ Done | Moved to Active (Tyler Tech) |
+| **Miami-Dade** | `miamidade.gov` | 🔴 Hard | Complex search + Captcha — SKIPPED |
+| ~~**Nassau**~~ | ~~`dssinmate.nassauso.com`~~ | ✅ Done | Moved to Active (Tyler Tech) |
+| ~~**Okaloosa**~~ | ~~`myokaloosa.com`~~ | ✅ Done | Moved to Active (ArchonixX) |
 | ~~**Osceola**~~ | ~~`osceola.org`~~ | ✅ Done | Moved to Active |
 | ~~**Pasco**~~ | ~~`jailinfo.pascocorrections.net`~~ | ✅ Done | Moved to Active |
 | ~~**Pinellas**~~ | ~~`pcsoweb.com`~~ | ✅ Done | Moved to Active |
 | ~~**Seminole**~~ | ~~`seminolesheriff.org`~~ | ✅ Done | Moved to Active |
 | ~~**Volusia**~~ | ~~`volusiamug.vcgov.org`~~ | ✅ Done | Moved to Active |
-| **Walton** | `nwscorrections.waltonso.org` | 🟡 Medium | Tyler Tech/New World |
+| ~~**Walton**~~ | ~~`nwscorrections.waltonso.org`~~ | ✅ Done | Moved to Active (Tyler Tech) |
 
 **Estimated effort per county:** 3–8 hours
 
@@ -117,8 +117,8 @@ Counties that publish arrest data as PDFs or through non-web channels.
 
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
-| **Calhoun** | `mws-hrs.com/.../JailRosterReport.pdf` | 🟡 Medium | PDF → pdfplumber |
-| **Hardee** | `hardeeso.com` | 🟡 Medium | PDF roster |
+| ~~**Calhoun**~~ | ~~`calhounsheriff.com`~~ | ✅ Done | Moved to Active (jail log) |
+| ~~**Hardee**~~ | ~~`hardeeso.com`~~ | ✅ Done | Moved to Active (roster page) |
 | ~~**Polk**~~ | ~~`polksheriff.org`~~ | ✅ Done | Moved to Active (Sitefinity CMS) |
 
 **Estimated effort per county:** 2–4 hours
@@ -130,13 +130,13 @@ Counties that may not have accessible online rosters.
 
 | County | URL | Difficulty | Notes |
 |---|---|---|---|
-| **Gulf** | `gulfsheriff.com` | 🔴 Unknown | Points to mobile app only |
-| **Jackson** | `jacksoncountyfl.gov` | 🟡 Medium | Check search form |
-| **Jefferson** | `jcso-fl.org` | 🔴 Unknown | May require login |
-| **Lafayette** | `lafayetteso.org` | 🔴 Unknown | May not have online roster |
-| **Liberty** | `libertycountysheriff.org` | 🔴 Unknown | Verify data exists |
-| **Madison** | `madisonjail.org` | 🟡 Medium | Check specific jail site |
-| **Wakulla** | `wcso.org` | 🔴 Unknown | Generic site |
+| ~~**Gulf**~~ | ~~`gulfsheriff.com`~~ | ✅ Done | Moved to Active (adaptive scraper) |
+| ~~**Jackson**~~ | ~~`jacksoncountyfl.net`~~ | ✅ Done | Moved to Active |
+| ~~**Jefferson**~~ | ~~`jcso-fl.org`~~ | ✅ Done | Moved to Active |
+| ~~**Lafayette**~~ | ~~`lafayetteso.org`~~ | ✅ Done | Moved to Active |
+| ~~**Liberty**~~ | ~~`libertycountysheriff.org`~~ | ✅ Done | Moved to Active |
+| ~~**Madison**~~ | ~~`madisonsheriff.org`~~ | ✅ Done | Moved to Active |
+| ~~**Wakulla**~~ | ~~`wcso.org`~~ | ✅ Done | Moved to Active |
 
 ---
 

@@ -1,0 +1,16 @@
+# Jefferson County Config
+name: Jefferson
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.jcso-fl.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Jefferson"
+schedule:
+  cron: "25 */12 * * *"
+  github_action: true
+notes: |
+  May require login

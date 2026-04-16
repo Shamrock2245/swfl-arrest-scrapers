@@ -1,0 +1,16 @@
+# Lafayette County Config
+name: Lafayette
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.lafayetteso.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Lafayette"
+schedule:
+  cron: "35 */12 * * *"
+  github_action: true
+notes: |
+  Very small county

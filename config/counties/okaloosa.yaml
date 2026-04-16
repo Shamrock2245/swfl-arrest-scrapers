@@ -1,0 +1,16 @@
+# Okaloosa County Config
+name: Okaloosa
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "http://www3.myokaloosa.com/ArchonixXJailPublic/Default.aspx"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Okaloosa"
+schedule:
+  cron: "25 */4 * * *"
+  github_action: true
+notes: |
+  ArchonixX jail system

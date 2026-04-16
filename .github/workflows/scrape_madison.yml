@@ -1,0 +1,14 @@
+name: Scrape Madison County
+on:
+  schedule:
+    - cron: '55 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: madison
+      script: counties/madison/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

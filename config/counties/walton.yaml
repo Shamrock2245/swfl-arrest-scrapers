@@ -1,0 +1,16 @@
+# Walton County Config
+name: Walton
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://nwscorrections.waltonso.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Walton"
+schedule:
+  cron: "35 */6 * * *"
+  github_action: true
+notes: |
+  Tyler Tech corrections

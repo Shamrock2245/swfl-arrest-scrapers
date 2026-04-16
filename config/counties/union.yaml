@@ -1,0 +1,13 @@
+name: Union
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.unioncountysheriff.us"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Union"
+schedule:
+  cron: "20 */12 * * *"
+  github_action: true

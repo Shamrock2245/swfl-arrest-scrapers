@@ -1,0 +1,14 @@
+name: Scrape Lafayette County
+on:
+  schedule:
+    - cron: '35 */12 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: lafayette
+      script: counties/lafayette/runner.py
+      args: "--days-back 7"
+      needs_xvfb: false
+    secrets: inherit

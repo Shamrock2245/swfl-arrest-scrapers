@@ -1,0 +1,16 @@
+# Franklin County Config
+name: Franklin
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.franklinsheriff.com"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Franklin"
+schedule:
+  cron: "20 */8 * * *"
+  github_action: true
+notes: |
+  Arrest Log page. Small county

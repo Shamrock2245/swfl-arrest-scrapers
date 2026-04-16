@@ -1,0 +1,16 @@
+# Calhoun County Config
+name: Calhoun
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://calhounsheriff.com"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Calhoun"
+schedule:
+  cron: "45 */12 * * *"
+  github_action: true
+notes: |
+  Small county jail log

@@ -1,0 +1,13 @@
+name: Baker
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://www.bakersherifffl.org"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Baker"
+schedule:
+  cron: "10 */12 * * *"
+  github_action: true

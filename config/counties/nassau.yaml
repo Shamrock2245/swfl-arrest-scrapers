@@ -1,0 +1,16 @@
+# Nassau County Config
+name: Nassau
+state: FL
+enabled: true
+scraper:
+  stack: python
+  url: "https://dssinmate.nassauso.com/NewWorld.InmateInquiry/nassau"
+  days_back: 7
+  needs_browser: false
+output:
+  sheet_tab: "Nassau"
+schedule:
+  cron: "0 */6 * * *"
+  github_action: true
+notes: |
+  Tyler Tech inmate inquiry
