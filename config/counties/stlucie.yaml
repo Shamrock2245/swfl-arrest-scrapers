@@ -1,0 +1,22 @@
+# St. Lucie County Config
+name: St. Lucie
+state: FL
+enabled: true
+
+scraper:
+  platform: html-form
+  stack: python
+  url: "https://www.stluciesheriff.com/"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "St. Lucie"
+
+schedule:
+  cron: "25 */4 * * *"
+  github_action: true
+
+notes: |
+  Percent wildcard in last name returns all inmates. Shows 5-day releases too.

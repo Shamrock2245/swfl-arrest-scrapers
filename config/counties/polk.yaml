@@ -4,19 +4,19 @@ state: FL
 enabled: true
 
 scraper:
-  platform: custom
+  platform: sitefinity-cms
   stack: python
-  url: "https://www.polksheriff.org/inmates"
-  days_back: 14
-  max_pages: 30
-  headless: true
+  url: "https://www.polksheriff.org/detention/jail-inquiry"
+  days_back: 7
+  headless: false
+  needs_browser: false
 
 output:
   sheet_tab: "Polk"
 
 schedule:
-  cron: "0 */3 * * *"
+  cron: "10 */3 * * *"
   github_action: true
 
 notes: |
-  DrissionPage scraper. Large county in Central Florida.
+  Sitefinity CMS jail inquiry. Name/Date/AKA search tabs. High-volume county.

@@ -1,0 +1,22 @@
+# Washington County Config
+name: Washington
+state: FL
+enabled: true
+
+scraper:
+  platform: html-list
+  stack: python
+  url: "https://wcso.us/inmateRoster"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Washington"
+
+schedule:
+  cron: "45 */8 * * *"
+  github_action: true
+
+notes: |
+  Small county (Chipley). Simple roster page. Very low volume.

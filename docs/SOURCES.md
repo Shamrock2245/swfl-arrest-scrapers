@@ -79,11 +79,11 @@ Counties with standard web forms that DrissionPage handles easily.
 | ~~**Leon**~~ | ~~`leoncountyso.com`~~ | ✅ Done | Moved to Active |
 | ~~**Marion**~~ | ~~`jail.marionso.com`~~ | ✅ Done | Moved to Active |
 | ~~**Martin**~~ | ~~`mcsofl.org`~~ | ✅ Done | Moved to Active |
-| **Monroe** | `keysso.net/arrests` | 🟡 Medium | Current inmates list |
-| **Okeechobee** | `okeesheriff.org` | 🟡 Medium | Inmate search form |
-| **St. Johns** | `sjso.org` | 🟡 Medium | Inmate search |
-| **St. Lucie** | `stluciesheriff.com` | 🟡 Medium | Inmate lookup |
-| **Washington** | `wcso.us/inmateRoster` | 🟡 Medium | Inmate roster |
+| ~~**Monroe**~~ | ~~`keysso.net`~~ | ✅ Done | Moved to Active |
+| ~~**Okeechobee**~~ | ~~`okeesheriff.org`~~ | ✅ Done | Moved to Active (Wix embed) |
+| ~~**St. Johns**~~ | ~~`sjso.org`~~ | ✅ Done | Moved to Active (search was temp down) |
+| ~~**St. Lucie**~~ | ~~`stluciesheriff.com`~~ | ✅ Done | Moved to Active (% wildcard) |
+| ~~**Washington**~~ | ~~`wcso.us/inmateRoster`~~ | ✅ Done | Moved to Active |
 
 **Estimated effort per county:** 1–3 hours (14 remaining)
 
@@ -119,7 +119,7 @@ Counties that publish arrest data as PDFs or through non-web channels.
 |---|---|---|---|
 | **Calhoun** | `mws-hrs.com/.../JailRosterReport.pdf` | 🟡 Medium | PDF → pdfplumber |
 | **Hardee** | `hardeeso.com` | 🟡 Medium | PDF roster |
-| **Polk** | `polksheriff.org` | 🟡 Medium | Often links to PDF |
+| ~~**Polk**~~ | ~~`polksheriff.org`~~ | ✅ Done | Moved to Active (Sitefinity CMS) |
 
 **Estimated effort per county:** 2–4 hours
 

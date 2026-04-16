@@ -1,0 +1,22 @@
+# Stjohns County Config
+name: Stjohns
+state: FL
+enabled: true
+
+scraper:
+  platform: html-form
+  stack: python
+  url: "https://www.sjso.org/detention-center/sj-inmate-search/"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "St. Johns"
+
+schedule:
+  cron: "55 */4 * * *"
+  github_action: true
+
+notes: |
+  St. Augustine. NOTE: search was temporarily down as of April 2026.

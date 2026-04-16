@@ -1,0 +1,22 @@
+# Monroe County Config
+name: Monroe
+state: FL
+enabled: true
+
+scraper:
+  platform: html-list
+  stack: python
+  url: "https://keysso.net/current-inmates/"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Monroe"
+
+schedule:
+  cron: "35 */6 * * *"
+  github_action: true
+
+notes: |
+  Florida Keys. Current inmates page listing. Low-medium volume.

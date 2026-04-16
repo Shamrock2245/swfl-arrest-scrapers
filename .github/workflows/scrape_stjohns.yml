@@ -1,14 +1,14 @@
-name: Scrape Polk County
+name: Scrape St. Johns County
 on:
   schedule:
-    - cron: '10 */3 * * *'
+    - cron: '55 */4 * * *'
   workflow_dispatch:
 jobs:
   scrape:
     uses: ./.github/workflows/scrape.yml
     with:
-      county: polk
-      script: counties/polk/runner.py
+      county: stjohns
+      script: counties/stjohns/runner.py
       args: "--days-back 7"
       needs_xvfb: false
     secrets: inherit

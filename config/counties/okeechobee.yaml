@@ -1,0 +1,22 @@
+# Okeechobee County Config
+name: Okeechobee
+state: FL
+enabled: true
+
+scraper:
+  platform: wix-embed
+  stack: python
+  url: "https://www.okeesheriff.org/inmate-search"
+  days_back: 7
+  headless: false
+  needs_browser: false
+
+output:
+  sheet_tab: "Okeechobee"
+
+schedule:
+  cron: "5 */8 * * *"
+  github_action: true
+
+notes: |
+  Wix-hosted site. May embed external widget/iframe. Small county.
