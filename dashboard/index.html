@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🍀 Shamrock Scraper Dashboard — 67 Florida Counties</title>
+  <style>
+    :root {
+      --green: #22c55e;
+      --green-dark: #16a34a;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a78bfa;
+      --gray: #6b7280;
+      --bg: #0f172a;
+      --bg2: #1e293b;
+      --bg3: #334155;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --border: #334155;
+      --shamrock: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #0d1f0d 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { font-size: 32px; filter: drop-shadow(0 0 8px #22c55e88); }
+    .logo-text h1 { font-size: 20px; font-weight: 700; color: var(--shamrock); }
+    .logo-text p { font-size: 12px; color: var(--text2); }
+    .header-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat-pill {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 14px; font-size: 13px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stat-pill .num { font-weight: 700; font-size: 15px; }
+    .stat-pill.green .num { color: var(--green); }
+    .stat-pill.yellow .num { color: var(--yellow); }
+    .stat-pill.red .num { color: var(--red); }
+    .stat-pill.blue .num { color: var(--blue); }
+    .stat-pill.purple .num { color: var(--purple); }
+    .toolbar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .search-box {
+      flex: 1; min-width: 180px; max-width: 300px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    .search-box:focus { border-color: var(--shamrock); }
+    .search-box::placeholder { color: var(--text2); }
+    .filter-btn {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 13px; color: var(--text2);
+      font-size: 13px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--shamrock); border-color: var(--shamrock);
+      color: #000; font-weight: 600;
+    }
+    .view-toggle { display: flex; gap: 4px; margin-left: auto; }
+    .view-btn {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 10px; color: var(--text2);
+      cursor: pointer; font-size: 16px; transition: all 0.15s;
+    }
+    .view-btn.active { background: var(--shamrock); border-color: var(--shamrock); color: #000; }
+    main { padding: 20px 24px; }
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .summary-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; text-align: center;
+    }
+    .summary-card .big-num { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .summary-card .label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-card.total .big-num { color: var(--blue); }
+    .summary-card.stable .big-num { color: var(--green); }
+    .summary-card.new .big-num { color: var(--yellow); }
+    .summary-card.captcha .big-num { color: var(--red); }
+    .summary-card.api .big-num { color: var(--purple); }
+    .coverage-bar {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+    }
+    .coverage-bar h3 { font-size: 14px; color: var(--text2); margin-bottom: 10px; }
+    .bar-track { background: var(--bg3); border-radius: 99px; height: 10px; overflow: hidden; }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green-dark), var(--green));
+      border-radius: 99px; transition: width 1.2s ease;
+    }
+    .bar-label { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--text2); }
+    #county-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
+    }
+    #county-grid.list-view { grid-template-columns: 1fr; }
+    .county-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; transition: all 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .county-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; border-radius: 3px 0 0 3px;
+    }
+    .county-card.stable::before { background: var(--green); }
+    .county-card.new::before { background: var(--yellow); }
+    .county-card.captcha::before { background: var(--red); }
+    .county-card.api::before { background: var(--purple); }
+    .county-card:hover {
+      border-color: var(--shamrock); transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(34,197,94,0.1);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+    }
+    .county-name { font-size: 15px; font-weight: 700; }
+    .status-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 8px;
+      border-radius: 99px; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .status-badge.stable { background: rgba(34,197,94,0.15); color: var(--green); }
+    .status-badge.new { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .status-badge.captcha { background: rgba(239,68,68,0.15); color: var(--red); }
+    .status-badge.api { background: rgba(167,139,250,0.15); color: var(--purple); }
+    .card-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--text2); }
+    .meta-item { display: flex; align-items: center; gap: 4px; }
+    .card-footer {
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text2);
+    }
+    .schedule-tag {
+      background: var(--bg3); border-radius: 6px; padding: 3px 8px;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+    }
+    .stack-tag { font-size: 11px; }
+    .stack-tag.requests { color: #60a5fa; }
+    .stack-tag.drission { color: #34d399; }
+    .stack-tag.playwright { color: #f472b6; }
+    .stack-tag.rest { color: var(--purple); }
+    .stack-tag.pdf { color: #fb923c; }
+    .stack-tag.gas { color: #fbbf24; }
+    #county-grid.list-view .county-card {
+      display: grid; grid-template-columns: 180px 1fr auto;
+      align-items: center; gap: 16px; padding: 10px 16px;
+    }
+    #county-grid.list-view .card-header { margin-bottom: 0; }
+    #county-grid.list-view .card-meta { flex-wrap: nowrap; }
+    #county-grid.list-view .card-footer {
+      margin-top: 0; padding-top: 0; border-top: none;
+      flex-direction: column; align-items: flex-end; gap: 2px;
+    }
+    .last-updated {
+      text-align: center; font-size: 12px; color: var(--text2);
+      padding: 20px; border-top: 1px solid var(--border); margin-top: 24px;
+    }
+    .last-updated a { color: var(--shamrock); }
+    .hidden { display: none !important; }
+    @media (max-width: 640px) {
+      header { padding: 12px 16px; }
+      main { padding: 12px 16px; }
+      #county-grid { grid-template-columns: 1fr; }
+      #county-grid.list-view .county-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">🍀</span>
+    <div class="logo-text">
+      <h1>Shamrock Scraper Dashboard</h1>
+      <p>67-County Florida Arrest Intelligence Network</p>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-pill green"><span class="num" id="stat-stable">0</span><span>Stable</span></div>
+    <div class="stat-pill blue"><span class="num">67</span><span>Total</span></div>
+    <div class="stat-pill yellow"><span class="num" id="stat-new">0</span><span>New</span></div>
+    <div class="stat-pill red"><span class="num" id="stat-captcha">0</span><span>Blocked</span></div>
+    <div class="stat-pill purple"><span class="num" id="stat-api">0</span><span>API</span></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input type="text" class="search-box" id="search" placeholder="🔍  Search counties..." oninput="filterCounties()" />
+  <button class="filter-btn active" onclick="setFilter('all', this)">All (67)</button>
+  <button class="filter-btn" onclick="setFilter('stable', this)">✅ Stable</button>
+  <button class="filter-btn" onclick="setFilter('new', this)">🆕 New</button>
+  <button class="filter-btn" onclick="setFilter('captcha', this)">🔴 Blocked</button>
+  <button class="filter-btn" onclick="setFilter('api', this)">🟣 API</button>
+  <div class="view-toggle">
+    <button class="view-btn active" id="grid-btn" onclick="setView('grid')" title="Grid view">⊞</button>
+    <button class="view-btn" id="list-btn" onclick="setView('list')" title="List view">☰</button>
+  </div>
+</div>
+
+<main>
+  <div class="summary-grid">
+    <div class="summary-card total"><div class="big-num">67</div><div class="label">Counties Total</div></div>
+    <div class="summary-card stable"><div class="big-num" id="sum-stable">0</div><div class="label">Stable</div></div>
+    <div class="summary-card new"><div class="big-num" id="sum-new">0</div><div class="label">New / Untested</div></div>
+    <div class="summary-card captcha"><div class="big-num" id="sum-captcha">0</div><div class="label">CAPTCHA Blocked</div></div>
+    <div class="summary-card api"><div class="big-num" id="sum-api">0</div><div class="label">API-Based</div></div>
+  </div>
+
+  <div class="coverage-bar">
+    <h3>Network Coverage — 67 / 67 Florida Counties (100%)</h3>
+    <div class="bar-track"><div class="bar-fill" id="coverage-bar" style="width:0%"></div></div>
+    <div class="bar-label">
+      <span id="bar-left">0 counties with scrapers</span>
+      <span>100% of Florida</span>
+    </div>
+  </div>
+
+  <div id="county-grid"></div>
+
+  <div class="last-updated">
+    Dashboard last updated: <strong id="dash-date"></strong> &nbsp;·&nbsp;
+    <a href="https://github.com/Shamrock2245/swfl-arrest-scrapers" target="_blank">View on GitHub ↗</a>
+  </div>
+</main>
+
+<script>
+const COUNTIES = [
+  // ── STABLE (24 original + Lee upgraded to API) ──
+  { name:"Alachua",      status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://acso.us/inmate-search/",                                    note:"POST search form" },
+  { name:"Brevard",      status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://inmatesearch.brevardsheriff.org/",                           note:"POST form search" },
+  { name:"Charlotte",    status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.ccso.org/forms/arrestdb.cfm",                            note:"ColdFusion site" },
+  { name:"Collier",      status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www2.colliersheriff.org/arrestsearch/",                      note:"Disclaimer acceptance" },
+  { name:"DeSoto",       status:"stable",  stack:"DrissionPage",  schedule:"Every 4h",  url:"https://jail.desotosheriff.org/DCN/",                                note:"SmartCOP template" },
+  { name:"Duval",        status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://inmatesearch.jaxsheriff.org/",                               note:"Jacksonville SO" },
+  { name:"Escambia",     status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://inmatelookup.myescambia.com/",                               note:"SmartCOP variant" },
+  { name:"Hendry",       status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"http://www.hendrysheriff.org/arrests_and_jail_info/",                note:"API-based" },
+  { name:"Highlands",    status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.highlandssheriff.org/inmateSearch",                      note:"React SPA + Cloudflare" },
+  { name:"Hillsborough", status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://webapps.hcso.tampa.fl.us/ArrestInquiry",                    note:"ASP.NET ViewState" },
+  { name:"Indian River", status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.ircsheriff.org/",                                        note:"Interactive search" },
+  { name:"Lake",         status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.lcso.org/inmates/",                                      note:"Inmate search" },
+  { name:"Lee",          status:"api",     stack:"REST-API",       schedule:"Every 2h",  url:"https://www.sheriffleefl.org/booking-search/",                       note:"Public REST API — upgraded from GAS" },
+  { name:"Manatee",      status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.manateesheriff.com/",                                    note:"Arrest inquiry form" },
+  { name:"Martin",       status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.mcsofl.org/",                                            note:"Recent Bookings page" },
+  { name:"Orange",       status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.ocfl.net/",                                              note:"PDF-based roster" },
+  { name:"Osceola",      status:"stable",  stack:"Playwright",    schedule:"Every 6h",  url:"https://www.osceolaclerk.com/",                                      note:"Corrections report" },
+  { name:"Palm Beach",   status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.pbso.org/",                                              note:"High volume" },
+  { name:"Pasco",        status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.pascosheriff.org/",                                      note:"Heavy JS SPA" },
+  { name:"Pinellas",     status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.pcsoweb.com/",                                           note:"Disclaimer + search" },
+  { name:"Polk",         status:"stable",  stack:"DrissionPage",  schedule:"Every 3h",  url:"https://www.polksheriff.org/",                                       note:"HTML table" },
+  { name:"Sarasota",     status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.sarasotasheriff.org/",                                   note:"Cloudflare strict" },
+  { name:"Seminole",     status:"stable",  stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.seminolesheriff.org/",                                   note:"WebBond ASP.NET" },
+  { name:"Volusia",      status:"stable",  stack:"DrissionPage",  schedule:"Every 6h",  url:"https://www.vcso.us/",                                               note:"Mugshot-focused" },
+
+  // ── WAVE 1 — SmartCOP Clones ──
+  { name:"Bradford",     status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"http://smartweb.bradfordsheriff.org/smartwebclient/Jail.aspx",       note:"SmartCOP clone" },
+  { name:"Dixie",        status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://smartcop.dixiecountysheriff.com/SmartWEBClient/jail.aspx",   note:"SmartCOP clone" },
+  { name:"Gadsden",      status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://gadsdensheriff.com/inmate-lookup/",                          note:"SmartCOP clone" },
+  { name:"Gilchrist",    status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.gcso.us/",                                               note:"SmartCOP clone" },
+  { name:"Glades",       status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://smartweb.gladessheriff.org/smartwebclient/Jail.aspx",        note:"SmartCOP clone" },
+  { name:"Hamilton",     status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"http://inmate.hamiltonsheriff.com/smartwebclient/jail.aspx",          note:"SmartCOP clone" },
+  { name:"Levy",         status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://www.levyso.com/",                                            note:"SmartCOP clone" },
+  { name:"Putnam",       status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://smartweb.pcso.us/smartwebclient/Jail.aspx",                  note:"SmartCOP clone" },
+  { name:"Santa Rosa",   status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://www.santarosasheriff.org/",                                  note:"SmartCOP clone" },
+  { name:"Sumter",       status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://portal.sumtercountysheriff.org/",                            note:"SmartCOP clone" },
+  { name:"Suwannee",     status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://smartcop.suwanneesheriff.com/",                              note:"SmartCOP clone" },
+  { name:"Taylor",       status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://smartcop.taylorsheriff.org/",                                note:"SmartCOP clone" },
+
+  // ── WAVE 2 — DrissionPage Standard ──
+  { name:"Citrus",       status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.sheriffcitrus.org/public_info/recent_arrest.php",        note:"Simple PHP page" },
+  { name:"Clay",         status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://claysheriff.policetocitizen.com/DailyBulletin",              note:"P2C system" },
+  { name:"Columbia",     status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"http://50.204.15.10/smartwebclient/jail.aspx",                        note:"SmartCOP via IP" },
+  { name:"Franklin",     status:"new",     stack:"requests+BS4",  schedule:"Every 8h",  url:"https://www.franklinsheriff.com/arrest-log/",                        note:"Arrest log HTML" },
+  { name:"Hernando",     status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://www.hernandosheriff.org/applications/records/default.aspx",  note:"ASP.NET A-Z search" },
+  { name:"Holmes",       status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://holmescosheriff.org/jail-division.html",                     note:"HTML list" },
+  { name:"Leon",         status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://www.leoncountyso.com/",                                      note:"Search form" },
+  { name:"Marion",       status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://jail.marionso.com/",                                         note:"Jail roster" },
+  { name:"Monroe",       status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.keysso.net/",                                            note:"Keys SO" },
+  { name:"Nassau",       status:"new",     stack:"DrissionPage",  schedule:"Every 6h",  url:"https://dssinmate.nassauso.com/",                                    note:"Tyler Tech" },
+  { name:"Okeechobee",   status:"new",     stack:"requests+BS4",  schedule:"Every 8h",  url:"https://www.okeesheriff.org/",                                       note:"Wix embed" },
+  { name:"St. Johns",    status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://www.sjso.org/",                                              note:"Search form" },
+  { name:"St. Lucie",    status:"new",     stack:"requests+BS4",  schedule:"Every 4h",  url:"https://www.stluciesheriff.com/",                                    note:"Wildcard search" },
+  { name:"Washington",   status:"new",     stack:"requests+BS4",  schedule:"Every 8h",  url:"https://www.wcso.us/inmateRoster",                                   note:"Inmate roster" },
+
+  // ── WAVE 3 — Complex Targets ──
+  { name:"Bay",          status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://www.baysomobile.org/is/",                                    note:"Mobile-optimized" },
+  { name:"Broward",      status:"new",     stack:"requests+BS4",  schedule:"Every 2h",  url:"https://apps.sheriff.org/ArrestSearch/",                             note:"Sequential ID probing" },
+  { name:"Flagler",      status:"new",     stack:"DrissionPage",  schedule:"Every 6h",  url:"https://nwwebcad.fcpsn.org/NewWorld.InmateInquiry/FL0180000",         note:"Tyler Tech" },
+  { name:"Okaloosa",     status:"new",     stack:"DrissionPage",  schedule:"Every 4h",  url:"https://www.sheriff-okaloosa.org/",                                  note:"Panhandle county" },
+  { name:"Walton",       status:"new",     stack:"requests+BS4",  schedule:"Every 6h",  url:"https://www.waltonso.org/",                                          note:"Panhandle county" },
+
+  // ── TIER 1 HIGH-VALUE (CAPTCHA-blocked) ──
+  { name:"Miami-Dade",   status:"captcha", stack:"DrissionPage",  schedule:"Every 3h",  url:"https://www.miamidade.gov/corrections/inmate-search.page",           note:"CAPTCHA-blocked — largest county" },
+
+  // ── WAVE 4 — PDF Scrapers ──
+  { name:"Calhoun",      status:"new",     stack:"pdfplumber",    schedule:"Every 12h", url:"https://mws-hrs.com/calhounsheriff/calhounsheriff/JailRosterReport.pdf", note:"PDF roster" },
+  { name:"Hardee",       status:"new",     stack:"pdfplumber",    schedule:"Every 8h",  url:"https://www.hardeeso.com/bureaus/inmate_search.php",                 note:"PDF roster" },
+
+  // ── WAVE 5 — Small/Rural Counties ──
+  { name:"Baker",        status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"http://smartweb.bakercountysheriffsoffice.com/smartwebclient/jail.aspx", note:"SmartCOP variant" },
+  { name:"Gulf",         status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.gulfsheriff.com/",                                       note:"App-only fallback" },
+  { name:"Jackson",      status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.jacksoncountyfl.net/",                                   note:"Small county" },
+  { name:"Jefferson",    status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.jeffersonsheriff.org/",                                  note:"Small county" },
+  { name:"Lafayette",    status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.lafayettesheriff.com/",                                  note:"Small county" },
+  { name:"Liberty",      status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.libertysheriff.org/",                                    note:"Small county" },
+  { name:"Madison",      status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.madisonsheriff.org/",                                    note:"Small county" },
+  { name:"Union",        status:"new",     stack:"requests+BS4",  schedule:"Every 12h", url:"https://www.unionsheriff.org/",                                      note:"Small county" },
+  { name:"Wakulla",      status:"new",     stack:"requests+BS4",  schedule:"Every 8h",  url:"https://www.wakullasheriff.org/",                                    note:"Small county" },
+];
+
+// ─── STATE ───
+let currentFilter = 'all';
+let currentView = 'grid';
+
+// ─── STACK CLASS ───
+function stackClass(stack) {
+  if (stack.includes('DrissionPage') || stack.includes('Playwright')) return 'drission';
+  if (stack.includes('REST')) return 'rest';
+  if (stack.includes('pdf')) return 'pdf';
+  if (stack.includes('GAS')) return 'gas';
+  return 'requests';
+}
+
+// ─── STACK ICON ───
+function stackIcon(stack) {
+  if (stack.includes('DrissionPage')) return '🌐';
+  if (stack.includes('Playwright')) return '🎭';
+  if (stack.includes('REST')) return '⚡';
+  if (stack.includes('pdf')) return '📄';
+  if (stack.includes('GAS')) return '📊';
+  return '🐍';
+}
+
+// ─── STATUS LABEL ───
+function statusLabel(s) {
+  if (s === 'stable') return '✅ Stable';
+  if (s === 'new') return '🆕 New';
+  if (s === 'captcha') return '🔴 Blocked';
+  if (s === 'api') return '🟣 API';
+  return s;
+}
+
+// ─── RENDER CARD ───
+function renderCard(c) {
+  const sc = stackClass(c.stack);
+  const si = stackIcon(c.stack);
+  return `
+    <div class="county-card ${c.status}" data-name="${c.name.toLowerCase()}" data-status="${c.status}">
+      <div class="card-header">
+        <span class="county-name">${c.name} County</span>
+        <span class="status-badge ${c.status}">${statusLabel(c.status)}</span>
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">${si} <span class="stack-tag ${sc}">${c.stack}</span></span>
+        <span class="meta-item">⏱ ${c.schedule}</span>
+      </div>
+      <div class="card-footer">
+        <span class="schedule-tag">${c.schedule}</span>
+        <a href="${c.url}" target="_blank" style="color:var(--shamrock);font-size:11px;text-decoration:none;" title="${c.note}">Source ↗</a>
+      </div>
+    </div>
+  `;
+}
+
+// ─── INIT ───
+function init() {
+  const grid = document.getElementById('county-grid');
+  grid.innerHTML = COUNTIES.map(renderCard).join('');
+
+  // Count statuses
+  const counts = { stable: 0, new: 0, captcha: 0, api: 0 };
+  COUNTIES.forEach(c => counts[c.status]++);
+
+  document.getElementById('stat-stable').textContent = counts.stable;
+  document.getElementById('stat-new').textContent = counts.new;
+  document.getElementById('stat-captcha').textContent = counts.captcha;
+  document.getElementById('stat-api').textContent = counts.api;
+  document.getElementById('sum-stable').textContent = counts.stable;
+  document.getElementById('sum-new').textContent = counts.new;
+  document.getElementById('sum-captcha').textContent = counts.captcha;
+  document.getElementById('sum-api').textContent = counts.api;
+
+  // Coverage bar
+  const total = COUNTIES.length;
+  setTimeout(() => {
+    document.getElementById('coverage-bar').style.width = '100%';
+    document.getElementById('bar-left').textContent = `${total} counties with scrapers`;
+  }, 100);
+
+  // Date
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+// ─── FILTER ───
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterCounties();
+}
+
+function filterCounties() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.county-card').forEach(card => {
+    const nameMatch = card.dataset.name.includes(q);
+    const statusMatch = currentFilter === 'all' || card.dataset.status === currentFilter;
+    card.classList.toggle('hidden', !(nameMatch && statusMatch));
+  });
+}
+
+// ─── VIEW ───
+function setView(view) {
+  currentView = view;
+  const grid = document.getElementById('county-grid');
+  grid.classList.toggle('list-view', view === 'list');
+  document.getElementById('grid-btn').classList.toggle('active', view === 'grid');
+  document.getElementById('list-btn').classList.toggle('active', view === 'list');
+}
+
+init();
+</script>
+</body>
+</html>

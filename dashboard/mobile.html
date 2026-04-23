@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>🍀 Shamrock Scrapers</title>
+  <style>
+    :root {
+      --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+      --purple: #a78bfa; --blue: #3b82f6;
+      --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+      --text: #f1f5f9; --text2: #94a3b8; --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+    .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(15,23,42,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 12px 16px; }
+    .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .logo-row { display: flex; align-items: center; gap: 8px; }
+    .logo-icon { font-size: 24px; }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--green); }
+    .badge-row { display: flex; gap: 6px; }
+    .badge { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+    .badge.green { color: var(--green); } .badge.yellow { color: var(--yellow); } .badge.red { color: var(--red); }
+    .search-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-size: 16px; outline: none; }
+    .search-input::placeholder { color: var(--text2); }
+    .search-input:focus { border-color: var(--green); }
+    .filter-row { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-pill { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; white-space: nowrap; cursor: pointer; color: var(--text2); transition: all 0.15s; }
+    .filter-pill.active { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px 12px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+    .stat-card .num { font-size: 22px; font-weight: 800; line-height: 1; }
+    .stat-card .lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+    .stat-card.stable .num { color: var(--green); } .stat-card.new .num { color: var(--yellow); }
+    .stat-card.blocked .num { color: var(--red); } .stat-card.total .num { color: var(--blue); }
+    .county-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+    .county-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; }
+    .county-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+    .county-item.stable::before { background: var(--green); } .county-item.new::before { background: var(--yellow); }
+    .county-item.captcha::before { background: var(--red); } .county-item.api::before { background: var(--purple); }
+    .county-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .county-dot.stable { background: var(--green); } .county-dot.new { background: var(--yellow); }
+    .county-dot.captcha { background: var(--red); } .county-dot.api { background: var(--purple); }
+    .county-info { flex: 1; min-width: 0; }
+    .county-name { font-size: 15px; font-weight: 600; }
+    .county-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .county-right { text-align: right; flex-shrink: 0; }
+    .county-schedule { font-size: 11px; color: var(--text2); background: var(--bg3); border-radius: 6px; padding: 3px 8px; font-family: monospace; }
+    .county-status { font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .county-status.stable { color: var(--green); } .county-status.new { color: var(--yellow); }
+    .county-status.captcha { color: var(--red); } .county-status.api { color: var(--purple); }
+    .hidden { display: none !important; }
+    .footer { text-align: center; padding: 20px 16px; font-size: 12px; color: var(--text2); }
+    .footer a { color: var(--green); }
+  </style>
+</head>
+<body>
+<div class="sticky-header">
+  <div class="header-row">
+    <div class="logo-row"><span class="logo-icon">🍀</span><span class="logo-text">Shamrock Scrapers</span></div>
+    <div class="badge-row">
+      <span class="badge green" id="m-stable">0</span>
+      <span class="badge yellow" id="m-new">0</span>
+      <span class="badge red" id="m-blocked">0</span>
+    </div>
+  </div>
+  <input type="text" class="search-input" id="m-search" placeholder="🔍 Search counties..." oninput="mFilter()" />
+</div>
+<div class="filter-row">
+  <span class="filter-pill active" onclick="mSetFilter('all',this)">All (67)</span>
+  <span class="filter-pill" onclick="mSetFilter('stable',this)">✅ Stable</span>
+  <span class="filter-pill" onclick="mSetFilter('new',this)">🆕 New</span>
+  <span class="filter-pill" onclick="mSetFilter('captcha',this)">🔴 Blocked</span>
+  <span class="filter-pill" onclick="mSetFilter('api',this)">🟣 API</span>
+</div>
+<div class="stats-row">
+  <div class="stat-card total"><div class="num">67</div><div class="lbl">Total</div></div>
+  <div class="stat-card stable"><div class="num" id="m-sum-stable">0</div><div class="lbl">Stable</div></div>
+  <div class="stat-card new"><div class="num" id="m-sum-new">0</div><div class="lbl">New</div></div>
+  <div class="stat-card blocked"><div class="num" id="m-sum-blocked">0</div><div class="lbl">Blocked</div></div>
+</div>
+<div class="county-list" id="m-list"></div>
+<div class="footer">67 Florida Counties · <a href="https://github.com/Shamrock2245/swfl-arrest-scrapers" target="_blank">GitHub ↗</a> · <a href="index.html">Desktop View</a></div>
+<script>
+const COUNTIES=[
+  {name:"Alachua",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Baker",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Bay",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Bradford",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Brevard",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Broward",status:"new",stack:"requests+BS4",schedule:"Every 2h"},
+  {name:"Calhoun",status:"new",stack:"pdfplumber",schedule:"Every 12h"},
+  {name:"Charlotte",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Citrus",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Clay",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Collier",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Columbia",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"DeSoto",status:"stable",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Dixie",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Duval",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Escambia",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Flagler",status:"new",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Franklin",status:"new",stack:"requests+BS4",schedule:"Every 8h"},
+  {name:"Gadsden",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Gilchrist",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Glades",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Gulf",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Hamilton",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Hardee",status:"new",stack:"pdfplumber",schedule:"Every 8h"},
+  {name:"Hendry",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Hernando",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Highlands",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Hillsborough",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Holmes",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Indian River",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Jackson",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Jefferson",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Lafayette",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Lake",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Lee",status:"api",stack:"REST-API",schedule:"Every 2h"},
+  {name:"Leon",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Levy",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Liberty",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Madison",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Manatee",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Marion",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Martin",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Miami-Dade",status:"captcha",stack:"DrissionPage",schedule:"Every 3h"},
+  {name:"Monroe",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Nassau",status:"new",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Okaloosa",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"Okeechobee",status:"new",stack:"requests+BS4",schedule:"Every 8h"},
+  {name:"Orange",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Osceola",status:"stable",stack:"Playwright",schedule:"Every 6h"},
+  {name:"Palm Beach",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Pasco",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Pinellas",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Polk",status:"stable",stack:"DrissionPage",schedule:"Every 3h"},
+  {name:"Putnam",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Santa Rosa",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Sarasota",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Seminole",status:"stable",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"St. Johns",status:"new",stack:"DrissionPage",schedule:"Every 4h"},
+  {name:"St. Lucie",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Sumter",status:"new",stack:"requests+BS4",schedule:"Every 4h"},
+  {name:"Suwannee",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Taylor",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Union",status:"new",stack:"requests+BS4",schedule:"Every 12h"},
+  {name:"Volusia",status:"stable",stack:"DrissionPage",schedule:"Every 6h"},
+  {name:"Wakulla",status:"new",stack:"requests+BS4",schedule:"Every 8h"},
+  {name:"Walton",status:"new",stack:"requests+BS4",schedule:"Every 6h"},
+  {name:"Washington",status:"new",stack:"requests+BS4",schedule:"Every 8h"},
+];
+let mFilter_='all';
+function statusEmoji(s){return{stable:'✅',new:'🆕',captcha:'🔴',api:'🟣'}[s]||'';}
+function statusLabel(s){return{stable:'Stable',new:'New',captcha:'Blocked',api:'API'}[s]||s;}
+function renderItem(c){return`<div class="county-item ${c.status}" data-name="${c.name.toLowerCase()}" data-status="${c.status}"><div class="county-dot ${c.status}"></div><div class="county-info"><div class="county-name">${c.name} County</div><div class="county-sub">${c.stack} · ${c.schedule}</div></div><div class="county-right"><div class="county-schedule">${c.schedule}</div><div class="county-status ${c.status}">${statusEmoji(c.status)} ${statusLabel(c.status)}</div></div></div>`;}
+function mInit(){
+  document.getElementById('m-list').innerHTML=COUNTIES.map(renderItem).join('');
+  const counts={stable:0,new:0,captcha:0,api:0};
+  COUNTIES.forEach(c=>counts[c.status]++);
+  document.getElementById('m-stable').textContent=counts.stable;
+  document.getElementById('m-new').textContent=counts.new;
+  document.getElementById('m-blocked').textContent=counts.captcha;
+  document.getElementById('m-sum-stable').textContent=counts.stable;
+  document.getElementById('m-sum-new').textContent=counts.new;
+  document.getElementById('m-sum-blocked').textContent=counts.captcha;
+}
+function mSetFilter(f,el){
+  mFilter_=f;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  mFilter();
+}
+function mFilter(){
+  const q=document.getElementById('m-search').value.toLowerCase();
+  document.querySelectorAll('.county-item').forEach(item=>{
+    const nm=item.dataset.name.includes(q);
+    const sm=mFilter_==='all'||item.dataset.status===mFilter_;
+    item.classList.toggle('hidden',!(nm&&sm));
+  });
+}
+mInit();
+</script>
+</body>
+</html>

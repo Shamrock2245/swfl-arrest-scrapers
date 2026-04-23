@@ -4,6 +4,53 @@
 
 ---
 
+## 2026-04-23 — Lee County Python Upgrade + Dashboard Launch
+
+### Added
+- `counties/lee/solver.py` — Python REST API solver using `https://www.sheriffleefl.org/public-api/bookings/`
+  - Replaces legacy GAS trigger entirely; Lee County now fully in-repo
+  - Paginates through all bookings, normalizes to standard schema
+  - Handles date filtering, charge extraction, mugshot URL
+- `counties/lee/runner.py` — standard runner.py pattern
+- `.github/workflows/scrape_lee.yml` — GitHub Actions workflow, runs every 2h
+- `dashboard/index.html` — full-featured desktop dashboard
+  - Shows all 67 counties with status badges (Stable / New / API / Blocked)
+  - Grid and list view toggle, search, filter by status
+  - Coverage progress bar (100%), links to source URLs
+- `dashboard/mobile.html` — mobile-optimized dashboard
+  - Sticky header with live badge counts
+  - Touch-optimized filter pills, compact list view
+  - iOS safe-area support
+
+### Changed
+- `.gemini/STATE.md` — updated from 24/67 to 67/67 (100% coverage)
+- `.gemini/TASKS.md` — cleared completed Wave 1-5 tasks, added new priorities
+- Lee County status: GAS Internal → Python REST-API (fully in-repo)
+
+---
+
+## 2026-04-16 — Complete 67/67 Florida County Network
+
+### Added
+- 21 new county scrapers (Waves 2-5 completion):
+  - Wave 2 remaining: Clay, Franklin, Hernando, Holmes
+  - Wave 3 remaining: Bay, Flagler, Nassau, Okaloosa, Walton
+  - Wave 4 remaining: Calhoun, Hardee
+  - Wave 5 all: Gulf, Jackson, Jefferson, Lafayette, Liberty, Madison, Wakulla
+  - Final 3: Baker, Miami-Dade (CAPTCHA-limited), Union
+- Broward County: sequential ID probing strategy
+  - Multi-agency prefixes: BSO (50), Pompano Beach PD (23), Fort Lauderdale PD (57), Sunrise PD (25), US Marshals (90)
+  - Binary search frontier detection per agency
+- 21 new GitHub Actions workflows (`scrape_*.yml`)
+
+### Changed
+- `docs/SOURCES.md` — all waves marked complete
+- Miami-Dade flagged as CAPTCHA-blocked
+
+**Coverage milestone: 67/67 counties (100%) — 66 functional, 1 CAPTCHA-limited**
+
+---
+
 ## 2026-04-16 — Documentation Overhaul
 
 ### Added

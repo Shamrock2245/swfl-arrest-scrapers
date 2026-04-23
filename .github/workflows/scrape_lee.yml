@@ -1,0 +1,14 @@
+name: Scrape Lee County
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+jobs:
+  scrape:
+    uses: ./.github/workflows/scrape.yml
+    with:
+      county: lee
+      script: counties/lee/runner.py
+      args: "--days-back 1"
+      needs_xvfb: false
+    secrets: inherit
